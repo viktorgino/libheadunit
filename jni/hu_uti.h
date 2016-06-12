@@ -229,6 +229,7 @@ strlcpy(char       *dst,        /* O - Destination string */
 #define USB_VID_COM 0x1519  // Comneon
 
 #define USB_VID_ASE 0x0835  // Action Star Enterprise
+#define USB_VID_OPO 0x22d9  // Oppo
 
 //#define USB_PID_OM8 0x0f87
 //#define USB_PID_MOG 0x2e76
