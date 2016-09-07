@@ -1,0 +1,9 @@
+#!/bin/sh
+
+SYSROOT=${M3TOOLCHAIN}/arm-cortexa9_neon-linux-gnueabi/sysroot
+
+export PKG_CONFIG_DIR=
+export PKG_CONFIG_LIBDIR=${SYSROOT}/usr/lib/pkgconfig
+export PKG_CONFIG_SYSROOT_DIR=${SYSROOT}
+
+exec pkg-config "$@"

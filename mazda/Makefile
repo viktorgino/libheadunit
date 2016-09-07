@@ -1,9 +1,11 @@
-#CC=gcc
-#LD=ld
-INCLUDES=`pkg-config --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libcrypto libusb-1.0 openssl`-I$(TOP)/jni
-CFLAGS=-fPIC `sdl-config --libs` -O3
+CC=$(M3TOOLCHAIN)/bin/arm-cortexa9_neon-linux-gnueabi-gcc
+LD=$(M3TOOLCHAIN)/bin/arm-cortexa9_neon-linux-gnueabi-ld
+SYSROOT=$(M3TOOLCHAIN)/arm-cortexa9_neon-linux-gnueabi/sysroot
+
+INCLUDES=$(shell ./pkg-config-wrapper --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0  libcrypto openssl) -I$(TOP)/jni
+CFLAGS=-fPIC -O3 --sysroot=$(SYSROOT) 
 CPPFLAGS=-fPIC 
-LFLAGS=`pkg-config --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libcrypto libusb-1.0 openssl `   -lrt
+LFLAGS= --sysroot=$(SYSROOT) $(shell ./pkg-config-wrapper --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0 libcrypto openssl)
 TOP = ..
 SRCS =	$(TOP)/jni/hu_aad.c	\
 	$(TOP)/jni/hu_aap.c	\
@@ -11,7 +13,7 @@ SRCS =	$(TOP)/jni/hu_aad.c	\
 	$(TOP)/jni/hu_usb.c	\
 	$(TOP)/jni/hu_uti.c	\
 	main.c
-OBJS = $(SRCS:.c=.o)
+OBJS = $(SRCS:.c=.arm.o)
 APP = headunit
 
 .PHONY: depend clean
@@ -21,7 +23,7 @@ all: $(APP)
 $(APP): $(OBJS)
 	$(CC)  -g -o $(APP) $(OBJS) $(LFLAGS)
 
-.c.o:
+%.arm.o : %.c
 	$(CC) -g $(CFLAGS) $(INCLUDES) -c $<  -o $@
 
 clean:
