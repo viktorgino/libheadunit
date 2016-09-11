@@ -12,9 +12,10 @@ SRCS =	$(TOP)/jni/hu_aad.c	\
 	$(TOP)/jni/hu_uti.c	\
 	main.c
 OBJS = $(SRCS:.c=.x64.o)
+DEPS = $(SRCS:.c=.x64.d)
 APP = headunit
 
-.PHONY: depend clean
+.PHONY: clean
 
 all: $(APP)
 
@@ -22,12 +23,11 @@ $(APP): $(OBJS)
 	$(CC) -o $(APP) $(OBJS) $(LFLAGS)
 
 %.x64.o : %.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $<  -o $@
+	$(CC) -MD $(CFLAGS) $(INCLUDES) -c $<  -o $@
 
 clean:
-	rm -f $(OBJS) *~ $(APP)
+	rm -f $(OBJS) $(DEPS) *~ $(APP)
 
-depend: $(SRCS)
-	makedepend $^
+-include $(DEPS)
 
 # DO NOT DELETE
