@@ -748,7 +748,7 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
                     printf("KEY_DOWN\n");
                     keyTempBuffer = malloc(512);
 					keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_DOWN, event.value == 1);
-                    queueSend (0,AA_CH_TOU, keyTempBuffer, keyTempSize, FALSE);
+                    queueSend (0,AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
 					break;
 				case KEY_HOME:
                     printf("KEY_HOME\n");
