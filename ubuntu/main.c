@@ -217,7 +217,7 @@ static int gst_pipeline_init(gst_app_t *app)
 	gst_init(NULL, NULL);
 
 
-    app->pipeline = (GstPipeline*)gst_parse_launch("appsrc name=mysrc is-live=true block=false max-latency=100000 ! video/x-h264, width=800,height=480,framerate=30/1 ! decodebin2 name=mydecoder ! videoscale name=myconvert ! xvimagesink name=mysink", &error);
+    app->pipeline = (GstPipeline*)gst_parse_launch("appsrc name=mysrc is-live=true block=false max-latency=100000 do-timestamp=true ! video/x-h264, width=800,height=480,framerate=30/1 ! decodebin2 name=mydecoder ! videoscale name=myconvert ! xvimagesink name=mysink", &error);
 
 	bus = gst_pipeline_get_bus(app->pipeline);
 	gst_bus_add_watch(bus, (GstBusFunc)bus_callback, app);
@@ -923,8 +923,7 @@ int main (int argc, char *argv[])
 
 	SDL_Init(SDL_INIT_EVERYTHING);
 	SDL_WM_SetCaption("Android Auto", NULL);
-    //emulate the 16:9 streching of the CMU screen
-	SDL_Surface *screen = SDL_SetVideoMode(853, 480, 16, SDL_HWSURFACE);
+	SDL_Surface *screen = SDL_SetVideoMode(800, 480, 16, SDL_HWSURFACE);
 
 	struct SDL_SysWMinfo wmInfo;
 	SDL_VERSION(&wmInfo.version);

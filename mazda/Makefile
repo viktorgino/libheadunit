@@ -41,10 +41,10 @@ $(APP_IF): $(OBJS_IF)
 	$(CXX) -MD -g -o $(APP_IF) $(OBJS_IF) $(LFLAGS_IF)
 
 %.arm.o : %.c
-	$(CC) -g $(CFLAGS) $(INCLUDES) -c $<  -o $@
+	$(CC) -MD -g $(CFLAGS) $(INCLUDES) -c $<  -o $@
 
 %.arm.o : %.cpp
-	$(CXX) -g $(CXXFLAGS) $(INCLUDES) -c $<  -o $@
+	$(CXX) -MD -g $(CXXFLAGS) $(INCLUDES) -c $<  -o $@
 
 clean:
 	rm -f *~ $(OBJS) $(OBJS_IF) $(APP) $(APP_IF) $(DEPS) $(DEPS_IF)
