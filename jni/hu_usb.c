@@ -471,6 +471,12 @@ struct usbvpid iusb_vendor_get (libusb_device * device) {
       return (5);      
     if (vendor == USB_VID_LEE)
       return (5);      
+    if (vendor == USB_VID_ZUK)
+      return (5);      
+    if (vendor == USB_VID_BB)
+      return (5);      
+    if (vendor == USB_VID_BQ)
+      return (5);      
 
     return (0);
   }

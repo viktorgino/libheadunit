@@ -231,6 +231,9 @@ strlcpy(char       *dst,        /* O - Destination string */
 #define USB_VID_ASE 0x0835  // Action Star Enterprise
 #define USB_VID_OPO 0x22d9  // Oppo
 #define USB_VID_LEE 0x2b0e  // Le Eco
+#define USB_VID_ZUK 0x2b4c  // ZUK
+#define USB_VID_BB  0x0fca  // Blackberry
+#define USB_VID_BQ  0x2a47	// BQ
 
 //#define USB_PID_OM8 0x0f87
 //#define USB_PID_MOG 0x2e76
