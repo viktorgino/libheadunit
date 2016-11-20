@@ -3,9 +3,11 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/interfaces/xoverlay.h>
+#include <gdk/gdk.h>
 #include <SDL/SDL.h>
 #include <SDL/SDL_syswm.h>
 #include <time.h>
+#include <glib-unix.h>
 
 
 #include "hu_uti.h"
@@ -35,6 +37,8 @@ GstElement *au1_pipeline, *au1_src;
 int mic_change_state = 0;
 
 pthread_mutex_t mutexsend;
+
+float g_dpi_scalefactor = 1.0f;
 
 
 static void read_mic_data (GstElement * sink);
@@ -344,7 +348,7 @@ static int aa_touch_event(uint8_t action, int x, int y) {
 	buf = (uint8_t *)malloc(TS_MAX_REQ_SZ);
 	if(!buf) {
 		printf("Failed to allocate touchscreen event buffer\n");
-		return;
+		return -1;
 	}
 
 	/* Fetch the time stamp */
@@ -541,7 +545,7 @@ gboolean sdl_poll_event(gpointer data)
 		case SDL_MOUSEBUTTONDOWN:
 			mbevent = &event.button;
 			if (mbevent->button == SDL_BUTTON_LEFT) {
-				ret = aa_touch_event(ACTION_DOWN, (int)((float)mbevent->x ), (int)((float)mbevent->y));
+				ret = aa_touch_event(ACTION_DOWN, (int)((float)mbevent->x/g_dpi_scalefactor ), (int)((float)mbevent->y/g_dpi_scalefactor));
 				if (ret == -1) {
 					g_main_loop_quit(app->loop);
 					SDL_Quit();
@@ -552,7 +556,7 @@ gboolean sdl_poll_event(gpointer data)
 		case SDL_MOUSEBUTTONUP:
 			mbevent = &event.button;
 			if (mbevent->button == SDL_BUTTON_LEFT) {
-				ret = aa_touch_event(ACTION_UP, (int)((float)mbevent->x), (int)((float)mbevent->y));
+				ret = aa_touch_event(ACTION_UP, (int)((float)mbevent->x/g_dpi_scalefactor), (int)((float)mbevent->y/g_dpi_scalefactor));
 				if (ret == -1) {
 					g_main_loop_quit(app->loop);
 					SDL_Quit();
@@ -715,7 +719,7 @@ gboolean commander_poll_event(gpointer data)
 		case SDL_MOUSEBUTTONDOWN:
 			mbevent = &event.button;
 			if (mbevent->button == SDL_BUTTON_LEFT) {
-				ret = aa_touch_event(ACTION_DOWN, (int)((float)mbevent->x ), (int)((float)mbevent->y));
+				ret = aa_touch_event(ACTION_DOWN, (int)((float)mbevent->x/g_dpi_scalefactor ), (int)((float)mbevent->y/g_dpi_scalefactor));
 				if (ret == -1) {
 					g_main_loop_quit(app->loop);
 					SDL_Quit();
@@ -726,7 +730,7 @@ gboolean commander_poll_event(gpointer data)
 		case SDL_MOUSEBUTTONUP:
 			mbevent = &event.button;
 			if (mbevent->button == SDL_BUTTON_LEFT) {
-				ret = aa_touch_event(ACTION_UP, (int)((float)mbevent->x), (int)((float)mbevent->y));
+				ret = aa_touch_event(ACTION_UP, (int)((float)mbevent->x/g_dpi_scalefactor), (int)((float)mbevent->y/g_dpi_scalefactor));
 				if (ret == -1) {
 					g_main_loop_quit(app->loop);
 					SDL_Quit();
@@ -796,88 +800,19 @@ static int gst_loop(gst_app_t *app)
 	return ret;
 }
 
-/* XPM */
-static const char *arrow[] = {
-	/* width height num_colors chars_per_pixel */
-	"    32    32        3            1",
-	/* colors */
-	"X c #000000",
-	". c #ffffff",
-	"  c None",
-	/* pixels */
-	"X                               ",
-	"XX                              ",
-	"X.X                             ",
-	"X..X                            ",
-	"X...X                           ",
-	"X....X                          ",
-	"X.....X                         ",
-	"X......X                        ",
-	"X.......X                       ",
-	"X........X                      ",
-	"X.....XXXXX                     ",
-	"X..X..X                         ",
-	"X.X X..X                        ",
-	"XX  X..X                        ",
-	"X    X..X                       ",
-	"     X..X                       ",
-	"      X..X                      ",
-	"      X..X                      ",
-	"       XX                       ",
-	"                                ",
-	"                                ",
-	"                                ",
-	"                                ",
-	"                                ",
-	"                                ",
-	"                                ",
-	"                                ",
-	"                                ",
-	"                                ",
-	"                                ",
-	"                                ",
-	"                                ",
-	"0,0"
-};
-
-static SDL_Cursor *init_system_cursor(const char *image[])
-{
-	int i, row, col;
-	Uint8 data[4*32];
-	Uint8 mask[4*32];
-	int hot_x, hot_y;
-
-	i = -1;
-	for ( row=0; row<32; ++row ) {
-		for ( col=0; col<32; ++col ) {
-			if ( col % 8 ) {
-				data[i] <<= 1;
-				mask[i] <<= 1;
-			} else {
-				++i;
-				data[i] = mask[i] = 0;
-			}
-			switch (image[4+row][col]) {
-				case 'X':
-					data[i] |= 0x01;
-					mask[i] |= 0x01;
-					break;
-				case '.':
-					mask[i] |= 0x01;
-					break;
-				case ' ':
-					break;
-			}
-		}
-	}
-	sscanf(image[4+row], "%d,%d", &hot_x, &hot_y);
-	return SDL_CreateCursor(data, mask, 32, 32, hot_x, hot_y);
-}
-
 
 int main (int argc, char *argv[])
 {	
-	
+	//Assuming we are on Gnome, what's the DPI scale factor?
+	gdk_init(&argc, &argv);
+
+	GdkScreen * primaryDisplay = gdk_screen_get_default();
+	if (primaryDisplay)
+	{
+		g_dpi_scalefactor = (float)gdk_screen_get_monitor_scale_factor(primaryDisplay, 0);
+		printf("Got gdk_screen_get_monitor_scale_factor() == %f\n", g_dpi_scalefactor);
+	}
+
 	gst_app_t *app = &gst_app;
 	int ret = 0;
 	errno = 0;
@@ -920,10 +855,9 @@ int main (int argc, char *argv[])
 	
 	SDL_SysWMinfo info;
 
-
 	SDL_Init(SDL_INIT_EVERYTHING);
 	SDL_WM_SetCaption("Android Auto", NULL);
-	SDL_Surface *screen = SDL_SetVideoMode(800, 480, 16, SDL_HWSURFACE);
+	SDL_Surface *screen = SDL_SetVideoMode((int)(800*g_dpi_scalefactor), (int)(480*g_dpi_scalefactor), 32, SDL_HWSURFACE);
 
 	struct SDL_SysWMinfo wmInfo;
 	SDL_VERSION(&wmInfo.version);
@@ -931,15 +865,15 @@ int main (int argc, char *argv[])
 	if(-1 == SDL_GetWMInfo(&wmInfo))
 		printf("STATUS:errorxxxxx \n");
 	
-	cursor = init_system_cursor(arrow);
-	SDL_SetCursor(cursor);
-	SDL_ShowCursor(SDL_ENABLE);
 	
 	SDL_EnableUNICODE(1);
 	
 	SDL_EventState( SDL_MOUSEMOTION, SDL_IGNORE );
 
 	gst_x_overlay_set_window_handle(GST_X_OVERLAY(app->sink), wmInfo.info.x11.window);
+
+	//Don't use SDL's weird cursor, too small on HiDPI
+	XUndefineCursor(wmInfo.info.x11.display, wmInfo.info.x11.window);
 
 	pthread_mutex_init(&mutexsend, NULL);
 
