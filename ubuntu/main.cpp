@@ -12,6 +12,7 @@
 
 #include "hu_uti.h"
 #include "hu_aap.h"
+#include "generated/hu.pb.h"
 
 typedef struct {
 	GMainLoop *loop;
@@ -800,9 +801,21 @@ static int gst_loop(gst_app_t *app)
 	return ret;
 }
 
+namespace google
+{
+	namespace protobuf
+	{
+		void ShutdownProtobufLibrary()
+		{
+			printf("Do nothing!\n");
+		}
+	}
+}
 
 int main (int argc, char *argv[])
 {	
+
+	GOOGLE_PROTOBUF_VERIFY_VERSION;
 	//Assuming we are on Gnome, what's the DPI scale factor?
 	gdk_init(&argc, &argv);
 
@@ -900,5 +913,6 @@ int main (int argc, char *argv[])
 	}
 	
 	pthread_mutex_destroy(&mutexsend);
+
 	return (ret);
 }

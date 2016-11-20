@@ -7,6 +7,7 @@
 #ifndef NDEBUG
   #include "hu_aad.h"
 #endif
+#include <fstream>
 
   int iaap_state = 0; // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
 
@@ -159,6 +160,19 @@
 
    pthread_mutex_t mutexsum;
 
+  int hu_aap_enc_send_message(int retry, int chan, byte header0, byte header1, const google::protobuf::MessageLite& message)
+  {
+    std::string tempBuffer;
+    tempBuffer.push_back(header0);
+    tempBuffer.push_back(header1);
+    if (!message.AppendToString(&tempBuffer))
+    {
+      loge("AppendToString failed for %s", message.GetTypeName().c_str());
+      return -1; 
+    }
+    return hu_aap_enc_send(retry, chan, (byte*) tempBuffer.data(), (int)tempBuffer.size());
+
+  }
 
   int hu_aap_enc_send (int retry,int chan, byte * buf, int len) {                 // Encrypt data and send: type,...
     if (iaap_state != hu_STATE_STARTED) {
@@ -420,12 +434,101 @@ public final class MsgMediaSinkService extends k                        // bd/Ms
     else
       logd ("Service Discovery Request");                               // S 0 CTR b src: HU  lft:   113  msg_type:     6 Service Discovery Response    S 0 CTR b 00000000 0a 08 08 01 12 04 0a 02 08 0b 0a 13 08 02 1a 0f
 
-    int sd_buf_len = sizeof (sd_buf);
-//    if (wifi_direct && (file_get ("/data/data/ca.yyx.hu/files/nfc_wifi") || file_get ("/sdcard/hu_disable_audio_out")))    // If self or disable file exists...
-    if (file_get ("/tmp/mnt/sdnav/hu_disable_audio_out"))    			// If self or disable file exists...
-      sd_buf_len -= sd_buf_aud_len;                                     // Remove audio outputs from service discovery response buf
+    HU::CarInfo carInfo;
+    carInfo.set_head_unit_name("Mazda Connect");
+    carInfo.set_car_model("Mazda");
+    carInfo.set_car_year("2016");
+    carInfo.set_car_serial("0001");
+    carInfo.set_driver_pos(true);
+    carInfo.set_headunit_make("Mazda");
+    carInfo.set_headunit_model("Connect");
+    carInfo.set_sw_build("SWB1");
+    carInfo.set_sw_version("SWV1");
+    carInfo.set_can_play_native_media_during_vr(false);
+    carInfo.set_hide_clock(false);
 
-    return (hu_aap_enc_send (0,chan, sd_buf, sd_buf_len));                // Send Service Discovery Response from sd_buf
+    carInfo.mutable_channels()->Reserve(AA_CH_MAX);
+    
+    HU::ChannelDescriptor* sensorChannel = carInfo.add_channels();
+    sensorChannel->set_channel_id(AA_CH_SEN);
+    {
+      auto inner = sensorChannel->mutable_sensor_channel();
+      inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_DRIVING_STATUS);
+      inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_NIGHT_DATA);
+    }
+
+    HU::ChannelDescriptor* videoChannel = carInfo.add_channels();
+    videoChannel->set_channel_id(AA_CH_VID);
+    {
+      auto inner = videoChannel->mutable_output_stream_channel();
+      inner->set_type(HU::STREAM_TYPE_VIDEO);
+      auto videoConfig = inner->add_video_configs();
+      videoConfig->set_resolution(HU::ChannelDescriptor::OutputStreamChannel::VideoConfig::VIDEO_RESOLUTION_800x480);
+      videoConfig->set_frame_rate(HU::ChannelDescriptor::OutputStreamChannel::VideoConfig::VIDEO_FPS_30);
+      videoConfig->set_margin_width(0);
+      videoConfig->set_margin_height(0);
+      videoConfig->set_dpi(160);
+      inner->set_available_while_in_call(true);
+    }
+
+    HU::ChannelDescriptor* inputChannel = carInfo.add_channels();
+    inputChannel->set_channel_id(AA_CH_TOU);
+    {
+      auto inner = inputChannel->mutable_input_event_channel();
+      auto tsConfig = inner->mutable_touch_screen_config();
+      tsConfig->set_width(800);
+      tsConfig->set_height(480);
+    }
+
+    HU::ChannelDescriptor* micChannel = carInfo.add_channels();
+    micChannel->set_channel_id(AA_CH_MIC);
+    {
+      auto inner = micChannel->mutable_input_stream_channel();
+      inner->set_type(HU::STREAM_TYPE_AUDIO);
+      auto audioConfig = inner->mutable_audio_config();
+      audioConfig->set_sample_rate(16000);
+      audioConfig->set_bit_depth(16);
+      audioConfig->set_channel_count(1);
+    }
+
+    HU::ChannelDescriptor* audioChannel0 = carInfo.add_channels();
+    audioChannel0->set_channel_id(AA_CH_AUD);
+    {
+      auto inner = audioChannel0->mutable_output_stream_channel();
+      inner->set_type(HU::STREAM_TYPE_AUDIO);
+      inner->set_audio_type(HU::AUDIO_TYPE_MEDIA);
+      auto audioConfig = inner->add_audio_configs();
+      audioConfig->set_sample_rate(48000);
+      audioConfig->set_bit_depth(16);
+      audioConfig->set_channel_count(2);
+    }
+
+    HU::ChannelDescriptor* audioChannel1 = carInfo.add_channels();
+    audioChannel1->set_channel_id(AA_CH_AU1);
+    {
+      auto inner = audioChannel1->mutable_output_stream_channel();
+      inner->set_type(HU::STREAM_TYPE_AUDIO);
+      inner->set_audio_type(HU::AUDIO_TYPE_SPEECH);
+      auto audioConfig = inner->add_audio_configs();
+      audioConfig->set_sample_rate(16000);
+      audioConfig->set_bit_depth(16);
+      audioConfig->set_channel_count(1);
+    }
+
+    std::ofstream old("old.bin", std::ostream::binary);
+    old.write((const char*)sd_buf, sizeof (sd_buf));
+
+    std::ofstream newbin("new.bin", std::ostream::binary);
+    carInfo.SerializeToOstream(&newbin);
+
+
+//     int sd_buf_len = sizeof (sd_buf);
+// //    if (wifi_direct && (file_get ("/data/data/ca.yyx.hu/files/nfc_wifi") || file_get ("/sdcard/hu_disable_audio_out")))    // If self or disable file exists...
+//     if (file_get ("/tmp/mnt/sdnav/hu_disable_audio_out"))    			// If self or disable file exists...
+//       sd_buf_len -= sd_buf_aud_len;                                     // Remove audio outputs from service discovery response buf
+
+//     return (hu_aap_enc_send (0,chan, sd_buf, sd_buf_len));                // Send Service Discovery Response from sd_buf
+    return hu_aap_enc_send_message(0, chan, 0, 6, carInfo);
   }
   int aa_pro_ctr_a06 (int chan, byte * buf, int len) {                  // Service Discovery Response
     loge ("!!!!!!!!");

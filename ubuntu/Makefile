@@ -1,15 +1,17 @@
-INCLUDES=$(shell pkg-config --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl gtk+-3.0 x11) -I$(TOP)/hu 
+INCLUDES=$(shell pkg-config --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl gtk+-3.0 x11 protobuf) -I$(TOP)/hu 
 CFLAGS= -g 
-LFLAGS= -g $(shell pkg-config --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl gtk+-3.0 x11) -lSDL
-CXXFLAGS= -g -std=c++11
+LFLAGS= -g $(shell pkg-config --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl gtk+-3.0 x11 protobuf) -lSDL
+CXXFLAGS= -g -std=c++11 -Wno-narrowing
 
 TOP = ..
+
 SRCS = $(TOP)/hu/hu_aad.cpp
 SRCS += $(TOP)/hu/hu_aap.cpp
 SRCS += $(TOP)/hu/hu_ssl.cpp
 SRCS += $(TOP)/hu/hu_usb.cpp
 SRCS += $(TOP)/hu/hu_uti.cpp
 SRCS += $(TOP)/hu/hu_tcp.cpp
+SRCS += $(TOP)/hu/generated/hu.pb.cc
 SRCS += main.cpp
 
 OBJS = $(addsuffix .x64.o, $(basename $(SRCS)))
@@ -18,16 +20,27 @@ APP = headunit
 
 .PHONY: clean
 
-all: $(APP)
+all: proto $(APP)
+
+proto: $(TOP)/hu/generated/hu.pb.cc
 
 $(APP): $(OBJS)
 	$(CXX) -o $(APP) $(OBJS) $(LFLAGS)
 
+$(TOP)/hu/generated/hu.pb.cc $(TOP)/hu/generated/hu.pb.h: $(TOP)/hu/hu.proto
+	protoc $< --proto_path=$(TOP)/hu/ --cpp_out=$(TOP)/hu/generated/
+
+%.x64.o : %.c
+	$(CX) -MD $(CFLAGS) $(INCLUDES) -c $<  -o $@
+
 %.x64.o : %.cpp
-	$(CXX) -MD $(CFLAGS) $(INCLUDES) -c $<  -o $@
+	$(CXX) -MD $(CXXFLAGS) $(INCLUDES) -c $<  -o $@
+
+%.x64.o : %.cc
+	$(CXX) -MD $(CXXFLAGS) $(INCLUDES) -c $<  -o $@
 
 clean:
-	rm -f $(OBJS) $(DEPS) *~ $(APP)
+	rm -f $(TOP)/hu/generated/* $(OBJS) $(DEPS) *~ $(APP)
 
 -include $(DEPS)
 

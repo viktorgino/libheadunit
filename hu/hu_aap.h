@@ -1,3 +1,4 @@
+  #include "generated/hu.pb.h"
 
   int hu_aap_mic_get ();
   int hu_aap_out_get (int chan);
@@ -24,4 +25,5 @@
                                                                                                                           // Respond to decrypted message
                                                                                                                           // If video data, put on queue
 
+int hu_aap_enc_send_message(int retry, int chan, byte header0, byte header1, const google::protobuf::MessageLite& message);
 

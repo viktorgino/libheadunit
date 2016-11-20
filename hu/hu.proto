@@ -1,0 +1,190 @@
+syntax = "proto2";
+option cc_generic_services = false;
+
+package HU;
+
+message Header
+{
+    enum PacketType
+    {
+        INPUT_EVENT = 1;
+        SENSOR_EVENT = 3;
+    }
+    required PacketType type = 1;
+}
+
+message ButtonInfo
+{
+    required uint32 scan_code = 1;
+    required bool is_pressed = 2;
+    required uint32 meta = 3;
+    required bool long_press = 4;
+}
+
+message ButtonInfoWrapper
+{
+    repeated ButtonInfo button = 1;
+}
+
+message TouchInfo
+{
+    enum TOUCH_ACTION
+    {
+        RELEASE = 0;
+        PRESS = 1;
+        DRAG = 2;
+    }
+    message Location
+    {
+        required uint32 x = 1;
+        required uint32 y = 2;
+        required uint32 pointer_id = 3;
+    }
+    repeated Location location = 1;
+    required uint32 action_index = 2;
+    required TOUCH_ACTION action = 3;
+}
+
+
+message InputEvent
+{
+    required uint64 time_stamp = 1;
+    optional int32 disp_channel = 2;
+    optional TouchInfo touch = 3;
+    optional ButtonInfoWrapper button = 4;
+}
+
+
+message SensorEvent
+{
+    message NightMode
+    {
+        required bool is_night = 1;
+    }
+    repeated NightMode night_mode = 10;
+}
+
+enum SENSOR_TYPE
+{
+    SENSOR_TYPE_DRIVING_STATUS = 11;    
+    SENSOR_TYPE_NIGHT_DATA = 10;
+    SENSOR_TYPE_RPM = 3;
+    SENSOR_TYPE_DIAGNOSTICS = 8;
+    SENSOR_TYPE_GEAR = 7;
+    SENSOR_TYPE_COMPASS = 1;
+    SENSOR_TYPE_LOCATION = 9;
+}
+
+enum AUDIO_TYPE
+{
+    AUDIO_TYPE_SPEECH = 1;
+    AUDIO_TYPE_SYSTEM = 2;
+    AUDIO_TYPE_MEDIA = 3;
+}
+
+enum STREAM_TYPE
+{
+    STREAM_TYPE_AUDIO = 1;
+    STREAM_TYPE_VIDEO = 3;   
+}
+
+message AudioCofig
+{
+    required uint32 sample_rate = 1;
+    required uint32 bit_depth = 2;
+    required uint32 channel_count = 3;
+}
+
+message ChannelDescriptor
+{
+    required uint32 channel_id = 1;
+    message SensorChannel
+    {
+        message Sensor
+        {
+            required SENSOR_TYPE type = 1;
+        }
+        repeated Sensor sensor_list = 1;
+    }
+    optional SensorChannel sensor_channel = 2;
+
+    message OutputStreamChannel
+    {
+        required STREAM_TYPE type = 1;
+        optional AUDIO_TYPE audio_type = 2;
+        repeated AudioCofig audio_configs = 3;
+
+        message VideoConfig
+        {
+            enum VIDEO_RESOLUTION
+            {
+                VIDEO_RESOLUTION_800x480 = 1;
+                VIDEO_RESOLUTION_1280x720 = 2;
+                VIDEO_RESOLUTION_1920x1080 = 3;
+            }
+
+            enum VIDEO_FPS
+            {
+                VIDEO_FPS_30 = 1;
+                VIDEO_FPS_60 = 2;
+            }
+            required VIDEO_RESOLUTION resolution = 1;
+            required VIDEO_FPS frame_rate = 2;
+            required uint32 margin_width = 3;
+            required uint32 margin_height = 4;
+            required uint32 dpi = 5;
+            optional uint32 additional_depth = 6;
+        }
+        repeated VideoConfig video_configs = 4;
+        optional bool available_while_in_call = 5;
+    }
+    optional OutputStreamChannel output_stream_channel = 3;
+
+    message InputEventChannel
+    {
+        message TouchScreenConfig
+        {
+            required uint32 width = 1;
+            required uint32 height = 2;
+        }
+        repeated uint32 keycodes_supported = 1;
+        optional TouchScreenConfig touch_screen_config = 2;
+        optional TouchScreenConfig touch_pad_config = 3;
+    }
+
+    optional InputEventChannel input_event_channel = 4;
+
+    message InputStreamChannel
+    {
+        required STREAM_TYPE type = 1;
+        required AudioCofig audio_config = 2;
+        optional bool available_while_in_call = 3;
+    }
+
+    optional InputStreamChannel input_stream_channel = 5;
+
+    //bt service == 6
+    //radio == 7
+    //nav==8
+    //mediaplayback == 9
+    //phonestatus = 10
+    //mediabrowser=11
+    //vendor extension==12
+    //genericnotification==13
+}
+
+message CarInfo
+{
+    repeated ChannelDescriptor channels = 1;
+    required string head_unit_name = 2;
+    required string car_model = 3;
+    required string car_year = 4;
+    required string car_serial = 5;
+    required bool driver_pos = 6;
+    required string headunit_make = 7;
+    required string headunit_model = 8;
+    required string sw_build = 9;
+    required string sw_version = 10;
+    required bool can_play_native_media_during_vr = 11;
+    required bool hide_clock = 12;
+}
