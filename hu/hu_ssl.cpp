@@ -9,6 +9,7 @@
   #include <openssl/pem.h>
   #include <openssl/x509.h>
   #include <openssl/x509_vfy.h>
+  #include <openssl/rand.h>
   #include <pthread.h>
 
   SSL_METHOD  * hu_ssl_method  = NULL;
@@ -30,7 +31,7 @@ static pthread_mutex_t *lock_cs;
 static long *lock_count;
 
 
-void pthreads_locking_callback(int mode,int type,char *file,int line);
+void pthreads_locking_callback(int mode,int type,const char *file,int line);
 
 unsigned long pthreads_thread_id(void );
 
@@ -39,8 +40,8 @@ void thread_setup(void)
 	{
 	int i;
 
-	lock_cs=OPENSSL_malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
-	lock_count=OPENSSL_malloc(CRYPTO_num_locks() * sizeof(long));
+	lock_cs= (pthread_mutex_t*)OPENSSL_malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
+	lock_count= (long*)OPENSSL_malloc(CRYPTO_num_locks() * sizeof(long));
 	for (i=0; i<CRYPTO_num_locks(); i++)
 		{
 		lock_count[i]=0;
@@ -48,7 +49,7 @@ void thread_setup(void)
 		}
 
 	CRYPTO_set_id_callback((unsigned long (*)())pthreads_thread_id);
-	CRYPTO_set_locking_callback((void (*)())pthreads_locking_callback);
+	CRYPTO_set_locking_callback(&pthreads_locking_callback);
 	}
 
 void thread_cleanup(void)
@@ -70,7 +71,7 @@ void thread_cleanup(void)
 	fprintf(stderr,"done cleanup\n");
 	}
 
-void pthreads_locking_callback(int mode, int type, char *file,
+void pthreads_locking_callback(int mode, int type, const char *file,
 	     int line)
       {
 //	fprintf(stderr,"thread=%4d mode=%s lock=%s %s:%d\n",
@@ -120,7 +121,7 @@ unsigned long pthreads_thread_id(void)
 
   void hu_ssl_ret_log (int ret) {
     int ssl_err = SSL_get_error (hu_ssl_ssl, ret);
-    char * err_str = "";
+    const char * err_str = "";
 
     switch (ssl_err) {
       case SSL_ERROR_NONE:              err_str = ("");                      break;

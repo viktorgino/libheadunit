@@ -4,6 +4,7 @@
   #define LOGTAG "hu_usb"
   #include "hu_uti.h"                                                  // Utilities
   #include "hu_oap.h"                                                  // Open Accessory Protocol
+  #include "hu_usb.h"
 
   int iusb_state = 0; // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
 
@@ -110,10 +111,10 @@ int     LIBUSB_CALL libusb_bulk_transfer          (libusb_device_handle *dev_han
 
   int   iusb_best_vendor    = 0;
   int   iusb_best_product   = 0;
-  byte  iusb_curr_man [256] = {0};
-  byte  iusb_best_man [256] = {0};
-  byte  iusb_curr_pro [256] = {0};
-  byte  iusb_best_pro [256] = {0};
+  char  iusb_curr_man [256] = {0};
+  char  iusb_best_man [256] = {0};
+  char  iusb_curr_pro [256] = {0};
+  char  iusb_best_pro [256] = {0};
 
 struct usbvpid {
     uint16_t vendor;
@@ -192,7 +193,7 @@ struct usbvpid {
 
   int iusb_bulk_transfer (int ep, byte * buf, int len, int tmo) { // 0 = unlimited timeout
 
-    char * dir = "recv";
+    const char * dir = "recv";
     if (ep == iusb_ep_out)
       dir = "send";
 
@@ -343,8 +344,8 @@ if (ms_duration > 400)
     req_type = USB_SETUP_HOST_TO_DEVICE | USB_SETUP_TYPE_VENDOR | USB_SETUP_RECIPIENT_DEVICE;
     req_val = ACC_REQ_SEND_STRING;
 
-    iusb_control_transfer (iusb_dev_hndl, req_type, req_val, val, ACC_IDX_MAN, AAP_VAL_MAN, strlen (AAP_VAL_MAN) + 1, tmo);
-    iusb_control_transfer (iusb_dev_hndl, req_type, req_val, val, ACC_IDX_MOD, AAP_VAL_MOD, strlen (AAP_VAL_MOD) + 1, tmo);
+    iusb_control_transfer (iusb_dev_hndl, req_type, req_val, val, ACC_IDX_MAN,  (byte*)AAP_VAL_MAN, strlen (AAP_VAL_MAN) + 1, tmo);
+    iusb_control_transfer (iusb_dev_hndl, req_type, req_val, val, ACC_IDX_MOD,  (byte*)AAP_VAL_MOD, strlen (AAP_VAL_MOD) + 1, tmo);
     //iusb_control_transfer (iusb_dev_hndl, req_type, req_val, val, ACC_IDX_DES, AAP_VAL_DES, strlen (AAP_VAL_DES) + 1, tmo);
     //iusb_control_transfer (iusb_dev_hndl, req_type, req_val, val, ACC_IDX_VER, AAP_VAL_VER, strlen (AAP_VAL_VER) + 1, tmo);
     //iusb_control_transfer (iusb_dev_hndl, req_type, req_val, val, ACC_IDX_URI, AAP_VAL_URI, strlen (AAP_VAL_URI) + 1, tmo);
@@ -538,7 +539,7 @@ struct usbvpid iusb_vendor_get (libusb_device * device) {
       libusb_free_device_list (list, 1);                                // Free device list now that we are finished with it
       return (-2);
     }
-    printf ("Device found iusb_best_vendor: 0x%04x  iusb_best_device: 0x%04x  iusb_best_man: \"%s\"  iusb_best_pro: \"%s\" \n", iusb_best_vendor, iusb_best_device, iusb_best_man, iusb_best_pro);
+    printf ("Device found iusb_best_vendor: 0x%04x  iusb_best_device: %p  iusb_best_man: \"%s\"  iusb_best_pro: \"%s\" \n", iusb_best_vendor, iusb_best_device, iusb_best_man, iusb_best_pro);
 
     //usb_perms_set ();                                                 // Setup USB permissions, where needed
 

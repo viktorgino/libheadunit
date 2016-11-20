@@ -10,7 +10,7 @@
 
   int iaap_state = 0; // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
 
-  char * chan_get (int chan) {
+  const char * chan_get (int chan) {
     switch (chan) {
       case AA_CH_CTR: return ("CTR");
       case AA_CH_VID: return ("VID");
@@ -27,10 +27,10 @@
 #include "hu_tcp.h"
 
 //dummy functions
-  int hu_tcp_recv  (byte * buf, int len, int tmo) {}                     // Used by hu_aap:hu_aap_tcp_recv ()
-  int hu_tcp_send  (byte * buf, int len, int tmo)  {}                    // Used by hu_aap:hu_aap_tcp_send ()
-  int hu_tcp_stop  () {}                                                 // Used by hu_aap:hu_aap_stop     ()
-  int hu_tcp_start (byte ep_in_addr, byte ep_out_addr) {}                // Used by hu_aap:hu_aap_start    ()
+  // int hu_tcp_recv  (byte * buf, int len, int tmo) {}                     // Used by hu_aap:hu_aap_tcp_recv ()
+  // int hu_tcp_send  (byte * buf, int len, int tmo)  {}                    // Used by hu_aap:hu_aap_tcp_send ()
+  // int hu_tcp_stop  () {}                                                 // Used by hu_aap:hu_aap_stop     ()
+  // int hu_tcp_start (byte ep_in_addr, byte ep_out_addr) {}                // Used by hu_aap:hu_aap_start    ()
 
 
   int transport_type = 1; // 1=USB 2=WiFi
@@ -906,7 +906,7 @@ public final class MsgMediaSinkService extends k                        // bd/Ms
 
   void iaap_video_decode (byte * buf, int len) {
 
-    byte * q_buf = vid_write_tail_buf_get (len);                         // Get queue buffer tail to write to     !!! Need to lock until buffer written to !!!!
+    byte * q_buf = (byte*)vid_write_tail_buf_get (len);                         // Get queue buffer tail to write to     !!! Need to lock until buffer written to !!!!
     if (ena_log_verbo)
       logd ("video q_buf: %p  buf: %p  len: %d", q_buf, buf, len);
     if (q_buf == NULL) {
@@ -957,7 +957,7 @@ ms: 337, 314                                                                    
     }
 
 
-    byte * q_buf = aud_write_tail_buf_get (len);                         // Get queue buffer tail to write to     !!! Need to lock until buffer written to !!!!
+    byte * q_buf = (byte*)aud_write_tail_buf_get (len);                         // Get queue buffer tail to write to     !!! Need to lock until buffer written to !!!!
     if (ena_log_verbo)
       logd ("audio q_buf: %p  buf: %p  len: %d", q_buf, buf, len);
     if (q_buf == NULL) {
@@ -998,7 +998,7 @@ ms: 337, 314                                                                    
       return;
 
 //#ifndef NDEBUG
-    char * aud_rec_file = "/home/m/dev/hu/aa.pcm";
+    const char * aud_rec_file = "/home/m/dev/hu/aa.pcm";
   #ifdef __ANDROID_API__
     aud_rec_file = "/sdcard/hu.pcm";
   #endif
@@ -1204,19 +1204,19 @@ ms: 337, 314                                                                    
     }  
 
 //    byte buf [DEFBUF] = {0};
-	byte *buf = (byte *)g_malloc(DEFBUF);
+	byte *buf = (byte *)malloc(DEFBUF);
     errno = 0;
     ret = hu_aap_tra_recv (buf, DEFBUF, 1000);                    // Get Rx packet from Transport:    Wait for Version Response
     if (ret <= 0) {
       loge ("Version response recv ret: %d", ret);
-      g_free(buf);
+      free(buf);
       hu_aap_stop ();
       return (-1);
     }  
     logd ("Version response recv ret: %d", ret);
 
 
-	g_free(buf);
+	free(buf);
 //*
     ret = hu_ssl_handshake ();                                          // Do SSL Client Handshake with AA SSL server
     if (ret) {

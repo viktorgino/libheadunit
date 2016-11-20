@@ -13,6 +13,7 @@
   extern BIO         * hu_ssl_wm_bio;//  = NULL;
 
   void hu_ssl_ret_log (int ret);
+  void hu_ssl_inf_log();
 
   int hu_ssl_handshake ();
 

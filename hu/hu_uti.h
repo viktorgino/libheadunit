@@ -95,7 +95,7 @@
 
   unsigned long ms_get          ();
   unsigned long ms_sleep        (unsigned long ms);
-  void hex_dump                 (char * prefix, int width, unsigned char * buf, int len);
+  void hex_dump                 (const char * prefix, int width, unsigned char * buf, int len);
   char * vid_write_tail_buf_get  (int len);
   char * vid_read_head_buf_get   (int * len);
   char * aud_write_tail_buf_get  (int len);
@@ -273,3 +273,5 @@ typedef enum
 
 
 int hu_fill_button_message(uint8_t* buffer, uint64_t timeStamp, HU_INPUT_BUTTON button, int isPress);
+
+int file_get (const char * filename);

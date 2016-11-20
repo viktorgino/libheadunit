@@ -59,8 +59,8 @@ static gboolean read_data(gst_app_t *app)
 	guint8 *ptr;
 	GstFlowReturn ret;
 	int iret;
-	char *vbuf;
-	char *abuf;
+	guint8 *vbuf;
+	guint8 *abuf;
 	int res_len = 0;
 
 	pthread_mutex_lock (&mutexsend);
@@ -74,7 +74,7 @@ static gboolean read_data(gst_app_t *app)
 	}
 
 	/* Is there a video buffer queued? */
-	vbuf = vid_read_head_buf_get (&res_len);
+	vbuf = (guint8*)vid_read_head_buf_get (&res_len);
 	if (vbuf != NULL) {
 		
 		buffer = gst_buffer_new();
@@ -88,7 +88,7 @@ static gboolean read_data(gst_app_t *app)
 	}
 
 	/* Is there an audio buffer queued? */
-	abuf = aud_read_head_buf_get (&res_len);
+	abuf = (guint8*)aud_read_head_buf_get (&res_len);
 	if (abuf != NULL) {
 		
 		buffer = gst_buffer_new();
@@ -227,7 +227,7 @@ static int gst_pipeline_init(gst_app_t *app)
 	gst_bus_add_watch(bus, (GstBusFunc)bus_callback, app);
 	gst_object_unref(bus);
 
-	app->src = gst_bin_get_by_name (GST_BIN (app->pipeline), "mysrc");
+	app->src = (GstAppSrc*)gst_bin_get_by_name (GST_BIN (app->pipeline), "mysrc");
 	app->decoder = gst_bin_get_by_name (GST_BIN (app->pipeline), "mydecoder");
 	app->convert = gst_bin_get_by_name (GST_BIN (app->pipeline), "myconvert");
 	app->sink = gst_bin_get_by_name (GST_BIN (app->pipeline), "mysink");
@@ -626,7 +626,7 @@ gboolean sdl_poll_event(gpointer data)
                         int code = baseIdx + cmdkey[0] - '0';
                         printf("%i\n", code);
                         clock_gettime(CLOCK_REALTIME, &tp);
-                        keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, code, event.type == SDL_KEYDOWN);
+                        keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, (HU_INPUT_BUTTON) code, event.type == SDL_KEYDOWN);
                         hu_aap_enc_send (0,AA_CH_TOU, keyTempBuffer, keyTempSize);
                     }
 

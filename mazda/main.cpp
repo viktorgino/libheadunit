@@ -74,7 +74,7 @@ typedef struct {
 
 void queueSend(int retry, int chan, unsigned char* cmd_buf, int cmd_len, int shouldFree)
 {
-	send_arg* cmd = malloc(sizeof(send_arg));
+	send_arg* cmd = (send_arg*)malloc(sizeof(send_arg));
 
 	cmd->retry = retry;
 	cmd->chan = chan;
@@ -545,7 +545,7 @@ gboolean touch_poll_event(gpointer data)
                             //account for letterboxing
                             printf("input x %i\n", event[i].value);
                             float floatPixel = ((event[i].value - 100) / 4095.0f) * 800.0f;
-                            const floatBorder = 25.0f / 800.0f;
+                            const float floatBorder = 25.0f / 800.0f;
                             floatPixel = (floatPixel / 750.0f) - floatBorder;
                                                         
                             mTouch.x = (int)(floatPixel * 800.0f);
@@ -666,7 +666,7 @@ static gboolean delayedShouldDisplayTrue(gpointer data)
 
 static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *message, void *p)
 {
-    struct timespec tp;
+	struct timespec tp;
 	gst_app_t *app = &gst_app;
 	DBusMessageIter iter;
 
@@ -679,107 +679,107 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 
 		//key press
 		if (event.type == EV_KEY && (event.value == 1 || event.value == 0)) {
-            
-            clock_gettime(CLOCK_REALTIME, &tp);
-            uint64_t timestamp = tp.tv_sec * 1000000000 +tp.tv_nsec;
-            uint8_t* keyTempBuffer = 0;
-            int keyTempSize = 0;
-            
-            printf("Key code %i value %i\n", (int)event.code, (int)event.value);
+
+			clock_gettime(CLOCK_REALTIME, &tp);
+			uint64_t timestamp = tp.tv_sec * 1000000000 + tp.tv_nsec;
+			uint8_t* keyTempBuffer = 0;
+			int keyTempSize = 0;
+
+			printf("Key code %i value %i\n", (int)event.code, (int)event.value);
 			switch (event.code) {
-				case KEY_G:
-                    printf("KEY_G\n");
-                    keyTempBuffer = malloc(512);
-                    keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_MIC, event.value == 1);
-                    queueSend (0,AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
-					break;
-                //Make the music button play/pause
-                case KEY_E:
-                    printf("KEY_E\n");
-                    keyTempBuffer = malloc(512);
-                    keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_PLAYPAUSE, event.value == 1);
-                    queueSend (0,AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
-					break;
-				case KEY_LEFTBRACE:
-                    printf("KEY_LEFTBRACE\n");
-                    keyTempBuffer = malloc(512);
-					keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_NEXT, event.value == 1);
-                    queueSend (0,AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
-					break;
-				case KEY_RIGHTBRACE:
-                    printf("KEY_RIGHTBRACE\n");
-                    keyTempBuffer = malloc(512);
-					keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_PREV, event.value == 1);
-                    queueSend (0,AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
-					break;
-                case KEY_BACKSPACE:
-                    printf("KEY_BACKSPACE\n");
-                    keyTempBuffer = malloc(512);
-					keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_BACK, event.value == 1);
-                    queueSend (0,AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
-					break;
-                case KEY_ENTER:
-                    printf("KEY_ENTER\n");
-                    keyTempBuffer = malloc(512);
-					keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_ENTER, event.value == 1);
-                    queueSend (0,AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
-					break;
-                case KEY_LEFT:
-                case KEY_N:
-                    printf("KEY_LEFT\n");
-                    keyTempBuffer = malloc(512);
-					keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_LEFT, event.value == 1);
-                    queueSend (0,AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
-					break;
-                case KEY_RIGHT:
-                case KEY_M:
-                    printf("KEY_RIGHT\n");
-                    keyTempBuffer = malloc(512);
-					keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_RIGHT, event.value == 1);
-                    queueSend (0,AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
-					break;
-                case KEY_UP:
-                    printf("KEY_UP\n");
-                    keyTempBuffer = malloc(512);
-					keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_UP, event.value == 1);
-                    queueSend (0,AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
-					break;
-                case KEY_DOWN:
-                    printf("KEY_DOWN\n");
-                    keyTempBuffer = malloc(512);
-					keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_DOWN, event.value == 1);
-                    queueSend (0,AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
-					break;
-				case KEY_HOME:
-                    printf("KEY_HOME\n");
-                    if (event.value == 1)
-                    {
-                        g_main_loop_quit (mainloop);
-                    }
-					break;
-				case KEY_R:
-                    printf("KEY_R\n");
-                    if (event.value == 1)
-                    {
-                        if (displayStatus)
-                        {
-                            g_object_set(G_OBJECT(app->sink), "should-display", FALSE, NULL);
-                            displayStatus = FALSE;
-                        }
-                        else
-                        {
-                            g_object_set(G_OBJECT(app->sink), "should-display", TRUE, NULL);
-                            displayStatus = TRUE;
-                        }
-                    }
-					break;
+			case KEY_G:
+				printf("KEY_G\n");
+				keyTempBuffer = (uint8_t*)malloc(512);
+				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_MIC, event.value == 1);
+				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				break;
+			//Make the music button play/pause
+			case KEY_E:
+				printf("KEY_E\n");
+				keyTempBuffer = (uint8_t*)malloc(512);
+				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_PLAYPAUSE, event.value == 1);
+				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				break;
+			case KEY_LEFTBRACE:
+				printf("KEY_LEFTBRACE\n");
+				keyTempBuffer = (uint8_t*)malloc(512);
+				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_NEXT, event.value == 1);
+				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				break;
+			case KEY_RIGHTBRACE:
+				printf("KEY_RIGHTBRACE\n");
+				keyTempBuffer = (uint8_t*)malloc(512);
+				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_PREV, event.value == 1);
+				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				break;
+			case KEY_BACKSPACE:
+				printf("KEY_BACKSPACE\n");
+				keyTempBuffer = (uint8_t*)malloc(512);
+				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_BACK, event.value == 1);
+				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				break;
+			case KEY_ENTER:
+				printf("KEY_ENTER\n");
+				keyTempBuffer = (uint8_t*)malloc(512);
+				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_ENTER, event.value == 1);
+				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				break;
+			case KEY_LEFT:
+			case KEY_N:
+				printf("KEY_LEFT\n");
+				keyTempBuffer = (uint8_t*)malloc(512);
+				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_LEFT, event.value == 1);
+				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				break;
+			case KEY_RIGHT:
+			case KEY_M:
+				printf("KEY_RIGHT\n");
+				keyTempBuffer = (uint8_t*)malloc(512);
+				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_RIGHT, event.value == 1);
+				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				break;
+			case KEY_UP:
+				printf("KEY_UP\n");
+				keyTempBuffer = (uint8_t*)malloc(512);
+				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_UP, event.value == 1);
+				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				break;
+			case KEY_DOWN:
+				printf("KEY_DOWN\n");
+				keyTempBuffer = (uint8_t*)malloc(512);
+				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_DOWN, event.value == 1);
+				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				break;
+			case KEY_HOME:
+				printf("KEY_HOME\n");
+				if (event.value == 1)
+				{
+					g_main_loop_quit (mainloop);
+				}
+				break;
+			case KEY_R:
+				printf("KEY_R\n");
+				if (event.value == 1)
+				{
+					if (displayStatus)
+					{
+						g_object_set(G_OBJECT(app->sink), "should-display", FALSE, NULL);
+						displayStatus = FALSE;
+					}
+					else
+					{
+						g_object_set(G_OBJECT(app->sink), "should-display", TRUE, NULL);
+						displayStatus = TRUE;
+					}
+				}
+				break;
 			}
 		}
 		//key release
 		//else if (event.type == EV_KEY && event.value == 1)
 
 	}
-	else if(strcmp("DisplayMode", dbus_message_get_member(message)) == 0)
+	else if (strcmp("DisplayMode", dbus_message_get_member(message)) == 0)
 	{
 		int displayMode;
 		if (dbus_message_iter_init(message, &iter) && dbus_message_iter_get_arg_type(&iter) == DBUS_TYPE_UINT32)
@@ -892,7 +892,7 @@ static void * nightmode_thread(void *app)
 
 		if (nightmode != nightmodenow) {
 			nightmode = nightmodenow;
-			byte* rspds = malloc(sizeof(byte) * 6);
+			byte* rspds = (byte*)malloc(sizeof(byte) * 6);
 			rspds[0] = -128; 
 			rspds[1] = 0x03;
 			rspds[2] = 0x52; 
@@ -916,12 +916,12 @@ gboolean myMainLoop(gpointer app)
 {
 	if (shouldRead)
 	{
-		read_data(app);
+		read_data((gst_app_t*)app);
 	}
 
 	send_arg* cmd;
 
-	if (cmd = g_async_queue_try_pop(sendqueue))
+	if (cmd = (send_arg*)g_async_queue_try_pop(sendqueue))
 	{
 		hu_aap_enc_send(cmd->retry, cmd->chan, cmd->cmd_buf, cmd->cmd_len);
 		if(cmd->shouldFree)

@@ -5,8 +5,8 @@
 //    char AAP_VAL_MOD [97] = "Android Auto";    // "Android Open Automotive Protocol"
 
 
-#define AAP_VAL_MAN   "Android"
-#define AAP_VAL_MOD   "Android Auto"    // "Android Open Automotive Protocol"
+static char AAP_VAL_MAN[] =  "Android";
+static char AAP_VAL_MOD[] =  "Android Auto";    // "Android Open Automotive Protocol"
 //#define AAP_VAL_DES   "Description"
 //#define AAP_VAL_VER   "VersionName"
 //#define AAP_VAL_URI   "https://developer.android.com/auto/index.html"

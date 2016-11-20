@@ -3,6 +3,7 @@
 
   #define LOGTAG "hu_tcp"
   #include "hu_uti.h"                                                  // Utilities
+  #include "hu_tcp.h"
 
   int itcp_state = 0; // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
 
@@ -29,7 +30,7 @@
   int   itcp_ep_in          = -1;
   int   itcp_ep_out         = -1;
 
-  char * itcp_error_get (int error) {
+  const char * itcp_error_get (int error) {
     switch (error) {
       case 0: //LIBtcp_SUCCESS:                                              // 0
         return ("LIBtcp_SUCCESS");
@@ -68,7 +69,7 @@
 
   int itcp_bulk_transfer (int ep, byte * buf, int len, int tmo) { // 0 = unlimited timeout
 
-    char * dir = "recv";
+    const char * dir = "recv";
     if (ep == itcp_ep_out)
       dir = "send";
 
@@ -167,7 +168,9 @@
     }
 
     if (tmo > 0) {
+      #ifdef __ANDROID_API__
       sock_tmo_set (tcp_io_fd, tmo);
+      #endif
     }
 
     errno = 0;
@@ -253,9 +256,10 @@
     if (tcp_so_fd < 0)
       return (-1);
 
+  #ifdef __ANDROID_API__
     if (tcp_io_fd < 0)                                                  // If we don't have an IO socket yet...
       sock_tmo_set (tcp_so_fd, tmo);//3000);//tmo);                     // Set socket timeout for polling every tmo milliseconds
-
+  #endif
     memset ((char *) & cli_addr, sizeof (cli_addr), 0);                 // ?? Don't need this ?
     //cli_addr.sun_family = CS_FAM;                                     // ""
     cli_len = sizeof (cli_addr);
@@ -325,7 +329,9 @@
     else
       logd ("setsockopt TCP_NODELAY Success");
 //*/
+    #ifdef __ANDROID_API__
     sock_reuse_set (tcp_so_fd);
+    #endif
 
     //if (tmo != 0)
     //  sock_tmo_set (tcp_so_fd, tmo);                                   // If polling mode, set socket timeout for polling every tmo milliseconds

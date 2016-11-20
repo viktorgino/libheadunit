@@ -32,6 +32,8 @@
   #include <stdlib.h>
   #include <stdarg.h>
   #include <stdint.h>
+  #include <ctype.h>
+
 
   #include <string.h>
   #include <signal.h>
@@ -85,7 +87,7 @@
   }
   #endif
 
-  char * prio_get (int prio) {
+const  char * prio_get (int prio) {
     switch (prio) {
       case hu_LOG_EXT: return ("X");
       case hu_LOG_VER: return ("V");
@@ -564,7 +566,7 @@
 
 
   #define HD_MW   256
-  void hex_dump (char * prefix, int width, unsigned char * buf, int len) {
+  void hex_dump (const char * prefix, int width, unsigned char * buf, int len) {
     if (0)//! strncmp (prefix, "AUDIO: ", strlen ("AUDIO: ")))
       len = len;
     else if (! ena_log_hexdu)
@@ -612,56 +614,6 @@
       else if (i == len - 1)                                            // Else if at last byte
         logd (line);                                                    // Log line
     }
-  }
-
-/*
-  static char sys_cmd [32768] = {0};
-  static int sys_commit () {
-    int ret = sys_run (sys_cmd);                                        // Run
-    sys_cmd [0] = 0;                                                    // Done, so zero
-    return (ret);
-  }
-  static int cached_sys_run (char * new_cmd) {                          // Additive single string w/ commit version
-    char cmd [512] = {0};
-    if (strlen (sys_cmd) == 0)                                          // If first command since commit
-      snprintf (cmd, sizeof (cmd), "%s", new_cmd);
-    else
-      snprintf (cmd, sizeof (cmd), " ; %s", new_cmd);
-    strlcat (sys_cmd, cmd, sizeof (sys_cmd));
-    int ret = sys_commit ();                                            // Commit every command now, due to GS3/Note problems
-    return (ret);
-  }
-*/
-
-/*
-  int sys_run (char * cmd) {
-    int ret = system (cmd);                                             // !! Binaries like ssd that write to stdout cause C system() to crash !
-    logd ("sys_run ret: %d  cmd: \"%s\"", ret, cmd);
-    return (ret);
-  }
-  int insmod_shell = 1;
-*/
-  int util_insmod (char * module) {    // ("/system/lib/modules/radio-iris-transport.ko");
-    int ret = 0;
-/*
-    if (insmod_shell) {
-      char cmd [DEF_BUF] = "insmod ";
-      strlcat (cmd, module, sizeof (cmd));
-      strlcat (cmd, " >/dev/null 2>/dev/null", sizeof (cmd));
-      ret = sys_run (cmd);
-      loge ("util_insmod module: \"%s\"  ret: %d  cmd: \"%s\"", module, ret, cmd);
-    }
-    else {
-*/
-      ret = insmod_internal (module);
-      if (ret)
-        loge ("util_insmod module: \"%s\"  ret: %d", module, ret);
-      else
-        logd ("util_insmod module: \"%s\"  success ret: %d", module, ret);
-/*
-    }
-*/
-    return (ret);
   }
 
   int file_write_many (const char * filename, int * pfd, char * data, int len, int flags) {
@@ -750,109 +702,7 @@
     return (buffer);
   }
 
-  extern int init_module (void *, unsigned long, const char *);
-
-  int insmod_internal (const char * filename) {
-    void * file;
-    ssize_t size = 0;
-    char opts [1024];
-    int ret;
-
-    file = file_read (filename, & size); // read the file into memory
-    if (! file) {
-      loge ("insmod_internal can't open \"%s\"", filename);
-      return (-1);
-    }
-
-    opts [0] = '\0';
-/*
-    if (argc > 2) {
-      int i, len;
-      char *end = opts + sizeof(opts) - 1;
-      char *ptr = opts;
-
-      for (i = 2; (i < argc) && (ptr < end); i++) {
-          len = MIN(strlen(argv[i]), end - ptr);
-          memcpy(ptr, argv[i], len);
-          ptr += len;
-          *ptr++ = ' ';
-      }
-      *(ptr - 1) = '\0';
-    }
-*/
-
-    errno = 0;
-    ret = init_module (file, size, opts);   // pass it to the kernel
-    if (ret != 0) {
-      if (errno == EEXIST) { // 17
-        ret = 0;
-        logd ("insmod_internal: init_module '%s' failed EEXIST because already loaded", filename);
-      }
-      else
-        loge ("insmod_internal: init_module '%s' failed errno: %d (%s)", filename, errno, strerror (errno));
-    }
-
-    free (file);    // free the file buffer
-    return ret;
- }
-
-
-/*char * holder_id = "None";
-  int lock_open (const char * id, volatile int * lock, int tmo) {
-    int attempts = 0;
-    volatile int lock_val = * lock;
   
-    //logd ("lock_open %s  lock_val: %d  lock: %d  tmo: %d", id, lock_val, * lock, tmo);
-    int start_time   = ms_get ();                                         // Set start time
-    int timeout_time = start_time + tmo;                                  // Set end/timeout time
-    int elapsed_time = ms_get () - start_time;
-    long alt_sleep_ctr = 0;
-  
-    while (ms_get () < timeout_time) {                                    // Until timeout
-      if (* lock < 0) {                                                   // If negative...
-        * lock = 0;                                                       // Fix
-        loge ("!!!!!!!!! lock_open clear negative lock id: %s  holder_id: %s", id, holder_id, attempts);
-      }
-  
-      while ((* lock) && ms_get () < timeout_time) {                      // While the lock is NOT acquired and we have not timed out...
-        if (elapsed_time > 100)
-          loge ("lock_open sleep 10 ms id: %s  holder_id: %s  attempts: %d  lock_val: %d  lock: %d  elapsed_time: %d", id, holder_id, attempts, lock_val, * lock, elapsed_time);// Else we lost attempt
-        if (attempts) {                                                   // If not 1st try...
-          alt_sleep_ctr = 0;
-          while (alt_sleep_ctr ++ < 10000);       // !!!! Because ms_sleep was crashing ?
-        }
-        else
-          ms_sleep (10);                                                  // Sleep a while then try again
-      }
-      elapsed_time = ms_get () - start_time;
-  
-      (* lock) ++;                                                        // Attempt to acquire lock (1st or again)
-      lock_val = (* lock);
-      if (lock_val == 1) {                                                // If success...
-        if (attempts)                                                     // If not 1st try...
-          loge ("lock_open %s success id: %s  holder_id: %s  attempts: %d  lock_val: %d  lock: %d  elapsed_time: %d", id, holder_id, attempts, lock_val, * lock, elapsed_time);
-        holder_id = (char *) id;                                          // We are last holder (though done now)
-        return (0);                                                       // Lock acquired
-      }
-      else {
-        (* lock) --;                                                      // Release lock attempt
-        loge ("lock_open lost id: %s  holder_id: %s  attempts: %d  lock_val: %d  lock: %d  elapsed_time: %d", id, holder_id, attempts, lock_val, * lock, elapsed_time);// Else we lost attempt
-        attempts ++;
-      }
-    }
-    lock_val = (* lock);
-    loge ("lock_open timeout id: %s  holder_id: %s  attempts: %d  lock_val: %d  lock: %d  elapsed_time: %d", id, holder_id, attempts, lock_val, * lock, elapsed_time);
-    return (-1);                                                          // Error, no lock
-  }
-  
-  int lock_close (const char * id, volatile int * lock) {
-    //logd ("lock_close %s  lock: %d", id, (* lock));
-    (* lock) --;
-    //logd ("lock_close %s 2  lock: %d", id, (* lock));
-    return (0);
-  }*/
-
-
   #define ERROR_CODE_NUM 56
   static const char * error_code_str [ERROR_CODE_NUM + 1] = {
     "Success",

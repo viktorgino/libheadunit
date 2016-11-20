@@ -1,18 +1,19 @@
-#CC=gcc
-#LD=ld
-INCLUDES=$(shell pkg-config --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl gtk+-3.0 x11) -I$(TOP)/jni 
+INCLUDES=$(shell pkg-config --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl gtk+-3.0 x11) -I$(TOP)/hu 
 CFLAGS= -g 
-CPPFLAGS=-fPIC
 LFLAGS= -g $(shell pkg-config --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl gtk+-3.0 x11) -lSDL
+CXXFLAGS= -g -std=c++11
+
 TOP = ..
-SRCS =	$(TOP)/jni/hu_aad.c	\
-	$(TOP)/jni/hu_aap.c	\
-        $(TOP)/jni/hu_ssl.c	\
-	$(TOP)/jni/hu_usb.c	\
-	$(TOP)/jni/hu_uti.c	\
-	main.c
-OBJS = $(SRCS:.c=.x64.o)
-DEPS = $(SRCS:.c=.x64.d)
+SRCS = $(TOP)/hu/hu_aad.cpp
+SRCS += $(TOP)/hu/hu_aap.cpp
+SRCS += $(TOP)/hu/hu_ssl.cpp
+SRCS += $(TOP)/hu/hu_usb.cpp
+SRCS += $(TOP)/hu/hu_uti.cpp
+SRCS += $(TOP)/hu/hu_tcp.cpp
+SRCS += main.cpp
+
+OBJS = $(addsuffix .x64.o, $(basename $(SRCS)))
+DEPS = $(addsuffix .x64.d, $(basename $(SRCS)))
 APP = headunit
 
 .PHONY: clean
@@ -20,10 +21,10 @@ APP = headunit
 all: $(APP)
 
 $(APP): $(OBJS)
-	$(CC) -o $(APP) $(OBJS) $(LFLAGS)
+	$(CXX) -o $(APP) $(OBJS) $(LFLAGS)
 
-%.x64.o : %.c
-	$(CC) -MD $(CFLAGS) $(INCLUDES) -c $<  -o $@
+%.x64.o : %.cpp
+	$(CXX) -MD $(CFLAGS) $(INCLUDES) -c $<  -o $@
 
 clean:
 	rm -f $(OBJS) $(DEPS) *~ $(APP)
