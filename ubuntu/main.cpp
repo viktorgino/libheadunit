@@ -64,6 +64,7 @@ static gboolean read_data(gst_app_t *app)
 	guint8 *abuf;
 	int res_len = 0;
 
+
 	pthread_mutex_lock (&mutexsend);
 	iret = hu_aap_recv_process ();                       
 	pthread_mutex_unlock (&mutexsend);

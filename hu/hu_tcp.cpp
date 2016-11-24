@@ -295,10 +295,10 @@
     else
       logd ("setsockopt TCP_NODELAY Success");
 */
-    if ( cli_addr.sin_addr.s_addr == htonl (INADDR_LOOPBACK) )
-      logd ("Success accept() from local host loopback");
-    else
-      logd ("Success accept() from host: 0x%x", inet_ntoa (cli_addr.sin_addr.s_addr));  //  host: 0xa038 50f0  = 160.56.80.240  ??
+    // if ( cli_addr.sin_addr.s_addr == htonl (INADDR_LOOPBACK) )
+    //   logd ("Success accept() from local host loopback");
+    // else
+    //   logd ("Success accept() from host: 0x%x", inet_ntoa (cli_addr.sin_addr.s_addr));  //  host: 0xa038 50f0  = 160.56.80.240  ??
 
     return (tcp_so_fd);
   }

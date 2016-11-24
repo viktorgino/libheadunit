@@ -1,13 +1,14 @@
   // Android Auto Protocol Handler
-  #include <pthread.h>
-  #define LOGTAG "hu_aap"
-  #include "hu_uti.h"
-  #include "hu_ssl.h"
-  #include "hu_aap.h"
+#include <pthread.h>
+#define LOGTAG "hu_aap"
+#include "hu_uti.h"
+#include "hu_ssl.h"
+#include "hu_aap.h"
 #ifndef NDEBUG
   #include "hu_aad.h"
 #endif
 #include <fstream>
+#include <endian.h>
 
   int iaap_state = 0; // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
 
@@ -58,6 +59,7 @@
       return (hu_tcp_stop  ());
     else
       return (-1);
+
   }
 
 
@@ -123,7 +125,7 @@
   int hu_aap_tra_recv (byte * buf, int len, int tmo) {
     int ret = 0;
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {   // Need to recv when starting
-      loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
+      loge ("CHECK: iaap_state: %d", iaap_state);
       return (-1);
     }
     ret = ihu_tra_recv (buf, len, tmo);
@@ -139,7 +141,7 @@
   int hu_aap_tra_send (int retry, byte * buf, int len, int tmo) {                  // Send Transport data: chan,flags,len,type,...
                                                                         // Need to send when starting
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
-      loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
+      loge ("CHECK: iaap_state: %d", iaap_state);
       return (-1);
     }
 
@@ -159,24 +161,34 @@
   }
 
    pthread_mutex_t mutexsum;
+   std::vector<uint8_t> tempEncodingBuffer;
 
-  int hu_aap_enc_send_message(int retry, int chan, byte header0, byte header1, const google::protobuf::MessageLite& message)
+  int hu_aap_enc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message)
   {
-    std::string tempBuffer;
-    tempBuffer.push_back(header0);
-    tempBuffer.push_back(header1);
-    if (!message.AppendToString(&tempBuffer))
+    const int messageSize = message.ByteSize();
+    const int requiredSize = messageSize + 2;
+    if (tempEncodingBuffer.size() < requiredSize)
+    {
+      tempEncodingBuffer.resize(requiredSize);
+    }
+
+    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(tempEncodingBuffer.data());
+    *destMessageCode++ = htobe16(messageCode);
+
+    if (!message.SerializeToArray(destMessageCode, messageSize))
     {
       loge("AppendToString failed for %s", message.GetTypeName().c_str());
       return -1; 
     }
-    return hu_aap_enc_send(retry, chan, (byte*) tempBuffer.data(), (int)tempBuffer.size());
+
+    logd ("Send %s on channel %i %s", message.GetTypeName().c_str(), chan, chan_get(chan));
+    return hu_aap_enc_send(retry, chan, tempEncodingBuffer.data(), requiredSize);
 
   }
 
   int hu_aap_enc_send (int retry,int chan, byte * buf, int len) {                 // Encrypt data and send: type,...
     if (iaap_state != hu_STATE_STARTED) {
-      logw ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
+      logw ("CHECK: iaap_state: %d", iaap_state);
       //logw ("chan: %d  len: %d  buf: %p", chan, len, buf);
       //hex_dump (" W/    hu_aap_enc_send: ", 16, buf, len);    // Byebye: hu_aap_enc_send:  00000000 00 0f 08 00
       return (-1);
@@ -227,214 +239,21 @@
     int ret = 0;
     ret = hu_aap_tra_send (retry, enc_buf, bytes_read + 4, iaap_tra_send_tmo);           // Send encrypted data to AA Server
     if (retry)
-		return (ret);
+		  return (ret);
 
     return (0);
   }
 
-
-    byte sd_buf [] = {0, 6,        //8, 0};                                            // Svc Disc Rsp = 6
-/*
-cq  (co[  (str  (str  (str  (str  (int  (str  (str  (str  (str  (boo  (boo    MsgServiceDiscoveryResponse
-
-  co  int (cm (bd (ak (bi (m  (ce (bq (bb (cb (av (cy (ad       co[] a()      MsgAllServices
-
-    cm  (cn[                                                                  MsgSensors
-      cn  int                                                   cn[] a()      MsgSensorSourceService  Fix name to MsgSensor
-
-    bd  (int  (int  (f[ (cz[  (boo                                            MsgMediaSinkService
-       f  int   int   int                                        f[] a()      MsgAudCfg   See same below
-      cz  (int  (int  (int  (int  (int  (int                    cz[] a()      MsgVidCfg
-
-    ak  (int[ (am[  (al[                                                      MsgInputSourceService   int[] = keycodes    Graphics Points ?
-      am  int   int                                             am[] a()      TouchScreen width, height
-      al  int   int                                             al[] a()      TouchPad    width, height
-
-Audio Config:
-  sampleRate
-  channelConfig
-  audioFormat
-
-public final class MsgMediaSinkService extends k                        // bd/MsgMediaSinkService extends k/com.google.protobuf.nano.MessageNano
-{
-  public int      a                 = 0;                                // a
-  public int      mCodecType        = 1;                                // b
-  public int      mAudioStreamType  = 1;                                // c
-  public f[]      mAudioStreams     = f.a();                            // f[]:d    a:samplingRate    b:numBits     c:channels
-  public cz[]     mCodecs           = cz.a();                           // cz[]:e   b:codecResolution 1=800x480 2=1280x720 3=1920x1080
-                                                                                //  c:0/1 for 30/60 fps   d:widthMargin e:heightMargin f:density/fps g: ?
-  private boolean f                 = false;                            // f
-
-*/
-// D/CAR.GAL ( 3804): Service id=1 type=MediaSinkService { codec type=1 { codecResolution=1 widthMargin=0 heightMargin=0 density=30}}
-
-            // CH 1 Sensors:                      //cq/co[]
-//*
-                        0x0A, 4 + 4*2,//co: int, cm/cn[]
-                                      0x08, AA_CH_SEN,
-                                      0x12, 4*2,
-                                                          0x0A, 2,
-                                                                    0x08, 11, // SENSOR_TYPE_DRIVING_STATUS 12
-                                                          0x0A, 2,
-                                                                    0x08, 10, // SENSOR_TYPE_NIGHT_DATA 10
-//*/
-/*  Requested Sensors: 10, 9, 2, 7, 6:
-                        0x0A, 4 + 4*6,     //co: int, cm/cn[]
-                                      0x08, AA_CH_SEN,  0x12, 4*6,
-                                                          0x0A, 2,
-                                                                    0x08, 11, // SENSOR_TYPE_DRIVING_STATUS 12
-                                                          0x0A, 2,
-                                                                    0x08,  3, // SENSOR_TYPE_RPM            2
-                                                          0x0A, 2,
-                                                                    0x08,  8, // SENSOR_TYPE_DIAGNOSTICS    7
-                                                          0x0A, 2,
-                                                                    0x08,  7, // SENSOR_TYPE_GEAR           6
-                                                          0x0A, 2,
-                                                                    0x08,  1, // SENSOR_TYPE_COMPASS       10
-                                                          0x0A, 2,
-                                                                    0x08, 10, // SENSOR_TYPE_LOCATION       9
-//*/
-//*
-            // CH 2 Video Sink:
-                        0x0A, 4+4+11, 0x08, AA_CH_VID,
-//800f
-                                      0x1A, 4+11, // Sink: Video
-                                                  0x08, 3,    // int (codec type) 3 = Video
-                                                  //0x10, 1,    // int (audio stream type)
-//                                                  0x1a, 8,    // f        //I44100 = 0xAC44 = 10    10 1  100 0   100 0100  :  -60, -40, 2
-                                                                            // 48000 = 0xBB80 = 10    111 0111   000 0000     :  -128, -9, 2
-                                                                            // 16000 = 0x3E80 = 11 1110 1   000 0000          :  -128, -3
-
-                                                  0x22, 11,   // cz                                                               // Res        FPS, WidMar, HeiMar, DPI
-                                                              // DPIs:    (FPS doesn't matter ?)
-                                                              0x08, 1, 0x10, 1, 0x18, 0, 0x20, 0, 0x28,  -96, 1,   //0x30, 0,     //  800x 480, 30 fps, 0, 0, 160 dpi    0xa0 // Default 160 like 4100NEX
-                                                            //0x08, 1, 0x10, 1, 0x18, 0, 0x20, 0, 0x28, -128, 1,   //0x30, 0,     //  800x 480, 30 fps, 0, 0, 128 dpi    0x80 // 160-> 128 Small, phone/music close to outside
-                                                            //0x08, 1, 0x10, 1, 0x18, 0, 0x20, 0, 0x28,  -16, 1,   //0x30, 0,     //  800x 480, 30 fps, 0, 0, 240 dpi    0xf0 // 160-> 240 Big, phone/music close to center
-
-                                                            // 60 FPS makes little difference:
-                                                            //0x08, 1, 0x10, 2, 0x18, 0, 0x20, 0, 0x28,  -96, 1,   //0x30, 0,     //  800x 480, 60 fps, 0, 0, 160 dpi    0xa0
-
-                                                            // Higher resolutions don't seem to work as of June 10, 2015 release of AA:
-                                                            //0x08, 2, 0x10, 1, 0x18, 0, 0x20, 0, 0x28,  -96, 1,   //0x30, 0,     // 1280x 720, 30 fps, 0, 0, 160 dpi    0xa0
-                                                            //0x08, 3, 0x10, 1, 0x18, 0, 0x20, 0, 0x28,  -96, 1,   //0x30, 0,     // 1920x1080, 30 fps, 0, 0, 160 dpi    0xa0
-//*/
-//* Crashes on null Point reference without:
-            // CH 3 TouchScreen/Input:
-//                        0x0A, 0x12,
-//                                        0x08, AA_CH_TOU,
-//										0x22,0x0E,
-//											0x0A,0x0C,0x01,0x02,0x04,0x13,0x14,0x15,0x16,0x17,0x54,-128,-128,0x04,
-                        0x0A, 4+2+6,
-                                        0x08, AA_CH_TOU,
-                                        0x22, 2+6,
-                                                  0x12,  6,
-                                                              0x08, -96,   6,    0x10, -32, 3,
-//*/
-//*
-            // CH 7 Microphone Audio Source:
-                        0x0A, 4+4+7,   0x08, AA_CH_MIC,
-                                       0x2A, 4+7,   // Source: Microphone Audio
-                                                  0x08, 1,    // int (codec type) 1 = Audio
-                                                  0x12, 7,    // AudCfg   16000hz         16bits        1chan
-                                                              //0x08, 0x80, 0x7d,         0x10, 0x10,   0x18, 1,
-                                                                0x08, -128, 0x7d,         0x10, 0x10,   0x18, 1,
-//*/
-/*
-                        0x0A, 4+4+7+1, 0x08, AA_CH_MIC,
-                                       0x2A, 4+7+1, // Source: Microphone Audio
-                                                  0x08, 1,    // int (codec type) 1 = Audio
-                                                  0x12, 8,    // AudCfg   48000hz         16bits        2chan
-                                                                //0x08, 0x80, 0xF7, 0x02,   0x10, 0x10,   0x18, 02,
-                                                                0x08, -128,   -9, 0x02,   0x10, 0x10,   0x18, 02,
-//*/
-/*
-                // MediaPlaybackService:
-                        0x0A, 4,     0x08, 6,
-                                     0x4a, 0,
-//*/
-//*
-                        0x12, 13, 'M', 'a', 'z', 'd', 'a', ' ', 'C', 'o', 'n', 'n', 'e', 'c', 't', //1, 'A', // Car Manuf          Part of "remembered car"
-                        0x1A, 6, 'M', 'a', 'z', 'd', 'a', '6', //1, 'B', // Car Model
-                        0x22, 4, '2', '0', '1', '6',//1, 'C', // Car Year           Part of "remembered car"
-                        0x2A, 4, '0', '0', '0', '1',//1, 'D', // Car Serial     Not Part of "remembered car" ??     (vehicleId=null)
-                        0x30, 1,//0,      // driverPosition
-                        0x3A, 5, 'M', 'a', 'z', 'd', 'a', //1, 'E', // HU  Make / Manuf
-                        0x42, 7, 'C', 'o', 'n', 'n', 'e', 'c', 't', //1, 'F', // HU  Model
-                        0x4A, 4, 'S', 'W', 'B', '1',//1, 'G', // HU  SoftwareBuild
-                        0x52, 4, 'S', 'W', 'V', '1',//1, 'H', // HU  SoftwareVersion
-                        0x58, 0,//1,//1,//0,//1,       // ? bool (or int )    canPlayNativeMediaDuringVr
-                        0x60, 0,//1,//0,//0,//1        // mHideProjectedClock     1 = True = Hide
-                        //0x68, 1,
-//*/
-
-// 04-22 03:43:38.049 D/CAR.SERVICE( 4306): onCarInfo com.google.android.gms.car.CarInfoInternal[dbId=0,manufacturer=A,model=B,headUnitProtocolVersion=1.1,modelYear=C,vehicleId=null,
-// bluetoothAllowed=false,hideProjectedClock=false,driverPosition=0,headUnitMake=E,headUnitModel=F,headUnitSoftwareBuild=G,headUnitSoftwareVersion=H,canPlayNativeMediaDuringVr=false]
-
-
-//*
-            // CH 4 Output Audio Sink:
-                        0x0A, 4+6+8, 0x08, AA_CH_AUD,
-                                     0x1A, 6+8, // Sink: Output Audio
-                                                  0x08, 1,    // int (codec type) 1 = Audio
-                                                  0x10, 3,    // Audio Stream Type = 3 = MEDIA
-                                                  0x1A, 8,    // AudCfg   48000hz         16bits        2chan
-                                                              //0x08, 0x80, 0xF7, 0x02,   0x10, 0x10,   0x18, 02,
-                                                                0x08, -128,   -9, 0x02,   0x10, 0x10,   0x18, 02,
-//*/
-//*
-            // CH 5 Output Audio Sink1:
-                        0x0A, 4+6+7, 0x08, AA_CH_AU1,
-                                     0x1A, 6+7, // Sink: Output Audio
-                                                  0x08, 1,    // int (codec type) 1 = Audio
-                                                  0x10, 1,    // Audio Stream Type = 1 = TTS
-                                                  0x1A, 7,    // AudCfg   16000hz         16bits        1chan
-                                                              //0x08, 0x80, 0x7d,         0x10, 0x10,   0x18, 1,
-                                                                0x08, -128, 0x7d,         0x10, 0x10,   0x18, 1,
-//*/
-////*
-            // CH 6 Output Audio Sink2:
-                        0x0A, 4+6+7, 0x08, AA_CH_AU2,
-                                     0x1A, 6+7, // Sink: Output Audio
-                                                  0x08, 1,    // int (codec type) 1 = Audio
-                                                  0x10, 2,    // Audio Stream Type = 2 = SYSTEM
-                                                  0x1A, 7,    // AudCfg   16000hz         16bits        1chan
-                                                              //0x08, 0x80, 0x7d,         0x10, 0x10,   0x18, 1,
-                                                                0x08, -128, 0x7d,         0x10, 0x10,   0x18, 1,
-//*/
-
-    };
-
-#define sd_buf_aud_len  2+4+6+8+2+4+6+7+2+4+6+7   // 58
-
-  int aa_pro_ctr_a00 (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a01 (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a02 (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a03 (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a04 (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-
 //  extern int wifi_direct;// = 0;//1;//0;
-  int aa_pro_ctr_a05 (int chan, byte * buf, int len) {                  // Service Discovery Request
-    if (len < 4 || buf [2] != 0x0a)
+  int hu_handle_ServiceDiscoveryRequest (int chan, byte * buf, int len) {                  // Service Discovery Request
+
+    HU::ServiceDiscoveryRequest request;
+    if (!request.ParseFromArray(buf, len))
       loge ("Service Discovery Request: %x", buf [2]);
     else
-      logd ("Service Discovery Request");                               // S 0 CTR b src: HU  lft:   113  msg_type:     6 Service Discovery Response    S 0 CTR b 00000000 0a 08 08 01 12 04 0a 02 08 0b 0a 13 08 02 1a 0f
+      logd ("Service Discovery Request: %s", request.phone_name().c_str());                               // S 0 CTR b src: HU  lft:   113  msg_type:     6 Service Discovery Response    S 0 CTR b 00000000 0a 08 08 01 12 04 0a 02 08 0b 0a 13 08 02 1a 0f
 
-    HU::CarInfo carInfo;
+    HU::ServiceDiscoveryResponse carInfo;
     carInfo.set_head_unit_name("Mazda Connect");
     carInfo.set_car_model("Mazda");
     carInfo.set_car_year("2016");
@@ -514,389 +333,213 @@ public final class MsgMediaSinkService extends k                        // bd/Ms
       audioConfig->set_bit_depth(16);
       audioConfig->set_channel_count(1);
     }
-
-    std::ofstream old("old.bin", std::ostream::binary);
-    old.write((const char*)sd_buf, sizeof (sd_buf));
-
-    std::ofstream newbin("new.bin", std::ostream::binary);
-    carInfo.SerializeToOstream(&newbin);
-
-
-//     int sd_buf_len = sizeof (sd_buf);
-// //    if (wifi_direct && (file_get ("/data/data/ca.yyx.hu/files/nfc_wifi") || file_get ("/sdcard/hu_disable_audio_out")))    // If self or disable file exists...
-//     if (file_get ("/tmp/mnt/sdnav/hu_disable_audio_out"))    			// If self or disable file exists...
-//       sd_buf_len -= sd_buf_aud_len;                                     // Remove audio outputs from service discovery response buf
-
-//     return (hu_aap_enc_send (0,chan, sd_buf, sd_buf_len));                // Send Service Discovery Response from sd_buf
-    return hu_aap_enc_send_message(0, chan, 0, 6, carInfo);
+    return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::ServiceDiscoveryResponse, carInfo);
   }
-  int aa_pro_ctr_a06 (int chan, byte * buf, int len) {                  // Service Discovery Response
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  /*int aa_pro_ctr_a07 (int chan, byte * buf, int len) {                // Channel Open Request (never for control channel)
-    loge ("!!!!!!!!");
-    return (-1);
-  }*/
-  int aa_pro_ctr_a08 (int chan, byte * buf, int len) {                  // Channel Open Response (never from AA)
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a09 (int chan, byte * buf, int len) {                  // ?
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a0a (int chan, byte * buf, int len) {                  // ?
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a0b (int chan, byte * buf, int len) {                  // Ping Request
-    if (len != 4 || buf [2] != 0x08)
+
+  
+  int hu_handle_PingRequest (int chan, byte * buf, int len) {                  // Ping Request
+    HU::PingRequest request;
+    if (!request.ParseFromArray(buf, len))
       loge ("Ping Request");
     else
       logd ("Ping Request: %d", buf[3]);
-    buf [0] = 0;                                                        // Use request buffer for response
-    buf [1] = 12;                                                       // Channel Open Response
-    int ret = hu_aap_enc_send (0,chan, buf, len);                         // Send Channel Open Response
-    return (ret);
+
+    HU::PingResponse response;
+    response.set_timestamp(request.timestamp());
+    return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::PingResponse, response);
   }
-  int aa_pro_ctr_a0c (int chan, byte * buf, int len) {                  // Ping Response (never unless we send Ping Request)
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a0d (int chan, byte * buf, int len) {                  // Navigation Focus Request
-    if (len != 4 || buf [2] != 0x08)
+
+  int hu_handle_NavigationFocusRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
+    HU::NavigationFocusRequest request;
+    if (!request.ParseFromArray(buf, len))
       loge ("Navigation Focus Request");
     else
-      logd ("Navigation Focus Request: %d", buf [3]);
-    buf [0] = 0;                                                        // Use request buffer for response
-    buf [1] = 14;                                                       // Navigation Focus Notification
-    buf [2] = 0x08;
-    buf [3] = 2;                                                        // Gained / Gained Transient ?
-    int ret = hu_aap_enc_send (0,chan, buf, 4);//len);                         // Send Navigation Focus Notification
-    return (0);
+      logd ("Navigation Focus Request: %d", request.focus_type());
+
+    HU::NavigationFocusResponse response;
+    response.set_focus_type(2); // Gained / Gained Transient ?
+    return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::NavigationFocusResponse, response);
   }
-  int aa_pro_ctr_a0e (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a0f (int chan, byte * buf, int len) {                  // Byebye Request
-    if (len != 4 || buf [2] != 0x08)
+
+  int hu_handle_ShutdownRequest (int chan, byte * buf, int len) {                  // Byebye Request
+
+    HU::ShutdownRequest request;
+    if (!request.ParseFromArray(buf, len))
       loge ("Byebye Request");
-    else if (buf [3] == 1)
+    else if (request.reason() == 1)
       logd ("Byebye Request reason: 1 AA Exit Car Mode");
-    else if (buf [3] == 2)
-      loge ("Byebye Request reason: 2 ?");
     else
-      loge ("Byebye Request reason: %d", buf [3]);
-    //byte bye_rsp [] = {0, 16, 8, 0};                                  // Byebye rsp: Status 0 = OK
-    //int ret = hu_aap_enc_send (0,chan, bye_rsp, sizeof (bye_rsp));      // Send Byebye Response
-    buf [0] = 0;                                                        // Use request buffer for response
-    buf [1] = 16;                                                       // Byebye Response
-    buf [2] = 0x08;
-    buf [3] = 0;                                                        // Status 0 = OK
-    int ret = hu_aap_enc_send (0,chan, buf, 4);                           // Send Byebye Response
+      loge ("Byebye Request reason: %d", request.reason());
+
+    HU::ShutdownResponse response;
+    hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::ShutdownResponse, response);
+
     ms_sleep (100);                                                     // Wait a bit for response
-    //terminate = 1;
 
     hu_aap_stop ();
 
     return (-1);
   }
-  int aa_pro_ctr_a10 (int chan, byte * buf, int len) {                  // Byebye Response
-/*    if (len != 4 || buf [2] != 0x08)
-      loge ("Byebye Response");
-    else if (buf [3] == 1)
-      loge ("Byebye Response: 1 ?");
-    else if (buf [3] == 2)
-      loge ("Byebye Response: 2 ?");
-    else
-      loge ("Byebye Response: %d", buf [3]);*/
-    if (len != 2)
-      loge ("Byebye Response");
-    else
-      logd ("Byebye Response");                                         // R 0 CTR b src: AA  lft:     0  msg_type:    16 Byebye Response
-    return (-1);
-  }
-
-  int aa_pro_ctr_a11 (int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
-    if (len != 4 || buf [2] != 0x08)
+  
+  int hu_handle_VoiceSessionRequest (int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
+    
+    HU::VoiceSessionRequest request;
+    if (!request.ParseFromArray(buf, len))
       loge ("Voice Session Notification");
-    else if (buf [3] == 1)
+    else if (request.voice_status() == HU::VoiceSessionRequest::VOICE_STATUS_START)
       logd ("Voice Session Notification: 1 START");
-    else if (buf [3] == 2)
+    else if (request.voice_status() == HU::VoiceSessionRequest::VOICE_STATUS_STOP)
       logd ("Voice Session Notification: 2 STOP");
     else
-      loge ("Voice Session Notification: %d", buf [3]);
+      loge ("Voice Session Notification: %d", request.voice_status());
     return (0);
-  }
-  int aa_pro_ctr_a12 (int chan, byte * buf, int len) {                  // Audio Focus Request
-    if (len != 4 || buf [2] != 0x08)
-      loge ("Audio Focus Request");
-    else if (buf [3] == 1)
-      logd ("Audio Focus Request: 1 AUDIO_FOCUS_GAIN ?");
-    else if (buf [3] == 2)
-      logd ("Audio Focus Request: 2 AUDIO_FOCUS_GAIN_TRANSIENT");
-    else if (buf [3] == 3)
-      logd ("Audio Focus Request: 3 gain/release ?");
-    else if (buf [3] == 4)
-      logd ("Audio Focus Request: 4 AUDIO_FOCUS_RELEASE");
-    else
-      loge ("Audio Focus Request: %d", buf [3]);
-    buf [0] = 0;                                                        // Use request buffer for response
-    buf [1] = 19;                                                       // Audio Focus Response
-    buf [2] = 0x08;
-      // buf[3]: See senderprotocol/q.java:
-    // 1: AUDIO_FOCUS_STATE_GAIN
-    // 2: AUDIO_FOCUS_STATE_GAIN_TRANSIENT
-    // 3: AUDIO_FOCUS_STATE_LOSS
-    // 4: AUDIO_FOCUS_STATE_LOSS_TRANSIENT_CAN_DUCK
-    // 5: AUDIO_FOCUS_STATE_LOSS_TRANSIENT
-    // 6: AUDIO_FOCUS_STATE_GAIN_MEDIA_ONLY
-    // 7: AUDIO_FOCUS_STATE_GAIN_TRANSIENT_GUIDANCE_ONLY
-    if (buf [3] == 4)                                                   // If AUDIO_FOCUS_RELEASE...
-      buf [3] = 3;                                                      // Send AUDIO_FOCUS_STATE_LOSS
-    else if (buf [3] == 2)                                              // If AUDIO_FOCUS_GAIN_TRANSIENT...
-      buf [3] = 1;//2;                                                      // Send AUDIO_FOCUS_STATE_GAIN_TRANSIENT
-    else
-      buf [3] = 1;                                                      // Send AUDIO_FOCUS_STATE_GAIN
-    //buf [4] = 0x10;
-    //buf [5] = 0;                                                      // unsolicited:   0 = false   1 = true
-    int ret = hu_aap_enc_send (0,chan, buf, 4);//6);                      // Send Audio Focus Response
-    return (0);
-  }
-  int aa_pro_ctr_a13 (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a14 (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a15 (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a16 (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a17 (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a18 (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a19 (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a1a (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a1b (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a1c (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a1d (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a1e (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
-  }
-  int aa_pro_ctr_a1f (int chan, byte * buf, int len) {
-    loge ("!!!!!!!!");
-    return (-1);
   }
 
-  int aa_pro_all_a07 (int chan, byte * buf, int len) {                  // Channel Open Request
-    if (len != 6 || buf [2] != 0x08 || buf [4] != 0x10)
+
+  int hu_handle_AudioFocusRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
+    HU::AudioFocusRequest request;
+    if (!request.ParseFromArray(buf, len))
+      loge ("AudioFocusRequest Focus Request");
+    else
+      logd ("AudioFocusRequest Focus Request: %d", request.focus_type());
+
+    HU::AudioFocusResponse response;
+    if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_RELEASE)
+      response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_LOSS); 
+    else if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_GAIN_TRANSIENT)
+      response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_GAIN); 
+    else 
+      response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_GAIN); 
+
+    return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::AudioFocusResponse, response);
+  }
+
+  int hu_handle_ChannelOpenRequest(int chan, byte * buf, int len) {                  // Channel Open Request
+
+    HU::ChannelOpenRequest request;
+    if (!request.ParseFromArray(buf, len))
       loge ("Channel Open Request");
     else
-      logd ("Channel Open Request: %d  chan: %d", buf [3], buf [5]);    // R 1 SEN f 00000000 08 00 10 01   R 2 VID f 00000000 08 00 10 02   R 3 TOU f 00000000 08 00 10 03   R 4 AUD f 00000000 08 00 10 04   R 5 MIC f 00000000 08 00 10 05
-    byte rsp [] = {0, 8, 8, 0};                                         // Status 0 = OK
-    int ret = hu_aap_enc_send (0,chan, rsp, sizeof (rsp));                // Send Channel Open Response
+      logd ("Channel Open Request: %d  priority: %d", request.id(), request.priority());
 
-    if (ret == 0 && chan == AA_CH_MIC) {
-      //byte rspm [] = {0, 17, 0x08, 1, 0x10, 1};                         // 1, 1     Voice Session not focusState=1=AUDIO_FOCUS_STATE_GAIN unsolicited=true    050b0000001108011001
-      //ret = hu_aap_enc_send (0,chan, rspm, sizeof (rspm));                // Send AudioFocus Notification
-      //ms_sleep (200);
-      //logd ("Channel Open Request AFTER ms_sleep (500)");
-    }
+    HU::ChannelOpenResponse response;
+    response.set_status(HU::STATUS_OK);
 
+    int ret = hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::ChannelOpenResponse, response);
     if (ret)                                                            // If error, done with error
       return (ret);
 
     if (chan == AA_CH_SEN) {                                            // If Sensor channel...
       ms_sleep (2);//20);
-      byte rspds [] = {0x80, 0x03, 0x6a, 2, 8, 0};                      // Driving Status = 0 = Parked (1 = Moving)
-      return (hu_aap_enc_send (0,chan, rspds, sizeof (rspds)));           // Send Sensor Notification
 
- //     ms_sleep (2);
- //     byte rspds1 [] = {0x80, 0x03, 0x52, 0x02, 0x08, 0x00};    // Day = 0, Night = 1 
- //     return (hu_aap_enc_send (0,chan, rspds1, sizeof (rspds1))); // Send Sensor Night mode
+      HU::SensorEvent sensorEvent;
+      sensorEvent.add_driving_status()->set_is_driving(0);
+      return hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
     }
     return (ret);
   }
 
-//aa_start 01
-  int aa_pro_snk_b00 (int chan, byte * buf, int len) {                  // Media Sink Setup Request
-    if (len != 4 || buf [2] != 0x08)
-      loge ("Media Sink Setup Request");
+  int hu_handle_MediaSetupRequest(int chan, byte * buf, int len) {  
+
+    HU::MediaSetupRequest request;
+    if (!request.ParseFromArray(buf, len))
+      loge ("MediaSetupRequest");
     else
-      logd ("Media Sink Setup Request: %d", buf [3]);                   // R 2 VID b 00000000 08 03       R 4 AUD b 00000000 08 01
+      logd ("MediaSetupRequest: %d", request.type());
 
-    #define MAX_UNACK 1 //8 //3 //8 //1
-    byte rsp [] = {0x80, 0x03, 0x08, 2, 0x10, MAX_UNACK, 0x18, 0};//0x1a, 4, 0x08, 1, 0x10, 2};      // 1/2, MaxUnack, int[] 1        2, 0x08, 1};//
+    HU::MediaSetupResponse response;
+    response.set_media_status(HU::MediaSetupResponse::MEDIA_STATUS_2);
+    response.set_max_unacked(1);
 
-    int ret = hu_aap_enc_send (0,chan, rsp, sizeof (rsp));               // Respond with Config Response
-    if (ret)
+    int ret = hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::MediaSetupResponse, response);
+    if (ret)                                                            // If error, done with error
       return (ret);
 
-    if (chan == AA_CH_AUD || chan == AA_CH_AU1 || chan == AA_CH_AU2) {
-      return (ret); // Rely on solicited focus request
-      //ms_sleep (20);                                                      // Else if success and channel = audio...
-      //byte rspa [] = {0, 19, 0x08, 1, 0x10, 1};                      // 1, 1     AudioFocus gained focusState=1=AUDIO_FOCUS_STATE_GAIN unsolicited=true
-      //return (hu_aap_enc_send (0,chan, rspa, sizeof (rspa)));              // Respond with AudioFocus gained
-    }
-//*
     if (chan == AA_CH_VID) {
-//      ms_sleep (200);//(2);//200);//20);                                                      // Else if success and channel = video...
-      byte rsp2 [] = {0x80, 0x08, 0x08, 1, 0x10, 1};                      // 1, 1     VideoFocus gained focusState=1 unsolicited=true     010b0000800808011001
-      return (hu_aap_enc_send (0,chan, rsp2, sizeof (rsp2)));              // Respond with VideoFocus gained
+      HU::VideoFocus videoFocusGained;
+      videoFocusGained.set_mode(1);
+      videoFocusGained.set_unrequested(true);
+      return hu_aap_enc_send_message(0, AA_CH_VID, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
     }
-//*/
     return (ret);
   }
 
-  byte ack_val_aud = 0;
-  byte ack_val_au1 = 0;
-  byte ack_val_au2 = 0;
-  int out_state_aud = -1;
-  int out_state_au1 = -1;
-  int out_state_au2 = -1;
-  int aa_pro_aud_b01 (int chan, byte * buf, int len) {                  // Audio Sink Start Request...     First/Second R 4 AUD b 00000000 08 00/01 10 00
-    if (len != 6 || buf [2] != 0x08 || buf [4] != 0x10)
-      loge ("Audio Sink Start Request");
+
+  int hu_handle_VideoFocusRequest(int chan, byte * buf, int len) {  
+
+    HU::VideoFocusRequest request;
+    if (!request.ParseFromArray(buf, len))
+      loge ("VideoFocusRequest");
     else
-      logd ("Audio Sink Start Request: %d %d", buf [3], buf[5]);
-    if (chan == AA_CH_AUD)
-      ack_val_aud = buf [3];                                            // Save value for audio acks
-    else if (chan == AA_CH_AU1)
-      ack_val_au1 = buf [3];                                            // Save value for audio1 acks
-    else if (chan == AA_CH_AU2)
-      ack_val_au2 = buf [3];                                            // Save value for audio2 acks
+      logd ("VideoFocusRequest: %d", request.disp_index());
+
+    HU::VideoFocus videoFocusGained;
+    videoFocusGained.set_mode(1);
+    videoFocusGained.set_unrequested(false);
+    return hu_aap_enc_send_message(0, AA_CH_VID, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
+  }
+
+  int32_t channel_session_id[AA_CH_MAX+1] = {0,0,0,0,0,0,0};
+  int out_state_channel[AA_CH_MAX+1] = {-1,-1,-1,-1,-1,-1,-1};
+
+
+  int hu_handle_MediaStartRequest(int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
+    
+    HU::MediaStartRequest request;
+    if (!request.ParseFromArray(buf, len))
+      loge ("MediaStartRequest");
+    else
+      logd ("MediaStartRequest: %d", request.session());
+
+    channel_session_id[chan] = request.session();
     return (0);
   }
+
   int hu_aap_out_get (int chan) {
-    int state = 0;
-    if (chan == AA_CH_AUD) {
-      state = out_state_aud;                                            // Get current audio output state change
-      out_state_aud = -1;                                               // Reset audio output state change indication
-    }
-    else if (chan == AA_CH_AU1) {
-      state = out_state_au1;                                            // Get current audio output state change
-      out_state_au1 = -1;                                               // Reset audio output state change indication
-    }
-    else if (chan == AA_CH_AU2) {
-      state = out_state_au2;                                            // Get current audio output state change
-      out_state_au2 = -1;                                               // Reset audio output state change indication
-    }
+    int state = out_state_channel[chan]; // Get current audio output state change
+    out_state_channel[chan] = -1; // Reset audio output state change indication
+
     return (state);                                                     // Return what the new state was before reset
   }
 
-  int aa_pro_aud_b02 (int chan, byte * buf, int len) {                  // 08-22 20:03:09.075 D/ .... hex_dump(30767): S 4 AUD b 00000000 08 00 10 01   Only at stop ??
-    if (len != 2)//4 || buf [2] != 0x08)
-      loge ("Audio Sink Stop Request");
+  int hu_handle_MediaStopRequest(int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
+    
+    HU::MediaStopRequest request;
+    if (!request.ParseFromArray(buf, len))
+      loge ("MediaStopRequest");
     else
-      logd ("Audio Sink Stop Request");//: %d", buf [3]);
-    if (chan == AA_CH_AUD)
-      out_state_aud = 1;                                                      // Signal Audio stop
-    else if (chan == AA_CH_AU1)
-      out_state_au1 = 1;                                                      // Signal Audio1 stop
-    else if (chan == AA_CH_AU2)
-      out_state_au2 = 1;                                                      // Signal Audio2 stop
-    //hex_dump ("AOSSR: ", 16, buf, len);
+      logd ("MediaStopRequest");
+
+    out_state_channel[chan] = 1;
     return (0);
   }
 
 
-//aa_start 03
-  int aa_pro_vid_b01 (int chan, byte * buf, int len) {                  // Media Video Start Request...
-    if (len != 6 || buf [2] != 0x08 || buf [4] != 0x10)
-      loge ("Media Video Start Request");
+  int hu_handle_SensorStartRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
+    HU::SensorStartRequest request;
+    if (!request.ParseFromArray(buf, len))
+      loge ("SensorStartRequest Focus Request");
     else
-      logd ("Media Video Start Request: %d %d", buf [3], buf [5]);
-    int ret = 0;
+      logd ("SensorStartRequest Focus Request: %d", request.type());
 
-//    byte rsp2 [] = {0x80, 0x08, 0x08, 1, 0x10, 1};                      // 1, 1     VideoFocus gained focusState=1 unsolicited=true
-//    ret = hu_aap_enc_send (0,chan, rsp2, sizeof (rsp2));                  // Send VideoFocus Notification
-//    ms_sleep (300);
-/*
-    //#define MAX_UNACK 8     //1;
-    byte rsp [] = {0x80, 0x03, 0x08, 2, 0x10, 1, 0x18, 0};//0x1a, 4, 0x08, 1, 0x10, 2};      // 1/2, MaxUnack, int[] 1        2, 0x08, 1};//
-    ret = hu_aap_enc_send (0,chan, rsp, sizeof (rsp));                    // Respond with Config Response
-    //if (ret)
-*/
-      return (ret);
+    HU::SensorStartResponse response;
+    response.set_status(HU::STATUS_OK);
+
+    return hu_aap_enc_send_message(0, chan, HU_SENSOR_CHANNEL_MESSAGE::SensorStartResponse, response);
   }
-  int aa_pro_vid_b07 (int chan, byte * buf, int len) {                  // Media Video ? Request...
-    if (len != 4 || buf [2] != 0x10)
-      loge ("Media Video ? Request");
-    else {
-		logd ("Media Video ? Request: %d", buf [3]);
-		buf [0] = 0;                                                        // Use request buffer for response
-		buf [1] = 16;                                                       // Byebye Response
-		buf [2] = 0x08;
-		buf [3] = 0;                                                        // Status 0 = OK
-		int ret = hu_aap_enc_send (0,AA_CH_CTR, buf, 4);                      // Send Byebye Response
-		ms_sleep (100);                                                     // Wait a bit for response
-		//terminate = 1;
-
-		hu_aap_stop ();
-
-		return (-1);
-	}
-    int ret = 0;
-    return (ret);
-  }
-
-  int aa_pro_sen_b01 (int chan, byte * buf, int len) {                  // Sensor Start Request...
-    if (len != 6 || buf [2] != 0x08 || buf [4] != 0x10)
-      loge ("Sensor Start Request");
+  
+  
+  int hu_handle_BindingRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
+    HU::BindingRequest request;
+    if (!request.ParseFromArray(buf, len))
+      loge ("BindingRequest Focus Request");
     else
-      logd ("Sensor Start Request sensor: %d   period: %d", buf [3], buf [5]);  // R 1 SEN b 00000000 08 01 10 00     Sen: 1, 10, 3, 8, 7
-                                                                                // Yes: SENSOR_TYPE_COMPASS/LOCATION/RPM/DIAGNOSTICS/GEAR      No: SENSOR_TYPE_DRIVING_STATUS
-    byte rsp [] = {0x80, 0x02, 0x08, 0};
-    int ret = hu_aap_enc_send (0,chan, rsp, sizeof (rsp));                  // Send Sensor Start Response
-//    if (ret)                                                            // If error, done with error
-      return (ret);
+      logd ("BindingRequest Focus Request: %d", request.scan_codes_size());
 
-    //ms_sleep (20);                                                      // Else if success...
-    //byte rspds [] = {0x80, 0x03, 0x6a, 2, 8, 0};                      // Driving Status = 0 = Parked (1 = Moving)
-    //return (hu_aap_enc_send (0,chan, rspds, sizeof (rspds)));           // Send Sensor Notification
-  }
+    HU::BindingResponse response;
+    response.set_status(HU::STATUS_OK);
 
-//aa_start 02
-  int aa_pro_tou_b02 (int chan, byte * buf, int len) {                  // TouchScreen/Input Start Request...    Or "send setup, ch:X" for channel X
-    if (len < 2 || len > 256)
-      loge ("Touch/Input/Audio Start/Stop Request");
-    else
-      logd ("Touch/Input/Audio Start/Stop Request");                    // R 3 TOU b src: AA  lft:     0  msg_type: 32770 Touch/Input/Audio Start/Stop Request
-                                                                        // R 3 TOU b src: AA  lft:    18  msg_type: 32770 Touch/Input/Audio Start/Stop Request
-                                                                        // R 3 TOU b 00000000 0a 10 03 54 55 56 57 58 7e 7f d1 01 81 80 04 84     R 3 TOU b     0010 80 04 (Echo Key Array discovered)
-    byte rsp [] = {0x80, 0x03, 0x08, 0};
-    int ret = hu_aap_enc_send (0,chan, rsp, sizeof (rsp));                // Respond with Key Binding/Audio Response = OK
-    return (ret);
+    return hu_aap_enc_send_message(0, chan, HU_INPUT_CHANNEL_MESSAGE::BindingResponse, response);
   }
 
   int mic_change_status = 0;
@@ -907,105 +550,37 @@ public final class MsgMediaSinkService extends k                        // bd/Ms
     }
     return (ret_status);                                                // Return original mic change status
   }
-  int aa_pro_mic_b01 (int chan, byte * buf, int len) {                  // Media Mic Start Request...
-    if (len != 4 || buf [2] != 0x08)
-      loge ("Media Mic Start Request ????");
+
+  int hu_handle_MediaAck (int chan, byte * buf, int len) {
+
+    HU::MediaAck request;
+    if (!request.ParseFromArray(buf, len))
+      loge ("MediaAck");
     else
-      loge ("Media Mic Start Request ????: %d", buf [3]);
+      logd ("MediaAck");
     return (0);
   }
-  int aa_pro_mic_b04 (int chan, byte * buf, int len) {
-    hex_dump ("MIC ACK: ", 16, buf, len);
-    return (0);
-  }
-  int aa_pro_mic_b05 (int chan, byte * buf, int len) {
-    if (len == 4 && buf [2] == 0x08 && buf [3] == 0) {
+
+  int hu_handle_MicRequest (int chan, byte * buf, int len) {
+
+    HU::MicRequest request;
+    if (!request.ParseFromArray(buf, len))
+      loge ("MicRequest");
+    else
+      logd ("MicRequest");
+
+    if (!request.open()) {
       logd ("Mic Start/Stop Request: 0 STOP");
       mic_change_status = 1;                                            // Stop Mic
     }
-    else if (len != 10 || buf [2] != 0x08 || buf [3] != 1 || buf [4] != 0x10 || buf [6] != 0x18 || buf [8] != 0x20) {
-      loge ("Mic Start/Stop Request");
-    }
     else {
-      logd ("Mic Start/Stop Request: 1 START %d %d %d", buf [5], buf [7], buf [9]);
+      logd ("Mic Start/Stop Request: 1 START");
       mic_change_status = 2;                                            // Start Mic
     }
     return (0);
   }
 
 
-
-
-
-  typedef int (* aa_type_ptr_t) (int chan, byte * buf, int len);
-
-  aa_type_ptr_t aa_type_array [AA_CH_MAX + 1] [3] [32] = {              // 0 - 31, 32768-32799, 65504-65535
-                                                                        // Sync with hu_tra.java, hu_aap.h and hu_aap.c:aa_type_array[]
-// Channel 0 Ctr Control:
-    aa_pro_ctr_a00, aa_pro_ctr_a01, aa_pro_ctr_a02, aa_pro_ctr_a03, aa_pro_ctr_a04, aa_pro_ctr_a05, aa_pro_ctr_a06, aa_pro_all_a07, aa_pro_ctr_a08, aa_pro_ctr_a09, aa_pro_ctr_a0a, aa_pro_ctr_a0b, aa_pro_ctr_a0c, aa_pro_ctr_a0d, aa_pro_ctr_a0e, aa_pro_ctr_a0f,
-    aa_pro_ctr_a10, aa_pro_ctr_a11, aa_pro_ctr_a12, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,   //    a10, a11, a12, aa_pro_ctr_a13, aa_pro_ctr_a14, aa_pro_ctr_a15, aa_pro_ctr_a16, aa_pro_ctr_a17, aa_pro_ctr_a18, aa_pro_ctr_a19, aa_pro_ctr_a1a, aa_pro_ctr_a1b, aa_pro_ctr_a1c, aa_pro_ctr_a1d, aa_pro_ctr_a1e, aa_pro_ctr_a1f,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-
-// Channel 1 Sen Sensor:
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, aa_pro_all_a07, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, aa_pro_sen_b01, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-
-// Channel 2 Vid Video:
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, aa_pro_all_a07, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    aa_pro_snk_b00, aa_pro_vid_b01, NULL, NULL, NULL, NULL, NULL, aa_pro_vid_b07, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-
-// Channel 3 Tou TouchScreen:
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, aa_pro_all_a07, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, aa_pro_tou_b02, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-
-// Channel 4 Output Audio:
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, aa_pro_all_a07, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    aa_pro_snk_b00, aa_pro_aud_b01, aa_pro_aud_b02, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-
-// Channel 5 Output Audio1:
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, aa_pro_all_a07, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    aa_pro_snk_b00, aa_pro_aud_b01, aa_pro_aud_b02, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-
-// Channel 6 Output Audio2:
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, aa_pro_all_a07, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    aa_pro_snk_b00, aa_pro_aud_b01, aa_pro_aud_b02, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-
-// Channel 7 Mic Audio:
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, aa_pro_all_a07, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, aa_pro_mic_b01, NULL, NULL, aa_pro_mic_b04, aa_pro_mic_b05, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-    NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-
-  };
 
   void iaap_video_decode (byte * buf, int len) {
 
@@ -1018,23 +593,6 @@ public final class MsgMediaSinkService extends k                        // bd/Ms
     }
     else
       memcpy (q_buf, buf, len);                                         // Copy video to queue buffer
-
-    if (vid_rec_ena == 0)                                               // Return if video recording not enabled
-      return;
-
-#ifndef NDEBUG
-    char * vid_rec_file = "/home/m/dev/hu/aa.h264";
-  #ifdef __ANDROID_API__
-    vid_rec_file = "/sdcard/hu.h264";
-  #endif
-
-    if (vid_rec_fd < 0)
-      vid_rec_fd = open (vid_rec_file, O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
-    int written = -77;
-    if (vid_rec_fd >= 0)
-      written = write (vid_rec_fd, buf, len);
-    logd ("Video written: %d", written);
-#endif
   }
 
 /* 8,192 bytes per packet at stereo 48K 16 bit = 42.667 ms per packet                            Timestamp = uptime in microseconds:
@@ -1069,50 +627,7 @@ ms: 337, 314                                                                    
     }
     else {
       memcpy (q_buf, buf, len);                                         // Copy audio to queue buffer
-
-      if (0){//chan == AA_CH_AU1 || chan == AA_CH_AU2) {
-        len *= 6;                                                       // 48k stereo takes 6 times the space
-        if (len > aud_buf_BUFS_SIZE) {
-          loge ("Error * 6  audio len: %d  aud_buf_BUFS_SIZE: %d", len, aud_buf_BUFS_SIZE);
-          len = aud_buf_BUFS_SIZE;
-        }
-        int idx = 0;
-        int idxi = 0;
-        for (idx = 0; idx < len ; idx += 12) {                          // Convert 16K mono to 48k stereo equivalent; interpolation would be better
-          q_buf [idx + 0] = buf [idxi + 0];
-          q_buf [idx + 1] = buf [idxi + 1];
-          q_buf [idx + 2] = buf [idxi + 0];
-          q_buf [idx + 3] = buf [idxi + 1];
-          q_buf [idx + 4] = buf [idxi + 0];
-          q_buf [idx + 5] = buf [idxi + 1];
-          q_buf [idx + 6] = buf [idxi + 0];
-          q_buf [idx + 7] = buf [idxi + 1];
-          q_buf [idx + 8] = buf [idxi + 0];
-          q_buf [idx + 9] = buf [idxi + 1];
-          q_buf [idx +10] = buf [idxi + 0];
-          q_buf [idx +11] = buf [idxi + 1];
-          idxi += 2;
-        }
-      }
     }
-
-//*/
-    if (aud_rec_ena == 0)                                               // Return if audio recording not enabled
-      return;
-
-//#ifndef NDEBUG
-    const char * aud_rec_file = "/home/m/dev/hu/aa.pcm";
-  #ifdef __ANDROID_API__
-    aud_rec_file = "/sdcard/hu.pcm";
-  #endif
-
-    if (aud_rec_fd < 0)
-      aud_rec_fd = open (aud_rec_file, O_RDWR | O_CREAT, S_IRWXU | S_IRWXG | S_IRWXO);
-    int written = -77;
-    if (aud_rec_fd >= 0)
-      written = write (aud_rec_fd, buf, len);
-    logv ("Audio written: %d", written);
-//#endif
   }
 
 
@@ -1125,29 +640,12 @@ ms: 337, 314                                                                    
 
     //logd ("iaap_audio_process chan: %d  msg_type: %d  flags: 0x%x  buf: %p  len: %d", chan, msg_type, flags, buf, len); // iaap_audio_process msg_type: 0  flags: 0xb  buf: 0xe08cbfb8  len: 8202
 
-    if (chan == AA_CH_AU1)
-      aud_ack [3] = ack_val_au1;
-    else if (chan == AA_CH_AU2)
-      aud_ack [3] = ack_val_au2;
-    else
-      aud_ack [3] = ack_val_aud;
+    HU::MediaAck audioAck;
+    audioAck.set_session(channel_session_id[chan]);
+    audioAck.set_value(1);
 
-    int ret = hu_aap_enc_send (0,chan, aud_ack, sizeof (aud_ack));      // Respond with ACK (for all fragments ?)
-
-
-    //hex_dump ("AUDIO: ", 16, buf, len);
+    hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::MediaAck, audioAck);
     if (len >= 10) {
-      int ctr = 0;
-      unsigned long ts = 0, t2 = 0;
-      for (ctr = 2; ctr <= 9; ctr ++) {
-        ts = ts << 8;
-        t2 = t2 << 8;
-        ts += (unsigned long) buf [ctr];
-        t2 += buf [ctr];
-        if (ctr == 6)
-          logv ("iaap_audio_process ts: %d 0x%x  t2: %d 0x%x", ts, ts, t2, t2);
-      }
-      logv ("iaap_audio_process ts: %d 0x%x  t2: %d 0x%x", ts, ts, t2, t2);
 /*
 07-02 03:33:26.486 W/                        hex_dump( 1549): AUDIO:  00000000 00 00 00 00 00 79 3e 5c bd 60 45 ef 6c 1a 79 f6 
 07-02 03:33:26.486 W/                        hex_dump( 1549): AUDIO:      0010 a8 15 15 fe b3 14 8c fc e8 0c 34 f8 bf 02 ec 00 
@@ -1168,17 +666,12 @@ ms: 337, 314                                                                    
 //loge ("????????????????????? !!!!!!!!!!!!!!!!!!!!!!!!!   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   vid_ack_ctr: %d  len: %d", vid_ack_ctr ++, len);
 
 
-	int ret = hu_aap_enc_send (0,AA_CH_VID, vid_ack, sizeof (vid_ack));      // Respond with ACK (for all fragments ?)
-	
-	
-/*
-    int ret = 0;
-    //if (vid_ack_ctr ++ % 17 == 16)
-    if (vid_ack_ctr ++ % 2 == 1)
-      loge ("Drop ack to test !!!!!!!!!!!!!!!!!!!!!!!!!   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   vid_ack_ctr: %d  len: %d", vid_ack_ctr, len);
-    else
-      ret = hu_aap_enc_send (0,AA_CH_VID, vid_ack, sizeof (vid_ack));      // Respond with ACK (for all fragments ?)
-//*/
+    HU::MediaAck videoAck;
+    videoAck.set_session(channel_session_id[AA_CH_VID]);
+    videoAck.set_value(1);
+
+    hu_aap_enc_send_message(0, AA_CH_VID, HU_MEDIA_CHANNEL_MESSAGE::MediaAck, videoAck);
+
     if (0) {
     }
     else if (flags == 11 && (msg_type == 0 || msg_type == 1) && (buf [10] == 0 && buf [11] == 0 && buf [12] == 0 && buf [13] == 1)) {  // If Not fragmented Video
@@ -1208,55 +701,94 @@ ms: 337, 314                                                                    
 
   int iaap_msg_process (int chan, int flags, byte * buf, int len) {
 
-    int msg_type = (int) buf [1];
-    msg_type += ((int) buf [0] * 256);
+    uint16_t msg_type = be16toh(*reinterpret_cast<uint16_t*>(buf));
 
     if (ena_log_verbo)
       logd ("iaap_msg_process msg_type: %d  len: %d  buf: %p", msg_type, len, buf);
 
     int run = 0;
-    if ((chan == AA_CH_AUD || chan == AA_CH_AU1 || chan == AA_CH_AU2) && (msg_type == 0 || msg_type == 1)) {// || flags == 8 || flags == 9 || flags == 10 ) {         // If Audio Output...
+    if ((chan == AA_CH_AUD || chan == AA_CH_AU1 || chan == AA_CH_AU2) && ((HU_PROTOCOL_MESSAGE)msg_type == HU_PROTOCOL_MESSAGE::MediaData0 || (HU_PROTOCOL_MESSAGE)msg_type == HU_PROTOCOL_MESSAGE::MediaData1)) {// || flags == 8 || flags == 9 || flags == 10 ) {         // If Audio Output...
       return (iaap_audio_process (chan, msg_type, flags, buf, len)); // 300 ms @ 48000/sec   samples = 14400     stereo 16 bit results in bytes = 57600
     }
-    else if (chan == AA_CH_VID && msg_type == 0 || msg_type == 1 || flags == 8 || flags == 9 || flags == 10 ) {    // If Video...
+    else if (chan == AA_CH_VID && ((HU_PROTOCOL_MESSAGE)msg_type == HU_PROTOCOL_MESSAGE::MediaData0 || (HU_PROTOCOL_MESSAGE)msg_type == HU_PROTOCOL_MESSAGE::MediaData1 || flags == 8 || flags == 9 || flags == 10)) {    // If Video...
       return (iaap_video_process (msg_type, flags, buf, len));
     }
-    else if (msg_type >= 0 && msg_type <= 31)
-      run = 0;
-    else if (msg_type >= 32768 && msg_type <= 32799)
-      run = 1;
-    else if (msg_type >= 65504 && msg_type <= 65535)
-      run = 2;
-    else {
-      loge ("Unknown msg_type: %d", msg_type);
-      return (0);
+
+    //remove the message type
+    buf += 2;
+    len -= 2;
+
+    const bool isControlMessage = msg_type < 0x8000;
+
+    if (isControlMessage)
+    {
+      switch((HU_PROTOCOL_MESSAGE)msg_type)
+      {
+        case HU_PROTOCOL_MESSAGE::ServiceDiscoveryRequest:
+          return hu_handle_ServiceDiscoveryRequest(chan, buf, len);
+        case HU_PROTOCOL_MESSAGE::ChannelOpenRequest:
+          return hu_handle_ChannelOpenRequest(chan, buf, len);
+        case HU_PROTOCOL_MESSAGE::PingRequest:
+          return hu_handle_PingRequest(chan, buf, len);
+        case HU_PROTOCOL_MESSAGE::NavigationFocusRequest:
+          return hu_handle_NavigationFocusRequest(chan, buf, len);
+        case HU_PROTOCOL_MESSAGE::ShutdownRequest:
+          return hu_handle_ShutdownRequest(chan, buf, len);
+        case HU_PROTOCOL_MESSAGE::VoiceSessionRequest:
+          return hu_handle_VoiceSessionRequest(chan, buf, len);
+        case HU_PROTOCOL_MESSAGE::AudioFocusRequest:
+          return hu_handle_AudioFocusRequest(chan, buf, len);
+        default:
+          loge ("Unknown msg_type: %d", msg_type);
+          return (0);
+      }
     }
-
-    int prot_func_ret = -1;
-    int num = msg_type & 0x1f;
-    aa_type_ptr_t func = NULL;
-    if (chan >= 0 && chan <= AA_CH_MAX)
-      func = aa_type_array [chan] [run] [num];
-    else
-      loge ("chan >= 0 && chan <= AA_CH_MAX chan: %d %s", chan, chan_get (chan));
-    if (func)
-      prot_func_ret = (* func) (chan, buf, len);
-    else
-      loge ("No func chan: %d %s  run: %d  num: %d", chan, chan_get (chan), run, num);
-
-    if (log_packet_info) {
-      if (chan == AA_CH_VID && (flags == 8 || flags == 0x0a || msg_type == 0)) // || msg_type ==1))
-        ;
-      //else if (chan == AA_CH_VID && msg_type == 32768 + 4)
-      //  ;
-      else {
-        //logd ("        iaap_msg_process() len: %d  buf: %p  chan: %d %s  flags: 0x%x  msg_type: %d", len, buf, chan, chan_get (chan), flags, msg_type);
-        logd ("--------------------------------------------------------");  // Empty line / 56 characters
+    else if (chan == AA_CH_SEN)
+    {
+      switch((HU_SENSOR_CHANNEL_MESSAGE)msg_type)
+      {
+        case HU_SENSOR_CHANNEL_MESSAGE::SensorStartRequest:
+          return hu_handle_SensorStartRequest(chan, buf, len);
+        default:
+          loge ("Unknown msg_type: %d", msg_type);
+          return (0);
+      }
+    }
+    else if (chan == AA_CH_TOU)
+    {
+      switch((HU_INPUT_CHANNEL_MESSAGE)msg_type)
+      {
+        case HU_INPUT_CHANNEL_MESSAGE::BindingRequest:
+          return hu_handle_BindingRequest(chan, buf, len);
+        default:
+          loge ("Unknown msg_type: %d", msg_type);
+          return (0);
+      }
+    }
+    else if (chan == AA_CH_AUD || chan == AA_CH_AU1 || chan == AA_CH_AU2 || chan == AA_CH_VID || chan == AA_CH_MIC)
+    {
+      switch((HU_MEDIA_CHANNEL_MESSAGE)msg_type)
+      {
+        case HU_MEDIA_CHANNEL_MESSAGE::MediaSetupRequest:
+          return hu_handle_MediaSetupRequest(chan, buf, len);
+        case HU_MEDIA_CHANNEL_MESSAGE::MediaStartRequest:
+          return hu_handle_MediaStartRequest(chan, buf, len);
+        case HU_MEDIA_CHANNEL_MESSAGE::MediaStopRequest:
+          return hu_handle_MediaStopRequest(chan, buf, len);
+        case HU_MEDIA_CHANNEL_MESSAGE::MediaAck:
+          return hu_handle_MediaAck(chan, buf, len);
+        case HU_MEDIA_CHANNEL_MESSAGE::MicRequest:
+          return hu_handle_MicRequest(chan, buf, len);
+        case HU_MEDIA_CHANNEL_MESSAGE::VideoFocusRequest:
+          return hu_handle_VideoFocusRequest(chan, buf, len);
+        default:
+          loge ("Unknown msg_type: %d", msg_type);
+          return (0);
       }
     }
 
-
-    return (prot_func_ret);
+    loge ("Unknown chan: %d", chan);
+    return (0);
   }
 
   int hu_aap_stop () {                                                  // Sends Byebye, then stops Transport/USBACC/OAP
@@ -1267,11 +799,11 @@ ms: 337, 314                                                                    
 
     // Send Byebye
     iaap_state = hu_STATE_STOPPIN;
-    logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
+    logd ("  SET: iaap_state: %d", iaap_state);
 
     int ret = ihu_tra_stop ();                                           // Stop Transport/USBACC/OAP
     iaap_state = hu_STATE_STOPPED;
-    logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
+    logd ("  SET: iaap_state: %d", iaap_state);
     
 //    g_free(rx_buf);
 //	thread_cleanup();
@@ -1283,17 +815,17 @@ ms: 337, 314                                                                    
 //	rx_buf = (byte *)g_malloc(DEFBUF);
 	
     if (iaap_state == hu_STATE_STARTED) {
-      loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
+      loge ("CHECK: iaap_state: %d", iaap_state);
       return (0);
     }
 
     iaap_state = hu_STATE_STARTIN;
-    logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
+    logd ("  SET: iaap_state: %d", iaap_state);
 
     int ret = ihu_tra_start (ep_in_addr, ep_out_addr);                   // Start Transport/USBACC/OAP
     if (ret) {
       iaap_state = hu_STATE_STOPPED;
-      logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
+      logd ("  SET: iaap_state: %d", iaap_state);
       return (ret);                                                     // Done if error
     }
 
@@ -1338,7 +870,7 @@ ms: 337, 314                                                                    
     hu_ssl_inf_log ();
 
     iaap_state = hu_STATE_STARTED;
-    logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
+    logd ("  SET: iaap_state: %d", iaap_state);
 //*/
     return (0);
   }
@@ -1426,7 +958,7 @@ http://www.cisco.com/c/en/us/support/docs/security-vpn/secure-socket-layer-ssl/1
   int hu_aap_recv_process () {                                          // 
                                                                         // Terminate unless started or starting (we need to process when starting)
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
-      loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
+      loge ("CHECK: iaap_state: %d", iaap_state);
       return (-1);
     }
 

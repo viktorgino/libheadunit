@@ -1,4 +1,5 @@
 
+  #pragma once
 //#ifndef UTILS_INCLUDED
 
 //  #define UTILS_INCLUDED
@@ -40,7 +41,7 @@
   extern int ena_log_extra;
   extern int ena_log_verbo;
 
-  #define byte unsigned char
+  typedef unsigned char byte;
   #define DEFBUF  16384     //16384 65536                                                // Default buffer size is maximum for USB
 
   #define DEF_BUF 512                                                   // For Ascii strings and such
@@ -66,7 +67,7 @@
   #define hu_LOG_WAR   ANDROID_LOG_WARN
   #define hu_LOG_ERR   ANDROID_LOG_ERROR
 
-#ifdef NDEBUG
+#ifdef NDEBUG2
 
   #define  logx(...)
   #define  logv(...)
@@ -275,3 +276,6 @@ typedef enum
 int hu_fill_button_message(uint8_t* buffer, uint64_t timeStamp, HU_INPUT_BUTTON button, int isPress);
 
 int file_get (const char * filename);
+
+inline const char* state_get(int) { return ""; }
+inline const char* iusb_error_get(int) { return ""; }

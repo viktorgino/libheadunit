@@ -3,14 +3,9 @@ option cc_generic_services = false;
 
 package HU;
 
-message Header
+enum STATUS
 {
-    enum PacketType
-    {
-        INPUT_EVENT = 1;
-        SENSOR_EVENT = 3;
-    }
-    required PacketType type = 1;
+    STATUS_OK = 0;
 }
 
 message ButtonInfo
@@ -54,6 +49,15 @@ message InputEvent
     optional ButtonInfoWrapper button = 4;
 }
 
+message BindingRequest
+{
+    repeated int32 scan_codes = 1;
+}
+
+message BindingResponse
+{
+    required STATUS status = 1;
+}
 
 message SensorEvent
 {
@@ -61,7 +65,31 @@ message SensorEvent
     {
         required bool is_night = 1;
     }
+    message DrivingStatus
+    {
+        required int32 is_driving = 1;
+    }
+    //repeated Location = 1;
+    //repeated Compass = 2;
+    //repeated Speed = 3;
+    //repeated RPM = 4;
+    //repeated Odometer = 5;
+    //repeated Fuel = 6;
+    //repeated ParkingBreak = 7;
+    //repeated GearData = 8;
+    //repeated Diagnostics = 9;
     repeated NightMode night_mode = 10;
+    //repeated Environment = 11;
+    //repeated HVAC = 12;
+    repeated DrivingStatus driving_status = 13;
+    //repeated DeadReckoning = 14;
+    //repeated Passenger = 15;
+    //repeated Door = 16;
+    //repeated Light = 17;
+    //repeated Tire = 18;
+    //repeated Accel = 19;
+    //repeated Gyro = 20;
+    //repeated GPS = 21;
 }
 
 enum SENSOR_TYPE
@@ -173,7 +201,12 @@ message ChannelDescriptor
     //genericnotification==13
 }
 
-message CarInfo
+message ServiceDiscoveryRequest
+{
+    optional string phone_name = 4;
+}
+
+message ServiceDiscoveryResponse
 {
     repeated ChannelDescriptor channels = 1;
     required string head_unit_name = 2;
@@ -187,4 +220,161 @@ message CarInfo
     required string sw_version = 10;
     required bool can_play_native_media_during_vr = 11;
     required bool hide_clock = 12;
+}
+
+message ChannelOpenRequest
+{
+    optional int32 priority = 1;
+    optional int32 id = 2;    
+}
+
+message ChannelOpenResponse
+{
+    required STATUS status = 1;
+}
+
+message PingRequest
+{
+    required int64 timestamp = 1;
+}
+
+message PingResponse
+{
+    required int64 timestamp = 1;
+}
+
+message ShutdownRequest
+{
+    enum REASON
+    {
+        REASON_QUIT = 1;
+    }
+    optional REASON reason = 1; 
+}
+
+message ShutdownResponse
+{
+    
+}
+
+
+message MediaSetupRequest
+{
+    optional uint32 type = 1; //Enum?
+}
+
+message MediaSetupResponse
+{
+    enum MEDIA_STATUS
+    {
+        MEDIA_STATUS_1 = 1;
+        MEDIA_STATUS_2 = 2;
+    }
+    required MEDIA_STATUS media_status = 1;
+    required uint32 max_unacked = 2;
+    repeated uint32 configs = 3;
+}
+
+
+message MediaStopRequest
+{
+    
+}
+
+message MediaStartRequest
+{
+    required int32 session = 1;
+    optional uint32 config = 2;
+}
+
+message MediaAck
+{
+    required int32 session = 1;
+    required uint32 value = 2;
+}
+
+message MicRequest
+{
+    required bool open = 1;
+    optional bool anc = 2;
+    optional bool ec = 3;
+    required int32 max_unacked = 4;
+}
+
+message MicResponse
+{
+    required int32 session = 1;
+    required uint32 value = 2;
+}
+
+message VideoFocusRequest
+{
+    optional int32 disp_index = 1;
+    optional uint32 mode = 2; //Enum?
+    optional uint32 reason = 3; //Enum?
+}
+
+message VideoFocus
+{
+    optional uint32 mode = 1; //Enum?
+    optional bool unrequested = 2; 
+}
+
+
+message SensorStartRequest
+{
+    required SENSOR_TYPE type = 1;
+    optional int64 refresh_interval = 2;
+}
+
+message SensorStartResponse
+{
+    required STATUS status = 1;
+}
+
+message NavigationFocusRequest
+{
+    optional uint32 focus_type = 1; //Enum?
+}
+
+message NavigationFocusResponse
+{
+    optional uint32 focus_type = 1; //Enum?
+}
+
+message VoiceSessionRequest
+{
+    enum VOICE_STATUS
+    {
+        VOICE_STATUS_START = 1;
+        VOICE_STATUS_STOP = 2;
+    }
+    optional VOICE_STATUS voice_status = 1; 
+}
+
+message AudioFocusRequest
+{
+    enum AUDIO_FOCUS
+    {
+        AUDIO_FOCUS_GAIN = 1;
+        AUDIO_FOCUS_GAIN_TRANSIENT = 2;
+        AUDIO_FOCUS_UNKNOWN = 3;
+        AUDIO_FOCUS_RELEASE = 4;
+    }
+    required AUDIO_FOCUS focus_type = 1;
+}
+
+message AudioFocusResponse
+{
+    enum AUDIO_FOCUS_STATE
+    {
+        AUDIO_FOCUS_STATE_GAIN = 1;
+        AUDIO_FOCUS_STATE_GAIN_TRANSIENT = 2;
+        AUDIO_FOCUS_STATE_LOSS = 3;
+        AUDIO_FOCUS_STATE_LOSS_TRANSIENT_CAN_DUCK = 4;
+        AUDIO_FOCUS_STATE_LOSS_TRANSIENT = 5;
+        AUDIO_FOCUS_STATE_GAIN_MEDIA_ONLY = 6;
+        AUDIO_FOCUS_STATE_GAIN_TRANSIENT_GUIDANCE_ONLY = 7;
+    }
+    required AUDIO_FOCUS_STATE focus_type = 1;
 }
