@@ -12,7 +12,6 @@
 
 #include "hu_uti.h"
 #include "hu_aap.h"
-#include "generated/hu.pb.h"
 
 typedef struct {
     GMainLoop *loop;

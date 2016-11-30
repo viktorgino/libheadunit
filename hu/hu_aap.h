@@ -1,5 +1,5 @@
   #include "hu_uti.h"
-  #include "generated/hu.pb.h"
+  #include "hu.pb.h"
 
   int hu_aap_mic_get ();
   int hu_aap_out_get (int chan);
@@ -33,7 +33,7 @@ enum class HU_PROTOCOL_MESSAGE : uint16_t
   VersionResponse = 0x0002,
   SSLHandshake = 0x0003,
   ServiceDiscoveryRequest = 0x0005,
-  ServiceDiscoveryResponse = 0x0006,
+  ServiceDiscoveryResponse = 0x0006,    
   ChannelOpenRequest = 0x0007,
   ChannelOpenResponse = 0x0008,
   PingRequest = 0x000b,
