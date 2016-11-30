@@ -59,7 +59,6 @@
       return (hu_tcp_stop  ());
     else
       return (-1);
-
   }
 
 
@@ -125,7 +124,7 @@
   int hu_aap_tra_recv (byte * buf, int len, int tmo) {
     int ret = 0;
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {   // Need to recv when starting
-      loge ("CHECK: iaap_state: %d", iaap_state);
+      loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       return (-1);
     }
     ret = ihu_tra_recv (buf, len, tmo);
@@ -141,7 +140,7 @@
   int hu_aap_tra_send (int retry, byte * buf, int len, int tmo) {                  // Send Transport data: chan,flags,len,type,...
                                                                         // Need to send when starting
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
-      loge ("CHECK: iaap_state: %d", iaap_state);
+      loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       return (-1);
     }
 
@@ -182,13 +181,14 @@
     }
 
     logd ("Send %s on channel %i %s", message.GetTypeName().c_str(), chan, chan_get(chan));
+    hex_dump("PB:", 80, tempEncodingBuffer.data(), requiredSize);
     return hu_aap_enc_send(retry, chan, tempEncodingBuffer.data(), requiredSize);
 
   }
 
   int hu_aap_enc_send (int retry,int chan, byte * buf, int len) {                 // Encrypt data and send: type,...
     if (iaap_state != hu_STATE_STARTED) {
-      logw ("CHECK: iaap_state: %d", iaap_state);
+      logw ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       //logw ("chan: %d  len: %d  buf: %p", chan, len, buf);
       //hex_dump (" W/    hu_aap_enc_send: ", 16, buf, len);    // Byebye: hu_aap_enc_send:  00000000 00 0f 08 00
       return (-1);
@@ -299,17 +299,6 @@
       tsConfig->set_height(480);
     }
 
-    HU::ChannelDescriptor* micChannel = carInfo.add_channels();
-    micChannel->set_channel_id(AA_CH_MIC);
-    {
-      auto inner = micChannel->mutable_input_stream_channel();
-      inner->set_type(HU::STREAM_TYPE_AUDIO);
-      auto audioConfig = inner->mutable_audio_config();
-      audioConfig->set_sample_rate(16000);
-      audioConfig->set_bit_depth(16);
-      audioConfig->set_channel_count(1);
-    }
-
     HU::ChannelDescriptor* audioChannel0 = carInfo.add_channels();
     audioChannel0->set_channel_id(AA_CH_AUD);
     {
@@ -333,6 +322,18 @@
       audioConfig->set_bit_depth(16);
       audioConfig->set_channel_count(1);
     }
+
+    HU::ChannelDescriptor* micChannel = carInfo.add_channels();
+    micChannel->set_channel_id(AA_CH_MIC);
+    {
+      auto inner = micChannel->mutable_input_stream_channel();
+      inner->set_type(HU::STREAM_TYPE_AUDIO);
+      auto audioConfig = inner->mutable_audio_config();
+      audioConfig->set_sample_rate(16000);
+      audioConfig->set_bit_depth(16);
+      audioConfig->set_channel_count(1);
+    }
+
     return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::ServiceDiscoveryResponse, carInfo);
   }
 
@@ -450,6 +451,7 @@
     HU::MediaSetupResponse response;
     response.set_media_status(HU::MediaSetupResponse::MEDIA_STATUS_2);
     response.set_max_unacked(1);
+    response.add_configs(0);
 
     int ret = hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::MediaSetupResponse, response);
     if (ret)                                                            // If error, done with error
@@ -799,11 +801,11 @@ ms: 337, 314                                                                    
 
     // Send Byebye
     iaap_state = hu_STATE_STOPPIN;
-    logd ("  SET: iaap_state: %d", iaap_state);
+    logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
 
     int ret = ihu_tra_stop ();                                           // Stop Transport/USBACC/OAP
     iaap_state = hu_STATE_STOPPED;
-    logd ("  SET: iaap_state: %d", iaap_state);
+    logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
     
 //    g_free(rx_buf);
 //	thread_cleanup();
@@ -815,17 +817,17 @@ ms: 337, 314                                                                    
 //	rx_buf = (byte *)g_malloc(DEFBUF);
 	
     if (iaap_state == hu_STATE_STARTED) {
-      loge ("CHECK: iaap_state: %d", iaap_state);
+      loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       return (0);
     }
 
     iaap_state = hu_STATE_STARTIN;
-    logd ("  SET: iaap_state: %d", iaap_state);
+    logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
 
     int ret = ihu_tra_start (ep_in_addr, ep_out_addr);                   // Start Transport/USBACC/OAP
     if (ret) {
       iaap_state = hu_STATE_STOPPED;
-      logd ("  SET: iaap_state: %d", iaap_state);
+      logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       return (ret);                                                     // Done if error
     }
 
@@ -870,7 +872,7 @@ ms: 337, 314                                                                    
     hu_ssl_inf_log ();
 
     iaap_state = hu_STATE_STARTED;
-    logd ("  SET: iaap_state: %d", iaap_state);
+    logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
 //*/
     return (0);
   }
@@ -958,7 +960,7 @@ http://www.cisco.com/c/en/us/support/docs/security-vpn/secure-socket-layer-ssl/1
   int hu_aap_recv_process () {                                          // 
                                                                         // Terminate unless started or starting (we need to process when starting)
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
-      loge ("CHECK: iaap_state: %d", iaap_state);
+      loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       return (-1);
     }
 

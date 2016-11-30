@@ -25,9 +25,9 @@ message TouchInfo
 {
     enum TOUCH_ACTION
     {
-        RELEASE = 0;
-        PRESS = 1;
-        DRAG = 2;
+        TOUCH_ACTION_PRESS = 0;
+        TOUCH_ACTION_RELEASE = 1;
+        TOUCH_ACTION_DRAG = 2;
     }
     message Location
     {
@@ -36,7 +36,7 @@ message TouchInfo
         required uint32 pointer_id = 3;
     }
     repeated Location location = 1;
-    required uint32 action_index = 2;
+    optional uint32 action_index = 2;
     required TOUCH_ACTION action = 3;
 }
 
@@ -298,7 +298,7 @@ message MicRequest
     required bool open = 1;
     optional bool anc = 2;
     optional bool ec = 3;
-    required int32 max_unacked = 4;
+    optional int32 max_unacked = 4;
 }
 
 message MicResponse

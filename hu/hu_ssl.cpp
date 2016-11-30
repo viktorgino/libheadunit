@@ -117,7 +117,6 @@ unsigned long pthreads_thread_id(void)
     const SSL_CIPHER * ssl_cipher = SSL_get_current_cipher (hu_ssl_ssl);
     const char * ssl_cipher_name = SSL_CIPHER_get_name (ssl_cipher);    // "(NONE)"
     logd ("ssl_cipher_name: %s", ssl_cipher_name);
-
   }
 
   void hu_ssl_ret_log (int ret) {

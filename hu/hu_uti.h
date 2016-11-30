@@ -67,7 +67,7 @@
   #define hu_LOG_WAR   ANDROID_LOG_WARN
   #define hu_LOG_ERR   ANDROID_LOG_ERROR
 
-#ifdef NDEBUG2
+#ifdef NDEBUG
 
   #define  logx(...)
   #define  logv(...)
@@ -277,5 +277,16 @@ int hu_fill_button_message(uint8_t* buffer, uint64_t timeStamp, HU_INPUT_BUTTON 
 
 int file_get (const char * filename);
 
-inline const char* state_get(int) { return ""; }
+inline const char* state_get(int s) 
+{
+  switch (s)
+  {
+      case hu_STATE_INITIAL: return "hu_STATE_INITIAL";
+      case hu_STATE_STARTIN: return "hu_STATE_STARTIN";
+      case hu_STATE_STARTED: return "hu_STATE_STARTED";
+      case hu_STATE_STOPPIN: return "hu_STATE_STOPPIN";
+      case hu_STATE_STOPPED: return "hu_STATE_STOPPED";
+  }
+  return "";
+}
 inline const char* iusb_error_get(int) { return ""; }
