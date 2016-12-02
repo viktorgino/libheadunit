@@ -159,8 +159,7 @@
     return (ret);
   }
 
-   pthread_mutex_t mutexsum;
-   std::vector<uint8_t> tempEncodingBuffer;
+  std::vector<uint8_t> tempEncodingBuffer;
 
   int hu_aap_enc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message)
   {
@@ -181,9 +180,30 @@
     }
 
     logd ("Send %s on channel %i %s", message.GetTypeName().c_str(), chan, chan_get(chan));
-    hex_dump("PB:", 80, tempEncodingBuffer.data(), requiredSize);
+    //hex_dump("PB:", 80, tempEncodingBuffer.data(), requiredSize);
     return hu_aap_enc_send(retry, chan, tempEncodingBuffer.data(), requiredSize);
 
+  }
+
+  int hu_aap_enc_send_media_packet(int retry, int chan, uint16_t messageCode, uint64_t timeStamp, const byte* buffer, int bufferLen)
+  {
+    const int requiredSize = bufferLen + 2 + 8;
+    if (tempEncodingBuffer.size() < requiredSize)
+    {
+      tempEncodingBuffer.resize(requiredSize);
+    }
+
+    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(tempEncodingBuffer.data());
+    *destMessageCode++ = htobe16(messageCode);
+
+    uint64_t* destTimestamp = reinterpret_cast<uint64_t*>(destMessageCode);
+    *destTimestamp++ = htobe64(timeStamp);
+
+    memcpy(destTimestamp, buffer, bufferLen);
+
+    //logd ("Send %s on channel %i %s", message.GetTypeName().c_str(), chan, chan_get(chan));
+    //hex_dump("PB:", 80, tempEncodingBuffer.data(), requiredSize);
+    return hu_aap_enc_send(retry, chan, tempEncodingBuffer.data(), requiredSize);
   }
 
   int hu_aap_enc_send (int retry,int chan, byte * buf, int len) {                 // Encrypt data and send: type,...

@@ -295,7 +295,7 @@ uint64_t get_cur_timestamp()
     /* Fetch the time stamp */
     clock_gettime(CLOCK_REALTIME, &tp);
 
-	return tp.tv_sec * 1000 + tp.tv_sec / 1000;	
+	return tp.tv_sec * 1000000000 + tp.tv_nsec;	
 }
 
 
@@ -324,19 +324,7 @@ static int aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, un
 }
 
 
-static const uint8_t mic_header[] ={0x00, 0x00};
 static const int max_size = 8192;
-
-static size_t uptime_encode(uint64_t value, uint8_t *data)
-{
-	int ctr = 0;
-	for (ctr = 7; ctr >= 0; ctr --) {                           // Fill 8 bytes backwards
-		data [6 + ctr] = (uint8_t)(value & 0xFF);
-		value = value >> 8;
-	}
-
-	return 8;
-}
 
 
 static void read_mic_data (GstElement * sink)
@@ -368,22 +356,12 @@ static void read_mic_data (GstElement * sink)
         
         if (mic_buf_sz <= 64) {
             printf("Mic data < 64 \n");
+            gst_buffer_unref(gstbuf);
             return;
         }
-                
-        uint8_t *mic_buffer = (uint8_t *)malloc(14 + mic_buf_sz);
         
-        /* Copy header */
-        memcpy(mic_buffer, mic_header, sizeof(mic_header));
-        
-        idx = sizeof(mic_header) + uptime_encode(get_cur_timestamp(), mic_buffer);
-
-        /* Copy PCM Audio Data */
-        memcpy(mic_buffer+idx, GST_BUFFER_DATA(gstbuf), mic_buf_sz);
-        idx += mic_buf_sz;
-                        
         pthread_mutex_lock (&mutexsend);
-        ret = hu_aap_enc_send (1, AA_CH_MIC, mic_buffer, idx);
+        ret = hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaData0, get_cur_timestamp(), GST_BUFFER_DATA(gstbuf), mic_buf_sz);
         pthread_mutex_unlock (&mutexsend);
         
         if (ret < 0) {
@@ -391,7 +369,6 @@ static void read_mic_data (GstElement * sink)
         }
         
         gst_buffer_unref(gstbuf);
-        free(mic_buffer);
     }
 }
 
@@ -633,7 +610,7 @@ namespace google
     {
         void ShutdownProtobufLibrary()
         {
-            printf("Do nothing!\n");
+            printf("Do nothing since there is a system libprotobuf and it double frees!\n");
         }
     }
 }

@@ -9,7 +9,7 @@
 #include <errno.h>
 #include <dbus/dbus.h>
 #include <poll.h>
-
+#include <functional>
 
 
 #include "hu_uti.h"
@@ -45,16 +45,17 @@ GstElement *aud_pipeline, *aud_src;
 GstElement *au1_pipeline, *au1_src;
 
 GAsyncQueue *sendqueue;
+typedef std::function<void()> SendQueueFunc;
 
 typedef struct {
 	int fd;
 	int x;
 	int y;
-	uint8_t action;
+	HU::TouchInfo::TOUCH_ACTION action;
 	int action_recvd;
 } mytouchscreen;
 
-mytouchscreen mTouch = (mytouchscreen){0,0,0,0,0};
+mytouchscreen mTouch = (mytouchscreen){0,0,0,(HU::TouchInfo::TOUCH_ACTION)0,0};
 
 typedef struct {
 	int fd;
@@ -64,25 +65,10 @@ typedef struct {
 mycommander mCommander = (mycommander){0,0};
 
 
-typedef struct {
-    int retry;
-    int chan;
-    int cmd_len; 
-    unsigned char *cmd_buf; 
-	int shouldFree;
-} send_arg;
 
-void queueSend(int retry, int chan, unsigned char* cmd_buf, int cmd_len, int shouldFree)
+static inline void queueSend(SendQueueFunc&& sendFunc)
 {
-	send_arg* cmd = (send_arg*)malloc(sizeof(send_arg));
-
-	cmd->retry = retry;
-	cmd->chan = chan;
-	cmd->cmd_buf = cmd_buf;
-	cmd->cmd_len = cmd_len;
-	cmd->shouldFree = shouldFree;
-
-	g_async_queue_push(sendqueue, cmd);
+	g_async_queue_push(sendqueue, new SendQueueFunc(sendFunc));
 }
 
 
@@ -293,138 +279,37 @@ static int gst_pipeline_init(gst_app_t *app)
 
 }
 
-/*
-static int aa_cmd_send(int cmd_len, unsigned char *cmd_buf, int res_max, unsigned char *res_buf)
+
+uint64_t get_cur_timestamp()
 {
-	int chan = cmd_buf[0];
-	int res_len = 0;
-	int ret = 0;
+    struct timespec tp;
+    /* Fetch the time stamp */
+    clock_gettime(CLOCK_REALTIME, &tp);
 
-	ret = hu_aap_enc_send (0, chan, cmd_buf+4, cmd_len - 4);
-	if (ret < 0) {
-		printf("aa_cmd_send(): hu_aap_enc_send() failed with (%d)\n", ret);
-		return ret;
-	}
-	
-	return ret;
+	return tp.tv_sec * 1000000000 + tp.tv_nsec;	
+}
 
-} */
 
-static size_t uleb128_encode(uint64_t value, uint8_t *data)
+static void aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, unsigned int y) 
 {
-	uint8_t cbyte;
-	size_t enc_size = 0;
+	uint64_t timeStamp = get_cur_timestamp();
+	queueSend([action, x, y, timeStamp]()
+	{
+	    HU::InputEvent inputEvent;
+	    inputEvent.set_time_stamp(timeStamp);
+	    HU::TouchInfo* touchEvent = inputEvent.mutable_touch();
+	    touchEvent->set_action(action);
+	    HU::TouchInfo::Location* touchLocation = touchEvent->add_location();
+	    touchLocation->set_x(x);
+	    touchLocation->set_y(y);
+	    touchLocation->set_pointer_id(0);
 
-	do {
-		cbyte = value & 0x7f;
-		value >>= 7;
-		if (value != 0)
-			cbyte |= 0x80;
-		data[enc_size++] = cbyte;
-	} while (value != 0);
-
-	return enc_size;
+	    /* Send touch event */
+	    
+	    hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
+    });
 }
 
-static size_t varint_encode (uint64_t val, uint8_t *ba, int idx) {
-	
-	if (val >= 0x7fffffffffffffff) {
-		return 1;
-	}
-
-	uint64_t left = val;
-	int idx2 = 0;
-	
-	for (idx2 = 0; idx2 < 9; idx2 ++) {
-		ba [idx+idx2] = (uint8_t) (0x7f & left);
-		left = left >> 7;
-		if (left == 0) {
-			return (idx2 + 1);
-		}
-		else if (idx2 < 9 - 1) {
-			ba [idx+idx2] |= 0x80;
-		}
-	}
-	
-	return 9;
-}
-
-#define ACTION_DOWN	0
-#define ACTION_UP	1
-#define ACTION_MOVE	2
-#define TS_MAX_REQ_SZ	32
-static const uint8_t ts_header[] ={0x80, 0x01, 0x08};
-static const uint8_t ts_sizes[] = {0x1a, 0x09, 0x0a, 0x03};
-static const uint8_t ts_footer[] = {0x10, 0x00, 0x18};
-
-static void aa_touch_event(uint8_t action, int x, int y) {
-	struct timespec tp;
-	uint8_t *buf;
-	int idx;
-	int siz_arr = 0;
-	int size1_idx, size2_idx, i;
-	int axis = 0;
-	int coordinates[3] = {x, y, 0};
-	int ret;
-
-	buf = (uint8_t *)malloc(TS_MAX_REQ_SZ);
-	if(!buf) {
-		printf("Failed to allocate touchscreen event buffer\n");
-		return;
-	}
-
-	/* Fetch the time stamp */
-	clock_gettime(CLOCK_REALTIME, &tp);
-
-	/* Copy header */
-	memcpy(buf, ts_header, sizeof(ts_header));
-//	idx = sizeof(ts_header) +
-//	      uleb128_encode(tp.tv_nsec, buf + sizeof(ts_header));
-
-	idx = sizeof(ts_header) +
-	      varint_encode(tp.tv_sec * 1000000000 +tp.tv_nsec, buf + sizeof(ts_header),0);
-
-	size1_idx = idx + 1;
-	size2_idx = idx + 3;
-
-	/* Copy sizes */
-	memcpy(buf+idx, ts_sizes, sizeof(ts_sizes));
-	idx += sizeof(ts_sizes);
-
-	/* Set magnitude of each axis */
-	for (i=0; i<3; i++) {
-		axis += 0x08;
-		buf[idx++] = axis;
-		/* FIXME The following can be optimzed to update size1/2 at end of loop */
-		siz_arr = uleb128_encode(coordinates[i], &buf[idx]);
-		idx += siz_arr;
-		buf[size1_idx] += siz_arr;
-		buf[size2_idx] += siz_arr;
-	}
-
-	/* Copy footer */
-	memcpy(buf+idx, ts_footer, sizeof(ts_footer));
-	idx += sizeof(ts_footer);
-
-	buf[idx++] = action;
-
-	queueSend(0, AA_CH_TOU, buf, idx, TRUE);
-	
-}
-
-static size_t uptime_encode(uint64_t value, uint8_t *data)
-{
-
-	int ctr = 0;
-	for (ctr = 7; ctr >= 0; ctr --) {                           // Fill 8 bytes backwards
-		data [6 + ctr] = (uint8_t)(value & 0xFF);
-		value = value >> 8;
-	}
-
-	return 8;
-}
-
-static const uint8_t mic_header[] ={0x00, 0x00};
 static const int max_size = 8192;
 
 
@@ -437,8 +322,6 @@ static void read_mic_data (GstElement * sink)
 	
 	if (gstbuf) {
 
-		struct timespec tp;
-
 		/* if mic is stopped, don't bother sending */	
 
 		if (mic_change_state == 0) {
@@ -447,9 +330,6 @@ static void read_mic_data (GstElement * sink)
 			return;
 		}
 		
-		/* Fetch the time stamp */
-		clock_gettime(CLOCK_REALTIME, &tp);
-		
 		gint mic_buf_sz;
 		mic_buf_sz = GST_BUFFER_SIZE (gstbuf);
 		
@@ -457,23 +337,16 @@ static void read_mic_data (GstElement * sink)
 		
 		if (mic_buf_sz <= 64) {
 			printf("Mic data < 64 \n");
+			gst_buffer_unref(gstbuf);
 			return;
 		}
-		
-		uint8_t *mic_buffer = (uint8_t *)malloc(14 + mic_buf_sz);
-		
-		/* Copy header */
-		memcpy(mic_buffer, mic_header, sizeof(mic_header));
-		
-		idx = sizeof(mic_header) + uptime_encode(tp.tv_nsec * 0.001, mic_buffer);
 
-		/* Copy PCM Audio Data */
-		memcpy(mic_buffer+idx, GST_BUFFER_DATA(gstbuf), mic_buf_sz);
-		idx += mic_buf_sz;
-		
-		queueSend(1, AA_CH_MIC, mic_buffer, idx, TRUE);
-	
-		gst_buffer_unref(gstbuf);
+		uint64_t timeStamp = get_cur_timestamp();
+		queueSend([gstbuf, timeStamp, mic_buf_sz]()
+		{
+			hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaData0, timeStamp , GST_BUFFER_DATA(gstbuf), mic_buf_sz);
+			gst_buffer_unref(gstbuf);
+		});
 	}
 } 
 
@@ -561,16 +434,16 @@ gboolean touch_poll_event(gpointer data)
 				if (event[i].code == BTN_TOUCH) {
 					mTouch.action_recvd = 1;
 					if (event[i].value == 1) {
-						mTouch.action = ACTION_DOWN;
+						mTouch.action = HU::TouchInfo::TOUCH_ACTION_PRESS;
 					}
 					else {
-						mTouch.action = ACTION_UP;
+						mTouch.action = HU::TouchInfo::TOUCH_ACTION_RELEASE;
 					}
 				}
 				break;
 			case EV_SYN:
 				if (mTouch.action_recvd == 0) {
-					mTouch.action = ACTION_MOVE;
+					mTouch.action = HU::TouchInfo::TOUCH_ACTION_DRAG;
 					aa_touch_event(mTouch.action, mTouch.x, mTouch.y);
 				} else {
 					aa_touch_event(mTouch.action, mTouch.x, mTouch.y);
@@ -680,75 +553,53 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 		//key press
 		if (event.type == EV_KEY && (event.value == 1 || event.value == 0)) {
 
-			clock_gettime(CLOCK_REALTIME, &tp);
-			uint64_t timestamp = tp.tv_sec * 1000000000 + tp.tv_nsec;
-			uint8_t* keyTempBuffer = 0;
-			int keyTempSize = 0;
+			uint64_t timeStamp = get_cur_timestamp();
+			uint32_t scanCode = 0;
 
 			printf("Key code %i value %i\n", (int)event.code, (int)event.value);
 			switch (event.code) {
 			case KEY_G:
 				printf("KEY_G\n");
-				keyTempBuffer = (uint8_t*)malloc(512);
-				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_MIC, event.value == 1);
-				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				scanCode = HUIB_MIC;
 				break;
 			//Make the music button play/pause
 			case KEY_E:
 				printf("KEY_E\n");
-				keyTempBuffer = (uint8_t*)malloc(512);
-				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_PLAYPAUSE, event.value == 1);
-				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				scanCode = HUIB_PLAYPAUSE;
 				break;
 			case KEY_LEFTBRACE:
 				printf("KEY_LEFTBRACE\n");
-				keyTempBuffer = (uint8_t*)malloc(512);
-				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_NEXT, event.value == 1);
-				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				scanCode = HUIB_NEXT;
 				break;
 			case KEY_RIGHTBRACE:
 				printf("KEY_RIGHTBRACE\n");
-				keyTempBuffer = (uint8_t*)malloc(512);
-				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_PREV, event.value == 1);
-				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				scanCode = HUIB_PREV;
 				break;
 			case KEY_BACKSPACE:
 				printf("KEY_BACKSPACE\n");
-				keyTempBuffer = (uint8_t*)malloc(512);
-				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_BACK, event.value == 1);
-				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				scanCode = HUIB_BACK;
 				break;
 			case KEY_ENTER:
 				printf("KEY_ENTER\n");
-				keyTempBuffer = (uint8_t*)malloc(512);
-				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_ENTER, event.value == 1);
-				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				scanCode = HUIB_ENTER;
 				break;
 			case KEY_LEFT:
 			case KEY_N:
 				printf("KEY_LEFT\n");
-				keyTempBuffer = (uint8_t*)malloc(512);
-				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_LEFT, event.value == 1);
-				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				scanCode = HUIB_LEFT;
 				break;
 			case KEY_RIGHT:
 			case KEY_M:
 				printf("KEY_RIGHT\n");
-				keyTempBuffer = (uint8_t*)malloc(512);
-				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_RIGHT, event.value == 1);
-				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				scanCode = HUIB_RIGHT;
 				break;
 			case KEY_UP:
 				printf("KEY_UP\n");
-				keyTempBuffer = (uint8_t*)malloc(512);
-				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_UP, event.value == 1);
-				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				scanCode = HUIB_UP;				
 				break;
 			case KEY_DOWN:
 				printf("KEY_DOWN\n");
-				keyTempBuffer = (uint8_t*)malloc(512);
-				keyTempSize = hu_fill_button_message(keyTempBuffer, timestamp, HUIB_DOWN, event.value == 1);
-				queueSend (0, AA_CH_TOU, keyTempBuffer, keyTempSize, TRUE);
+				scanCode = HUIB_DOWN;
 				break;
 			case KEY_HOME:
 				printf("KEY_HOME\n");
@@ -774,6 +625,20 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 				}
 				break;
 			}
+			if (scanCode != 0) {
+				bool isPressed = (event.value == 1);
+             	queueSend([timeStamp, scanCode, isPressed]()
+             	{
+             		HU::InputEvent inputEvent;
+		            inputEvent.set_time_stamp(timeStamp);
+		            HU::ButtonInfo* buttonInfo = inputEvent.mutable_button()->add_button();
+		            buttonInfo->set_is_pressed(isPressed);
+		            buttonInfo->set_meta(0);
+		            buttonInfo->set_long_press(false);
+		            buttonInfo->set_scan_code(scanCode);
+                	hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
+            	});
+            }
 		}
 		//key release
 		//else if (event.type == EV_KEY && event.value == 1)
@@ -891,19 +756,15 @@ static void * nightmode_thread(void *app)
 			nightmodenow = 0;
 
 		if (nightmode != nightmodenow) {
-			nightmode = nightmodenow;
-			byte* rspds = (byte*)malloc(sizeof(byte) * 6);
-			rspds[0] = -128; 
-			rspds[1] = 0x03;
-			rspds[2] = 0x52; 
-			rspds[3] = 0x02;
-			rspds[4] = 0x08;
-			if (nightmode == 0)
-				rspds[5]= 0x00;
-			else
-				rspds[5] = 0x01;
 
-			queueSend(0,AA_CH_SEN, rspds, sizeof (byte) * 6, TRUE); 	// Send Sensor Night mode
+			nightmode = nightmodenow;
+			queueSend([nightmodenow]()
+			{
+		        HU::SensorEvent sensorEvent;
+		        sensorEvent.add_night_mode()->set_is_night(nightmodenow);
+
+		        hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
+			});
 		}
 
 		sleep(600);		
@@ -919,14 +780,12 @@ gboolean myMainLoop(gpointer app)
 		read_data((gst_app_t*)app);
 	}
 
-	send_arg* cmd;
+	SendQueueFunc* cmd;
 
-	if (cmd = (send_arg*)g_async_queue_try_pop(sendqueue))
+	while (cmd = (SendQueueFunc*)g_async_queue_try_pop(sendqueue))
 	{
-		hu_aap_enc_send(cmd->retry, cmd->chan, cmd->cmd_buf, cmd->cmd_len);
-		if(cmd->shouldFree)
-			free(cmd->cmd_buf);
-		free(cmd);
+		(*cmd)();
+		delete cmd;
 	}
 
 	return TRUE; 
@@ -987,6 +846,8 @@ static void signals_handler (int signum)
 
 int main (int argc, char *argv[])
 {	
+	GOOGLE_PROTOBUF_VERIFY_VERSION;
+
 	signal (SIGTERM, signals_handler);
 
 	gst_app_t *app = &gst_app;
