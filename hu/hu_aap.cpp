@@ -479,7 +479,7 @@
 
     if (chan == AA_CH_VID) {
       HU::VideoFocus videoFocusGained;
-      videoFocusGained.set_mode(1);
+      videoFocusGained.set_mode(HU::VIDEO_FOCUS_MODE_FOCUSED);
       videoFocusGained.set_unrequested(true);
       return hu_aap_enc_send_message(0, AA_CH_VID, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
     }
@@ -495,10 +495,27 @@
     else
       logd ("VideoFocusRequest: %d", request.disp_index());
 
-    HU::VideoFocus videoFocusGained;
-    videoFocusGained.set_mode(1);
-    videoFocusGained.set_unrequested(false);
-    return hu_aap_enc_send_message(0, AA_CH_VID, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
+    if (request.mode() == HU::VIDEO_FOCUS_MODE_FOCUSED)
+    {
+      HU::VideoFocus videoFocusGained;
+      videoFocusGained.set_mode(HU::VIDEO_FOCUS_MODE_FOCUSED);
+      videoFocusGained.set_unrequested(false);
+      return hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
+    }
+    else
+    {
+      //Tread unfocused as quit (since that's what the "Return to Mazda Connect" button sends)
+      HU::VideoFocus videoFocusGained;
+      videoFocusGained.set_mode(HU::VIDEO_FOCUS_MODE_UNFOCUSED);
+      videoFocusGained.set_unrequested(false);
+      hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
+
+      HU::ShutdownRequest request;
+      request.set_reason(HU::ShutdownRequest::REASON_QUIT);
+      hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::ShutdownRequest, request);
+
+      hu_aap_stop ();
+    }
   }
 
   int32_t channel_session_id[AA_CH_MAX+1] = {0,0,0,0,0,0,0};

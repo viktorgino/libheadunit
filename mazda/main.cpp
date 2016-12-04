@@ -296,7 +296,7 @@ static void aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, u
 	queueSend([action, x, y, timeStamp]()
 	{
 	    HU::InputEvent inputEvent;
-	    inputEvent.set_time_stamp(timeStamp);
+	    inputEvent.set_timestamp(timeStamp);
 	    HU::TouchInfo* touchEvent = inputEvent.mutable_touch();
 	    touchEvent->set_action(action);
 	    HU::TouchInfo::Location* touchLocation = touchEvent->add_location();
@@ -630,7 +630,7 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
              	queueSend([timeStamp, scanCode, isPressed]()
              	{
              		HU::InputEvent inputEvent;
-		            inputEvent.set_time_stamp(timeStamp);
+		            inputEvent.set_timestamp(timeStamp);
 		            HU::ButtonInfo* buttonInfo = inputEvent.mutable_button()->add_button();
 		            buttonInfo->set_is_pressed(isPressed);
 		            buttonInfo->set_meta(0);
@@ -847,6 +847,8 @@ static void signals_handler (int signum)
 int main (int argc, char *argv[])
 {	
 	GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+	printf("libprotoversion: %s\n",google::protobuf::internal::VersionString(GOOGLE_PROTOBUF_VERSION).c_str());
 
 	signal (SIGTERM, signals_handler);
 

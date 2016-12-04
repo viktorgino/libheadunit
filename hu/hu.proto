@@ -43,7 +43,7 @@ message TouchInfo
 
 message InputEvent
 {
-    required uint64 time_stamp = 1;
+    required uint64 timestamp = 1;
     optional int32 disp_channel = 2;
     optional TouchInfo touch = 3;
     optional ButtonInfoWrapper button = 4;
@@ -61,20 +61,51 @@ message BindingResponse
 
 message SensorEvent
 {
+    message LocationData
+    {
+        optional uint64 timestamp = 1;
+        optional int32 latitude = 2;
+        optional int32 longitude = 3;
+        optional uint32 accuracy = 4;
+        optional int32 altitude = 5;
+        optional int32 speed = 6;
+        optional int32 bearing = 7;
+    }
+    
+    message RPM
+    {
+        required int32 rpm = 1;
+    }
+
+    message FuelLevel
+    {
+        required int32 fuel_level = 1;
+        optional int32 range = 2;
+        optional bool low_fuel = 3;
+    } 
+
     message NightMode
     {
         required bool is_night = 1;
     }
+
     message DrivingStatus
     {
         required int32 is_driving = 1;
     }
-    //repeated Location = 1;
+
+    message DeadReckoning
+    {
+        optional int32 steering_angel = 1;
+        optional int32 wheel_speed = 2;
+    }
+
+    repeated LocationData location_data = 1;
     //repeated Compass = 2;
     //repeated Speed = 3;
-    //repeated RPM = 4;
+    repeated RPM rpm = 4;
     //repeated Odometer = 5;
-    //repeated Fuel = 6;
+    repeated FuelLevel fuel_level = 6;
     //repeated ParkingBreak = 7;
     //repeated GearData = 8;
     //repeated Diagnostics = 9;
@@ -82,7 +113,7 @@ message SensorEvent
     //repeated Environment = 11;
     //repeated HVAC = 12;
     repeated DrivingStatus driving_status = 13;
-    //repeated DeadReckoning = 14;
+    repeated DeadReckoning dead_reckoning = 14;
     //repeated Passenger = 15;
     //repeated Door = 16;
     //repeated Light = 17;
@@ -108,6 +139,7 @@ enum AUDIO_TYPE
     AUDIO_TYPE_SPEECH = 1;
     AUDIO_TYPE_SYSTEM = 2;
     AUDIO_TYPE_MEDIA = 3;
+    AUDIO_TYPE_ALARM = 4;
 }
 
 enum STREAM_TYPE
@@ -190,6 +222,35 @@ message ChannelDescriptor
     }
 
     optional InputStreamChannel input_stream_channel = 5;
+
+    message BluetoothService 
+    {
+        enum BluetoothPairingMethod
+        {
+            BLUETOOTH_PARING_METHOD_1 = 1;
+            BLUETOOTH_PARING_METHOD_2 = 2;
+            BLUETOOTH_PARING_METHOD_3 = 3;
+            BLUETOOTH_PARING_METHOD_4 = 4;
+        }
+        required string car_address = 1;
+        repeated BluetoothPairingMethod supported_pairing_methods = 2;
+    }
+    optional BluetoothService bluetooth_service = 6;
+
+    message NavigationStatusService 
+    {
+        message ImageOptions
+        {
+            required int32 width = 1;
+            required int32 height = 2;
+            required int32 colour_depth_bits = 3;
+        }
+
+        required uint32 minimum_interval_ms = 1;
+        required uint32 type = 2;
+        optional ImageOptions image_options = 3;
+    }
+    optional NavigationStatusService navigation_status_service = 8;
 
     //bt service == 6
     //radio == 7
@@ -307,16 +368,28 @@ message MicResponse
     required uint32 value = 2;
 }
 
+enum VIDEO_FOCUS_MODE
+{
+    VIDEO_FOCUS_MODE_FOCUSED = 1;
+    VIDEO_FOCUS_MODE_UNFOCUSED = 2;
+}
+
+enum VIDEO_FOCUS_REASON
+{
+    VIDEO_FOCUS_REASON_1 = 1;
+    VIDEO_FOCUS_REASON_2 = 2;
+}
+
 message VideoFocusRequest
 {
     optional int32 disp_index = 1;
-    optional uint32 mode = 2; //Enum?
-    optional uint32 reason = 3; //Enum?
+    optional VIDEO_FOCUS_MODE mode = 2;
+    optional VIDEO_FOCUS_REASON reason = 3;
 }
 
 message VideoFocus
 {
-    optional uint32 mode = 1; //Enum?
+    optional VIDEO_FOCUS_MODE mode = 1;
     optional bool unrequested = 2; 
 }
 

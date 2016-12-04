@@ -8,7 +8,8 @@
 #include <SDL/SDL_syswm.h>
 #include <time.h>
 #include <glib-unix.h>
-
+//This gets defined by SDL and breaks the protobuf headers
+#undef Status
 
 #include "hu_uti.h"
 #include "hu_aap.h"
@@ -302,7 +303,7 @@ uint64_t get_cur_timestamp()
 static int aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, unsigned int y) {
 
     HU::InputEvent inputEvent;
-    inputEvent.set_time_stamp(get_cur_timestamp());
+    inputEvent.set_timestamp(get_cur_timestamp());
     HU::TouchInfo* touchEvent = inputEvent.mutable_touch();
     touchEvent->set_action(action);
     HU::TouchInfo::Location* touchLocation = touchEvent->add_location();
@@ -480,7 +481,7 @@ gboolean sdl_poll_event(gpointer data)
                 PrintKeyInfo(key);
 
                 HU::InputEvent inputEvent;
-                inputEvent.set_time_stamp(get_cur_timestamp());
+                inputEvent.set_timestamp(get_cur_timestamp());
                 HU::ButtonInfo* buttonInfo = inputEvent.mutable_button()->add_button();
                 buttonInfo->set_is_pressed(event.type == SDL_KEYDOWN);
                 buttonInfo->set_meta(0);
@@ -602,17 +603,6 @@ static int gst_loop(gst_app_t *app)
     SDL_Quit();
 
     return ret;
-}
-
-namespace google
-{
-    namespace protobuf
-    {
-        void ShutdownProtobufLibrary()
-        {
-            printf("Do nothing since there is a system libprotobuf and it double frees!\n");
-        }
-    }
 }
 
 int main (int argc, char *argv[])
