@@ -492,11 +492,27 @@ gboolean sdl_poll_event(gpointer data)
                 else if (key->keysym.sym == SDLK_DOWN) {
                     buttonInfo->set_scan_code(HUIB_DOWN);
                 }
-                else if (key->keysym.sym == SDLK_LEFT) {
-                    buttonInfo->set_scan_code(HUIB_LEFT);
+                else if (key->keysym.sym == SDLK_TAB) { //Left is the menu, so kinda tab?
+                     buttonInfo->set_scan_code(HUIB_LEFT);
                 }
-                else if (key->keysym.sym == SDLK_RIGHT) {
-                    buttonInfo->set_scan_code(HUIB_RIGHT);
+                //This is just mic again
+                // else if (key->keysym.sym == SDLK_RIGHT) {
+                //      buttonInfo->set_scan_code(HUIB_RIGHT);
+                // }
+                else if (key->keysym.sym == SDLK_LEFT || key->keysym.sym == SDLK_RIGHT)
+                {
+                	if (event.type == SDL_KEYDOWN)
+                	{
+	                	HU::InputEvent inputEvent2;
+		                inputEvent2.set_timestamp(get_cur_timestamp());
+		                HU::RelativeInputEvent* rel = inputEvent2.mutable_rel_event()->mutable_event();
+		                rel->set_delta(key->keysym.sym == SDLK_LEFT ? -1 : 1);
+		                rel->set_scan_code(HUIB_SCROLLWHEEL);
+
+	                	pthread_mutex_lock (&mutexsend);
+	                    ret = hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent2);
+	                    pthread_mutex_unlock (&mutexsend);
+                	}
                 }
                 else if (key->keysym.sym == SDLK_m) {
                     buttonInfo->set_scan_code(HUIB_MIC);
