@@ -5,7 +5,8 @@
   #include "hu_uti.h"                                                  // Utilities
   #include "hu_oap.h"                                                  // Open Accessory Protocol
   #include "hu_usb.h"
-
+  #include <vector>
+  #include <algorithm>
   int iusb_state = 0; // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
 
 
@@ -121,10 +122,7 @@ struct usbvpid {
     uint16_t product;
 };
 
-
-#ifndef NDEBUG
-
-  char * iusb_error_get (int error) {
+  const char * iusb_error_get (int error) {
     switch (error) {
       case LIBUSB_SUCCESS:                                              // 0
         return ("LIBUSB_SUCCESS");
@@ -159,61 +157,72 @@ struct usbvpid {
   }
 
 
-  /*
-  void iusb_transfer_status_log (int status) {
-    switch (status) {
-      case LIBUSB_TRANSFER_COMPLETED:
-        logd ("LIBUSB_TRANSFER_COMPLETED");
-        break;
-      case LIBUSB_TRANSFER_ERROR:
-        loge ("LIBUSB_TRANSFER_ERROR");
-        break;
-      case LIBUSB_TRANSFER_TIMED_OUT:
-        loge ("LIBUSB_TRANSFER_TIMED_OUT");
-        break;
-      case LIBUSB_TRANSFER_CANCELLED:
-        loge ("LIBUSB_TRANSFER_CANCELLED");
-        break;
-      case LIBUSB_TRANSFER_STALL:
-        loge ("LIBUSB_TRANSFER_STALL");
-        break;
-      case LIBUSB_TRANSFER_NO_DEVICE:
-        loge ("LIBUSB_TRANSFER_NO_DEVICE");
-        break;
-      case LIBUSB_TRANSFER_OVERFLOW:
-        loge ("LIBUSB_TRANSFER_OVERFLOW");
-        break;
-      default:
-        loge ("LIBUSB_TRANSFER Unknown status: %d", status);
-        break;
+
+  static std::vector<byte> recv_temp_buffer;
+  int hu_usb_recv (byte * buf, int len, int tmo) {
+
+    const char* dir = "recv";
+    int total_read = 0;
+    int read_from_buf = std::min(len, (int)recv_temp_buffer.size());
+    if (read_from_buf > 0)
+    {
+      memcpy(buf, recv_temp_buffer.data(), read_from_buf);
+      buf += read_from_buf;
+      len -= read_from_buf;
+      total_read += read_from_buf;
+      recv_temp_buffer.erase(recv_temp_buffer.begin(), recv_temp_buffer.begin() + read_from_buf);
     }
-  }
-  */
-#endif
 
-  int iusb_bulk_transfer (int ep, byte * buf, int len, int tmo) { // 0 = unlimited timeout
-
-    const char * dir = "recv";
-    if (ep == iusb_ep_out)
-      dir = "send";
-
-    if (iusb_state != hu_STATE_STARTED) {
-      logd ("CHECK: iusb_bulk_transfer start iusb_state: %d (%s) dir: %s  ep: 0x%02x  buf: %p  len: %d  tmo: %d", iusb_state, state_get (iusb_state), dir, ep, buf, len, tmo);
-      return (-1);
+    if (len == 0)
+    {
+      return read_from_buf;
     }
-    #define MAX_LEN 65536 //16384 //8192  // 65536
-    if (ep == iusb_ep_in && len > MAX_LEN)
-      len = MAX_LEN;
-    if (ena_log_extra) {
-      logw ("Start dir: %s  ep: 0x%02x  buf: %p  len: %d  tmo: %d", dir, ep, buf, len, tmo);
-    }
-//#ifndef NDEBUG
-    if (ena_hd_tra_send && ep == iusb_ep_out)
-      hex_dump ("US: ", 16, buf, len);
-//#endif
 
+    //try directly
     int usb_err = -2;
-    int total_bytes_xfrd = 0;
+    int bytes_xfrd = 0;
+    usb_err = libusb_bulk_transfer (iusb_dev_hndl, iusb_ep_in, buf, len, & bytes_xfrd, tmo);
+    if (usb_err == LIBUSB_ERROR_TIMEOUT)
+    {
+      //it's ok, just no data
+      return 0;
+    }
+
+    int bufLen = 0x4000;
+    while(usb_err == LIBUSB_ERROR_OVERFLOW)    
+    {
+      bufLen *= 2;
+      recv_temp_buffer.resize(bufLen);
+
+      logd("Overflow, trying bufLen %i", bufLen);
+      bytes_xfrd = 0;
+      usb_err = libusb_bulk_transfer (iusb_dev_hndl, iusb_ep_in, recv_temp_buffer.data(), bufLen, & bytes_xfrd, tmo);
+    }
+
+    if (usb_err == 0)
+    {
+      recv_temp_buffer.resize(bytes_xfrd);
+
+      read_from_buf = std::min(len, (int)recv_temp_buffer.size());
+      if (read_from_buf > 0)
+      {
+        total_read += read_from_buf;
+        memcpy(buf, recv_temp_buffer.data(), read_from_buf);
+        recv_temp_buffer.erase(recv_temp_buffer.begin(), recv_temp_buffer.begin() + read_from_buf);
+      }
+    }
+
+    if (usb_err < 0)
+      loge ("Done dir: %s  len: %d  bytes_xfrd: %d usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
+    else if (ena_log_extra)
+      logw ("Done dir: %s  len: %d  bytes_xfrd: %d usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
+
+    return (usb_err < 0 ? -1 : total_read);
+  }
+
+  int hu_usb_send (byte * buf, int len, int tmo) {
+    const char* dir = "send";
+    int usb_err = -2;
     int bytes_xfrd = 0;
       // Check the transferred parameter for bulk writes. Not all of the data may have been written.
 
@@ -222,73 +231,23 @@ struct usbvpid {
       // libusb is careful not to lose any data that may have been transferred; do not assume that timeout conditions indicate a complete lack of I/O.
 
     errno = 0;
-    int continue_transfer = 1;
-    while (continue_transfer) {
-      bytes_xfrd = 0;                                                   // Default tranferred = 0
+    usb_err = libusb_bulk_transfer (iusb_dev_hndl, iusb_ep_out, buf, len, & bytes_xfrd, tmo);
+      //unsigned long ms_duration = ms_get () - ms_start;
+    if (usb_err < 0 && usb_err != LIBUSB_ERROR_TIMEOUT)
+      loge ("Done dir: %s  len: %d  bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
+    else if (ena_log_verbo && usb_err < 0 && usb_err != LIBUSB_ERROR_TIMEOUT)// && (ena_hd_tra_send || ep == iusb_ep_in))
+      logd ("Done dir: %s  len: %d  bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
+    else if (ena_log_extra)
+      logw ("Done dir: %s  len: %d  bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
 
-unsigned long ms_start = ms_get ();
-      usb_err = libusb_bulk_transfer (iusb_dev_hndl, ep, buf, len, & bytes_xfrd, tmo);
-unsigned long ms_duration = ms_get () - ms_start;
-if (ms_duration > 400)
-  loge ("ms_duration: %d dir: %s  len: %d  bytes_xfrd: %d  total_bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", ms_duration, dir, len, bytes_xfrd, total_bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
+    if (bytes_xfrd <= 0 && usb_err < 0) {
+  
+      loge ("Done dir: %s  len: %d  bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
 
-
-      continue_transfer = 0;                                            // Default = transfer done
-
-      if (bytes_xfrd > 0)                                               // If bytes were transferred
-        total_bytes_xfrd += bytes_xfrd;                                 // Add to total
-
-      if ((total_bytes_xfrd > 0 || bytes_xfrd > 0) && usb_err == LIBUSB_ERROR_TIMEOUT) {          // If bytes were transferred but we had a timeout...
-//        continue_transfer = 1;                                          // Continue the transfer
-        logd ("CONTINUE dir: %s  len: %d  bytes_xfrd: %d  total_bytes_xfrd: %d  usb_err: %d (%s)", dir, len, bytes_xfrd, total_bytes_xfrd, usb_err, iusb_error_get (usb_err));
-        buf += bytes_xfrd;                                              // For next transfer, point deeper info buf
-        len -= bytes_xfrd;                                              // For next transfer, reduce buf len capacity
-//        ms_sleep (50);
-      }
-      else if (usb_err < 0 && usb_err != LIBUSB_ERROR_TIMEOUT)
-        loge ("Done dir: %s  len: %d  bytes_xfrd: %d  total_bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, total_bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
-      else if (ena_log_verbo && usb_err != LIBUSB_ERROR_TIMEOUT)// && (ena_hd_tra_send || ep == iusb_ep_in))
-        logd ("Done dir: %s  len: %d  bytes_xfrd: %d  total_bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, total_bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
-      else if (ena_log_extra)
-        logw ("Done dir: %s  len: %d  bytes_xfrd: %d  total_bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, total_bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
-    }
-
-    if (total_bytes_xfrd > 16384) {                                     // Previously caused problems that seem fixed by raising USB Rx buffer from 16K to 64K
-                                                                        // Using a streaming mode (first reading packet length) may be better but may also create sync or other issues
-      //loge ("total_bytes_xfrd: %d     ???????????????? !!!!!!!!!!!!!!!!!!!!!!!!!!!!! !!!!!!!!!!!!!!!!!!!!!!!!!!!!!! ?????????????????????????", total_bytes_xfrd);
-    }
-
-    if (total_bytes_xfrd <= 0 && usb_err < 0) {
-      if (errno == EAGAIN || errno == ETIMEDOUT || usb_err == LIBUSB_ERROR_TIMEOUT) {
-        return (0);
-	}
-	  
-	  loge ("Done dir: %s  len: %d  bytes_xfrd: %d  total_bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, total_bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
-
-      hu_usb_stop ();  // Other errors here are fatal, so stop USB
       return (-1);
     }
 
-    //if (ena_log_verbo)
-    //  logd ("Done dir: %s  len: %d  total_bytes_xfrd: %d", dir, len, total_bytes_xfrd);
-
-//#ifndef NDEBUG
-    if (ena_hd_tra_recv && ep == iusb_ep_in)
-      hex_dump ("UR: ", 16, buf, total_bytes_xfrd);
-//#endif
-
-
-    return (total_bytes_xfrd);
-  }
-
-  int hu_usb_recv (byte * buf, int len, int tmo) {
-    int ret = iusb_bulk_transfer (iusb_ep_in, buf, len, tmo);       // milli-second timeout
-    return (ret);
-  }
-
-  int hu_usb_send (byte * buf, int len, int tmo) {
-    int ret = iusb_bulk_transfer (iusb_ep_out, buf, len, tmo);      // milli-second timeout
-    return (ret);
+    return (bytes_xfrd);
   }
 
   int iusb_control_transfer (libusb_device_handle * usb_hndl, uint8_t req_type, uint8_t req_val, uint16_t val, uint16_t idx, byte * buf, uint16_t len, unsigned int tmo) {
@@ -394,7 +353,7 @@ if (ms_duration > 400)
     else
       logd ("Done libusb_release_interface usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
 
-	libusb_reset_device (iusb_dev_hndl);
+	  libusb_reset_device (iusb_dev_hndl);
 	
     libusb_close (iusb_dev_hndl);
     logd ("Done libusb_close");
@@ -572,10 +531,12 @@ struct usbvpid iusb_vendor_get (libusb_device * device) {
       logd ("Done libusb_set_auto_detach_kernel_driver usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
 //*/
     usb_err = libusb_claim_interface (iusb_dev_hndl, 0);
-    if (usb_err)
+    if (usb_err) {
       loge ("Error libusb_claim_interface usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
-    else
-      logd ("OK libusb_claim_interface usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
+      return (-1);
+    }
+
+    logd ("OK libusb_claim_interface usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
 
     struct libusb_config_descriptor * config = NULL;
     usb_err = libusb_get_config_descriptor (iusb_best_device, 0, & config);

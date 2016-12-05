@@ -15,8 +15,8 @@
   void hu_ssl_ret_log (int ret);
   void hu_ssl_inf_log();
 
-  int hu_ssl_handshake ();
-
+  int hu_ssl_begin_handshake ();
+  int hu_handle_SSLHandshake(int chan, byte * buf, int len);
 
   // Internal:
 

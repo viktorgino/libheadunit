@@ -362,7 +362,7 @@ static void read_mic_data (GstElement * sink)
         }
         
         pthread_mutex_lock (&mutexsend);
-        ret = hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaData0, get_cur_timestamp(), GST_BUFFER_DATA(gstbuf), mic_buf_sz);
+        ret = hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaDataWithTimestamp, get_cur_timestamp(), GST_BUFFER_DATA(gstbuf), mic_buf_sz);
         pthread_mutex_unlock (&mutexsend);
         
         if (ret < 0) {

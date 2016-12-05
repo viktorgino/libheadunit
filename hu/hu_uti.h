@@ -42,7 +42,6 @@
   extern int ena_log_verbo;
 
   typedef unsigned char byte;
-  #define DEFBUF  16384     //16384 65536                                                // Default buffer size is maximum for USB
 
   #define DEF_BUF 512                                                   // For Ascii strings and such
 
@@ -67,7 +66,7 @@
   #define hu_LOG_WAR   ANDROID_LOG_WARN
   #define hu_LOG_ERR   ANDROID_LOG_ERROR
 
-#ifdef NDEBUG
+#ifdef NDEBUG2
 
   #define  logx(...)
   #define  logv(...)
@@ -268,4 +267,4 @@ inline const char* state_get(int s)
   }
   return "";
 }
-inline const char* iusb_error_get(int) { return ""; }
+const char* iusb_error_get(int error);

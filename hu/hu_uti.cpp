@@ -62,7 +62,7 @@
 
   int ena_log_extra   = 0;//1;//0;
   int ena_log_verbo   = 0;//1;
-  int ena_log_debug   = 1;
+  int ena_log_debug   = 0;
   int ena_log_warni   = 1;
   int ena_log_error   = 1;
 
@@ -140,6 +140,12 @@ const  char * prio_get (int prio) {
     strlcat (log_line, "\n", sizeof (log_line));
     logfile (log_line);
   #endif
+
+    // if (prio == hu_LOG_ERR)
+    // {
+    //   raise(SIGTRAP);
+    // }
+
     return (0);
   }
 

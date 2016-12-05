@@ -344,7 +344,7 @@ static void read_mic_data (GstElement * sink)
 		uint64_t timeStamp = get_cur_timestamp();
 		queueSend([gstbuf, timeStamp, mic_buf_sz]()
 		{
-			hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaData0, timeStamp , GST_BUFFER_DATA(gstbuf), mic_buf_sz);
+			hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaDataWithTimestamp, timeStamp , GST_BUFFER_DATA(gstbuf), mic_buf_sz);
 			gst_buffer_unref(gstbuf);
 		});
 	}
