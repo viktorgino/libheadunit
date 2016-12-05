@@ -296,7 +296,7 @@ uint64_t get_cur_timestamp()
     /* Fetch the time stamp */
     clock_gettime(CLOCK_REALTIME, &tp);
 
-	return tp.tv_sec * 1000000000 + tp.tv_nsec;	
+    return tp.tv_sec * 1000000000 + tp.tv_nsec;    
 }
 
 
@@ -501,18 +501,18 @@ gboolean sdl_poll_event(gpointer data)
                 // }
                 else if (key->keysym.sym == SDLK_LEFT || key->keysym.sym == SDLK_RIGHT)
                 {
-                	if (event.type == SDL_KEYDOWN)
-                	{
-	                	HU::InputEvent inputEvent2;
-		                inputEvent2.set_timestamp(get_cur_timestamp());
-		                HU::RelativeInputEvent* rel = inputEvent2.mutable_rel_event()->mutable_event();
-		                rel->set_delta(key->keysym.sym == SDLK_LEFT ? -1 : 1);
-		                rel->set_scan_code(HUIB_SCROLLWHEEL);
+                    if (event.type == SDL_KEYDOWN)
+                    {
+                        HU::InputEvent inputEvent2;
+                        inputEvent2.set_timestamp(get_cur_timestamp());
+                        HU::RelativeInputEvent* rel = inputEvent2.mutable_rel_event()->mutable_event();
+                        rel->set_delta(key->keysym.sym == SDLK_LEFT ? -1 : 1);
+                        rel->set_scan_code(HUIB_SCROLLWHEEL);
 
-	                	pthread_mutex_lock (&mutexsend);
-	                    ret = hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent2);
-	                    pthread_mutex_unlock (&mutexsend);
-                	}
+                        pthread_mutex_lock (&mutexsend);
+                        ret = hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent2);
+                        pthread_mutex_unlock (&mutexsend);
+                    }
                 }
                 else if (key->keysym.sym == SDLK_m) {
                     buttonInfo->set_scan_code(HUIB_MIC);
@@ -533,9 +533,9 @@ gboolean sdl_poll_event(gpointer data)
                     buttonInfo->set_scan_code(HUIB_BACK);
                 }
                 else if (key->keysym.sym == SDLK_F1) {
-                	if (event.type == SDL_KEYUP)
-                	{
-                    	nightmodenow = !nightmodenow;
+                    if (event.type == SDL_KEYUP)
+                    {
+                        nightmodenow = !nightmodenow;
                     }
                 }
 
@@ -572,7 +572,7 @@ gboolean sdl_poll_event(gpointer data)
 
         pthread_mutex_lock (&mutexsend);
         hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
-       	pthread_mutex_unlock (&mutexsend);
+           pthread_mutex_unlock (&mutexsend);
         printf("Nightmode: %s\n", g_nightmode ? "On" : "Off");
     }
     

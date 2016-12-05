@@ -15,11 +15,11 @@
 #include "hu_uti.h"
 #include "hu_aap.h"
 
-#define EVENT_DEVICE_TS    "/dev/input/filtered-touchscreen0"
+#define EVENT_DEVICE_TS	"/dev/input/filtered-touchscreen0"
 #define EVENT_DEVICE_CMD   "/dev/input/event1"
-#define EVENT_TYPE      EV_ABS
-#define EVENT_CODE_X    ABS_X
-#define EVENT_CODE_Y    ABS_Y
+#define EVENT_TYPE	  EV_ABS
+#define EVENT_CODE_X	ABS_X
+#define EVENT_CODE_Y	ABS_Y
 
 #define HMI_BUS_ADDRESS "unix:path=/tmp/dbus_hmi_socket"
 #define SERVICE_BUS_ADDRESS "unix:path=/tmp/dbus_service_socket"
@@ -86,7 +86,7 @@ static gboolean read_data(gst_app_t *app)
 	char *abuf;
 	int res_len = 0;
 
-	iret = hu_aap_recv_process ();                       
+	iret = hu_aap_recv_process ();					   
 
 	if (iret != 0) {
 		printf("hu_aap_recv_process() iret: %d\n", iret);
@@ -156,16 +156,16 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message, gpointer *ptr)
 	switch(GST_MESSAGE_TYPE(message)){
 
 		case GST_MESSAGE_ERROR:{
-					       gchar *debug;
-					       GError *err;
+						   gchar *debug;
+						   GError *err;
 
-					       gst_message_parse_error(message, &err, &debug);
-					       g_print("Error %s\n", err->message);
-					       g_error_free(err);
-					       g_free(debug);
-					       g_main_loop_quit(app->loop);
-				       }
-				       break;
+						   gst_message_parse_error(message, &err, &debug);
+						   g_print("Error %s\n", err->message);
+						   g_error_free(err);
+						   g_free(debug);
+						   g_main_loop_quit(app->loop);
+					   }
+					   break;
 
 		case GST_MESSAGE_WARNING:{
 						 gchar *debug;
@@ -211,7 +211,7 @@ static int gst_pipeline_init(gst_app_t *app)
 
 //	app->pipeline = (GstPipeline*)gst_parse_launch("appsrc name=mysrc is-live=true block=false max-latency=1000000 ! h264parse ! vpudec low-latency=true framedrop=true framedrop-level-mask=0x200 ! mfw_v4lsink max-lateness=1000000000 sync=false async=false", &error);
 
-    app->pipeline = (GstPipeline*)gst_parse_launch("appsrc name=mysrc is-live=true block=false max-latency=1000000 ! h264parse ! vpudec low-latency=true framedrop=true framedrop-level-mask=0x200 ! mfw_isink name=mysink axis-left=25 axis-top=0 disp-width=751 disp-height=480 max-lateness=1000000000 sync=false async=false", &error);
+	app->pipeline = (GstPipeline*)gst_parse_launch("appsrc name=mysrc is-live=true block=false max-latency=1000000 ! h264parse ! vpudec low-latency=true framedrop=true framedrop-level-mask=0x200 ! mfw_isink name=mysink axis-left=25 axis-top=0 disp-width=751 disp-height=480 max-lateness=1000000000 sync=false async=false", &error);
 		
 	if (error != NULL) {
 		printf("could not construct pipeline: %s\n", error->message);
@@ -282,9 +282,9 @@ static int gst_pipeline_init(gst_app_t *app)
 
 uint64_t get_cur_timestamp()
 {
-    struct timespec tp;
-    /* Fetch the time stamp */
-    clock_gettime(CLOCK_REALTIME, &tp);
+	struct timespec tp;
+	/* Fetch the time stamp */
+	clock_gettime(CLOCK_REALTIME, &tp);
 
 	return tp.tv_sec * 1000000000 + tp.tv_nsec;	
 }
@@ -295,19 +295,19 @@ static void aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, u
 	uint64_t timeStamp = get_cur_timestamp();
 	queueSend([action, x, y, timeStamp]()
 	{
-	    HU::InputEvent inputEvent;
-	    inputEvent.set_timestamp(timeStamp);
-	    HU::TouchInfo* touchEvent = inputEvent.mutable_touch();
-	    touchEvent->set_action(action);
-	    HU::TouchInfo::Location* touchLocation = touchEvent->add_location();
-	    touchLocation->set_x(x);
-	    touchLocation->set_y(y);
-	    touchLocation->set_pointer_id(0);
+		HU::InputEvent inputEvent;
+		inputEvent.set_timestamp(timeStamp);
+		HU::TouchInfo* touchEvent = inputEvent.mutable_touch();
+		touchEvent->set_action(action);
+		HU::TouchInfo::Location* touchLocation = touchEvent->add_location();
+		touchLocation->set_x(x);
+		touchLocation->set_y(y);
+		touchLocation->set_pointer_id(0);
 
-	    /* Send touch event */
-	    
-	    hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
-    });
+		/* Send touch event */
+		
+		hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
+	});
 }
 
 static const int max_size = 8192;
@@ -371,8 +371,8 @@ gboolean touch_poll_event(gpointer data)
 	struct input_event event[64];
 	const size_t ev_size = sizeof(struct input_event);
 	const size_t buffer_size = ev_size * 64;
-    ssize_t size;
-    gst_app_t *app = (gst_app_t *)data;
+	ssize_t size;
+	gst_app_t *app = (gst_app_t *)data;
 	
 	fd_set set;
 	struct timeval timeout;
@@ -414,16 +414,16 @@ gboolean touch_poll_event(gpointer data)
 			case EV_ABS:
 				switch (event[i].code) {
 					case ABS_MT_POSITION_X:
-                        {
-                            //account for letterboxing
-                            printf("input x %i\n", event[i].value);
-                            float floatPixel = ((event[i].value - 100) / 4095.0f) * 800.0f;
-                            const float floatBorder = 25.0f / 800.0f;
-                            floatPixel = (floatPixel / 750.0f) - floatBorder;
-                                                        
-                            mTouch.x = (int)(floatPixel * 800.0f);
-                            printf("touch x %i\n", mTouch.x);
-                        }
+						{
+							//account for letterboxing
+							printf("input x %i\n", event[i].value);
+							float floatPixel = ((event[i].value - 100) / 4095.0f) * 800.0f;
+							const float floatBorder = 25.0f / 800.0f;
+							floatPixel = (floatPixel / 750.0f) - floatBorder;
+														
+							mTouch.x = (int)(floatPixel * 800.0f);
+							printf("touch x %i\n", mTouch.x);
+						}
 						break;
 					case ABS_MT_POSITION_Y:
 						mTouch.y = event[i].value * 480/4095;
@@ -640,27 +640,27 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 				break;
 			}
 			if (scanCode != 0 || scrollAmount != 0) {
-             	queueSend([timeStamp, scanCode, scrollAmount, isPressed]()
-             	{
-             		HU::InputEvent inputEvent;
-		            inputEvent.set_timestamp(timeStamp);
-		            if (scanCode != 0)
-		            {
-			            HU::ButtonInfo* buttonInfo = inputEvent.mutable_button()->add_button();
-			            buttonInfo->set_is_pressed(isPressed);
-			            buttonInfo->set_meta(0);
-			            buttonInfo->set_long_press(false);
-			            buttonInfo->set_scan_code(scanCode);
-		        	}
-		        	if (scrollAmount != 0)
-		        	{
+			 	queueSend([timeStamp, scanCode, scrollAmount, isPressed]()
+			 	{
+			 		HU::InputEvent inputEvent;
+					inputEvent.set_timestamp(timeStamp);
+					if (scanCode != 0)
+					{
+						HU::ButtonInfo* buttonInfo = inputEvent.mutable_button()->add_button();
+						buttonInfo->set_is_pressed(isPressed);
+						buttonInfo->set_meta(0);
+						buttonInfo->set_long_press(false);
+						buttonInfo->set_scan_code(scanCode);
+					}
+					if (scrollAmount != 0)
+					{
 						HU::RelativeInputEvent* rel = inputEvent.mutable_rel_event()->mutable_event();
-		                rel->set_delta(scrollAmount);
-		                rel->set_scan_code(HUIB_SCROLLWHEEL);
-		        	}
-                	hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
-            	});
-            }
+						rel->set_delta(scrollAmount);
+						rel->set_scan_code(HUIB_SCROLLWHEEL);
+					}
+					hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
+				});
+			}
 		}
 		//key release
 		//else if (event.type == EV_KEY && event.value == 1)
@@ -782,10 +782,10 @@ static void * nightmode_thread(void *app)
 			nightmode = nightmodenow;
 			queueSend([nightmodenow]()
 			{
-		        HU::SensorEvent sensorEvent;
-		        sensorEvent.add_night_mode()->set_is_night(nightmodenow);
+				HU::SensorEvent sensorEvent;
+				sensorEvent.add_night_mode()->set_is_night(nightmodenow);
 
-		        hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
+				hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
 			});
 		}
 
