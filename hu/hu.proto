@@ -258,6 +258,16 @@ message ChannelDescriptor
     //mediaplayback == 9
     //phonestatus = 10
     //mediabrowser=11
+
+    message VendorExtensionService
+    {
+        optional string name = 1;
+        repeated string package_white_list = 2;
+        optional bytes data = 3;
+    }
+
+    optional VendorExtensionService vendor_extension_service = 12;
+
     //vendor extension==12
     //genericnotification==13
 }
