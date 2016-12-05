@@ -542,6 +542,8 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 
 			uint64_t timeStamp = get_cur_timestamp();
 			uint32_t scanCode = 0;
+			int32_t scrollAmount = 0;
+			bool isPressed = (event.value == 1);
 
 			printf("Key code %i value %i\n", (int)event.code, (int)event.value);
 			switch (event.code) {
@@ -571,14 +573,26 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 				scanCode = HUIB_ENTER;
 				break;
 			case KEY_LEFT:
-			case KEY_N:
 				printf("KEY_LEFT\n");
 				scanCode = HUIB_LEFT;
 				break;
+			case KEY_N:
+				printf("KEY_N\n");
+				if (isPressed)
+				{
+					scrollAmount = -1;
+				}
+				break;
 			case KEY_RIGHT:
-			case KEY_M:
 				printf("KEY_RIGHT\n");
 				scanCode = HUIB_RIGHT;
+				break;
+			case KEY_M:
+				printf("KEY_M\n");
+				if (isPressed)
+				{
+					scrollAmount = 1;
+				}
 				break;
 			case KEY_UP:
 				printf("KEY_UP\n");
@@ -590,14 +604,14 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 				break;
 			case KEY_HOME:
 				printf("KEY_HOME\n");
-				if (event.value == 1)
+				if (isPressed)
 				{
 					g_main_loop_quit (mainloop);
 				}
 				break;
 			case KEY_R:
 				printf("KEY_R\n");
-				if (event.value == 1)
+				if (isPressed)
 				{
 					if (displayStatus)
 					{
@@ -612,17 +626,25 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 				}
 				break;
 			}
-			if (scanCode != 0) {
-				bool isPressed = (event.value == 1);
-             	queueSend([timeStamp, scanCode, isPressed]()
+			if (scanCode != 0 || scrollAmount != 0) {
+             	queueSend([timeStamp, scanCode, scrollAmount, isPressed]()
              	{
              		HU::InputEvent inputEvent;
 		            inputEvent.set_timestamp(timeStamp);
-		            HU::ButtonInfo* buttonInfo = inputEvent.mutable_button()->add_button();
-		            buttonInfo->set_is_pressed(isPressed);
-		            buttonInfo->set_meta(0);
-		            buttonInfo->set_long_press(false);
-		            buttonInfo->set_scan_code(scanCode);
+		            if (scanCode != 0)
+		            {
+			            HU::ButtonInfo* buttonInfo = inputEvent.mutable_button()->add_button();
+			            buttonInfo->set_is_pressed(isPressed);
+			            buttonInfo->set_meta(0);
+			            buttonInfo->set_long_press(false);
+			            buttonInfo->set_scan_code(scanCode);
+		        	}
+		        	if (scrollAmount != 0)
+		        	{
+						HU::RelativeInputEvent* rel = inputEvent.mutable_rel_event()->mutable_event();
+		                rel->set_delta(scrollAmount);
+		                rel->set_scan_code(HUIB_SCROLLWHEEL);
+		        	}
                 	hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
             	});
             }

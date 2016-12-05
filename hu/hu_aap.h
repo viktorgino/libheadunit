@@ -6,9 +6,9 @@ int hu_aap_out_get (int chan);
 
 // Channels ( or Service IDs)
 #define AA_CH_CTR 0                                                                                  // Sync with hu_tra.java, hu_aap.h and hu_aap.c:aa_type_array[]
-#define AA_CH_SEN 1
-#define AA_CH_VID 2
-#define AA_CH_TOU 3
+#define AA_CH_TOU 1
+#define AA_CH_SEN 2
+#define AA_CH_VID 3
 #define AA_CH_AUD 4
 #define AA_CH_AU1 5
 #define AA_CH_AU2 6
@@ -105,6 +105,7 @@ enum HU_INPUT_BUTTON
     HUIB_PHONE = 0x5,
     HUIB_START = 126,
     HUIB_STOP = 127,
+    HUIB_SCROLLWHEEL = 65536,
     
 };
 

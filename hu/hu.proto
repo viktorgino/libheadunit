@@ -40,6 +40,27 @@ message TouchInfo
     required TOUCH_ACTION action = 3;
 }
 
+message RelativeInputEvent
+{
+    optional uint32 scan_code = 1;
+    optional int32 delta = 2;
+}
+
+message AbsoluteInputEvent
+{
+    optional uint32 scan_code = 1;
+    optional int32 value = 2;
+}
+
+message AbsoluteInputEventWrapper
+{
+    required AbsoluteInputEvent event = 1;
+}
+
+message RelativeInputEventWrapper
+{
+    required RelativeInputEvent event = 1;
+}
 
 message InputEvent
 {
@@ -47,6 +68,8 @@ message InputEvent
     optional int32 disp_channel = 2;
     optional TouchInfo touch = 3;
     optional ButtonInfoWrapper button = 4;
+    optional AbsoluteInputEventWrapper abs_event = 5;
+    optional RelativeInputEventWrapper rel_event = 6;
 }
 
 message BindingRequest
@@ -162,7 +185,7 @@ message ChannelDescriptor
     {
         message Sensor
         {
-            required SENSOR_TYPE type = 1;
+            optional SENSOR_TYPE type = 1;
         }
         repeated Sensor sensor_list = 1;
     }

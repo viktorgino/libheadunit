@@ -288,6 +288,33 @@
 
     carInfo.mutable_channels()->Reserve(AA_CH_MAX);
     
+    HU::ChannelDescriptor* inputChannel = carInfo.add_channels();
+    inputChannel->set_channel_id(AA_CH_TOU);
+    {
+      auto inner = inputChannel->mutable_input_event_channel();
+      auto tsConfig = inner->mutable_touch_screen_config();
+      tsConfig->set_width(800);
+      tsConfig->set_height(480);
+
+      //No idea what these mean since they aren't the same as HU_INPUT_BUTTON
+      //1 seems to be "show cursor"
+      inner->add_keycodes_supported(1);
+      inner->add_keycodes_supported(2);
+      inner->add_keycodes_supported(HUIB_BACK);
+      inner->add_keycodes_supported(HUIB_UP);
+      inner->add_keycodes_supported(HUIB_DOWN);
+      inner->add_keycodes_supported(HUIB_LEFT);
+      inner->add_keycodes_supported(HUIB_RIGHT);
+      inner->add_keycodes_supported(HUIB_ENTER);
+      inner->add_keycodes_supported(HUIB_MIC);
+      inner->add_keycodes_supported(HUIB_PLAYPAUSE);
+      inner->add_keycodes_supported(HUIB_NEXT);
+      inner->add_keycodes_supported(HUIB_PREV);
+      inner->add_keycodes_supported(HUIB_PHONE);
+      inner->add_keycodes_supported(HUIB_SCROLLWHEEL);
+      
+    }
+
     HU::ChannelDescriptor* sensorChannel = carInfo.add_channels();
     sensorChannel->set_channel_id(AA_CH_SEN);
     {
@@ -310,15 +337,6 @@
       inner->set_available_while_in_call(false);
     }
 
-    HU::ChannelDescriptor* inputChannel = carInfo.add_channels();
-    inputChannel->set_channel_id(AA_CH_TOU);
-    {
-      auto inner = inputChannel->mutable_input_event_channel();
-      auto tsConfig = inner->mutable_touch_screen_config();
-      tsConfig->set_width(800);
-      tsConfig->set_height(480);
-    }
-
     HU::ChannelDescriptor* audioChannel0 = carInfo.add_channels();
     audioChannel0->set_channel_id(AA_CH_AUD);
     {
@@ -337,6 +355,18 @@
       auto inner = audioChannel1->mutable_output_stream_channel();
       inner->set_type(HU::STREAM_TYPE_AUDIO);
       inner->set_audio_type(HU::AUDIO_TYPE_SPEECH);
+      auto audioConfig = inner->add_audio_configs();
+      audioConfig->set_sample_rate(16000);
+      audioConfig->set_bit_depth(16);
+      audioConfig->set_channel_count(1);
+    }
+
+    HU::ChannelDescriptor* audioChannel2 = carInfo.add_channels();
+    audioChannel2->set_channel_id(AA_CH_AU2);
+    {
+      auto inner = audioChannel1->mutable_output_stream_channel();
+      inner->set_type(HU::STREAM_TYPE_AUDIO);
+      inner->set_audio_type(HU::AUDIO_TYPE_SYSTEM);
       auto audioConfig = inner->add_audio_configs();
       audioConfig->set_sample_rate(16000);
       audioConfig->set_bit_depth(16);
