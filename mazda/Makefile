@@ -15,8 +15,7 @@ LFLAGS= --sysroot=$(SYSROOT) -static-libstdc++ $(shell ./pkg-config-wrapper $(SY
 LFLAGS_IF= --sysroot=$(SYSROOT) -static-libstdc++ $(shell ./pkg-config-wrapper $(SYSROOT) --libs dbus-1)
 
 #headunit binary
-SRCS = $(TOP)/hu/hu_aad.cpp
-SRCS += $(TOP)/hu/hu_aap.cpp
+SRCS = $(TOP)/hu/hu_aap.cpp
 SRCS += $(TOP)/hu/hu_ssl.cpp
 SRCS += $(TOP)/hu/hu_usb.cpp
 SRCS += $(TOP)/hu/hu_uti.cpp

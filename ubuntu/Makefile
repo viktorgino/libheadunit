@@ -6,8 +6,7 @@ LFLAGS= -g $(shell pkg-config --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer
 CXXFLAGS= -g -std=c++11 -Wno-narrowing
 
 
-SRCS = $(TOP)/hu/hu_aad.cpp
-SRCS += $(TOP)/hu/hu_aap.cpp
+SRCS = $(TOP)/hu/hu_aap.cpp
 SRCS += $(TOP)/hu/hu_ssl.cpp
 SRCS += $(TOP)/hu/hu_usb.cpp
 SRCS += $(TOP)/hu/hu_uti.cpp

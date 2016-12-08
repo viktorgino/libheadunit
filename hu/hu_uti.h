@@ -1,86 +1,85 @@
 
-  #pragma once
-//#ifndef UTILS_INCLUDED
-
-//  #define UTILS_INCLUDED
-
-  #define NDEBUG // Ensure debug stuff
-
-  #define hu_STATE_INITIAL   0
-  #define hu_STATE_STARTIN   1
-  #define hu_STATE_STARTED   2
-  #define hu_STATE_STOPPIN   3
-  #define hu_STATE_STOPPED   4
-  //#define hu_STATE_   5
-
-  #include <stdio.h>
-  #include <stdlib.h>
-  #include <stdarg.h>
-  #include <stdint.h>
-
-  #include <string.h>
-  #include <signal.h>
-
-  #include <pthread.h>
-
-  #include <errno.h>
-
-  #include <unistd.h>
-  #include <fcntl.h>
-  #include <sys/stat.h>
-
-  #include <dirent.h>                                                   // For opendir (), readdir (), closedir (), DIR, struct dirent.
-
-  // Enables for hex_dump:
-  extern int ena_hd_hu_aad_dmp;
-  extern int ena_hd_tra_send;
-  extern int ena_hd_tra_recv;
-
-  extern int ena_log_aap_send;
-
-  extern int ena_log_extra;
-  extern int ena_log_verbo;
-
-  typedef unsigned char byte;
-
-  #define DEF_BUF 512                                                   // For Ascii strings and such
+#pragma once
 
 
-  #ifdef __ANDROID_API__
-    #include <android/log.h>
-  #else
-      // UNKNOWN    0
-    #define ANDROID_LOG_DEFAULT 1
-    #define ANDROID_LOG_VERBOSE 2
-    #define ANDROID_LOG_DEBUG   3
-      // INFO       4
-    #define ANDROID_LOG_WARN    5
-    #define ANDROID_LOG_ERROR   6
-      // FATAL      7
-      // SILENT     8
-  #endif
+#define NDEBUG // Ensure debug stuff
 
-  #define hu_LOG_EXT   ANDROID_LOG_DEFAULT
-  #define hu_LOG_VER   ANDROID_LOG_VERBOSE
-  #define hu_LOG_DEB   ANDROID_LOG_DEBUG
-  #define hu_LOG_WAR   ANDROID_LOG_WARN
-  #define hu_LOG_ERR   ANDROID_LOG_ERROR
+#define hu_STATE_INITIAL   0
+#define hu_STATE_STARTIN   1
+#define hu_STATE_STARTED   2
+#define hu_STATE_STOPPIN   3
+#define hu_STATE_STOPPED   4
+//#define hu_STATE_   5
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <stdarg.h>
+#include <stdint.h>
+
+#include <string.h>
+#include <signal.h>
+
+#include <pthread.h>
+
+#include <errno.h>
+
+#include <unistd.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+
+#include <dirent.h>                                                   // For opendir (), readdir (), closedir (), DIR, struct dirent.
+
+// Enables for hex_dump:
+extern int ena_hd_hu_aad_dmp;
+extern int ena_hd_tra_send;
+extern int ena_hd_tra_recv;
+
+extern int ena_log_aap_send;
+
+extern int ena_log_extra;
+extern int ena_log_verbo;
+
+typedef unsigned char byte;
+
+
+#ifdef __ANDROID_API__
+  #include <android/log.h>
+#else
+    // UNKNOWN    0
+  #define ANDROID_LOG_DEFAULT 1
+  #define ANDROID_LOG_VERBOSE 2
+  #define ANDROID_LOG_DEBUG   3
+    // INFO       4
+  #define ANDROID_LOG_WARN    5
+  #define ANDROID_LOG_ERROR   6
+    // FATAL      7
+    // SILENT     8
+#endif
+
+#define hu_LOG_EXT   ANDROID_LOG_DEFAULT
+#define hu_LOG_VER   ANDROID_LOG_VERBOSE
+#define hu_LOG_DEB   ANDROID_LOG_DEBUG
+#define hu_LOG_WAR   ANDROID_LOG_WARN
+#define hu_LOG_ERR   ANDROID_LOG_ERROR
 
 #ifdef NDEBUG2
 
-  #define  logx(...)
-  #define  logv(...)
-  #define  logd(...)
-  #define  logw(...)
-  #define  loge(...)
+#define  logx(...)
+#define  logv(...)
+#define  logd(...)
+#define  logw(...)
+#define  loge(...)
 
 #else
 
-  #define  logx(...)  hu_log(hu_LOG_EXT,LOGTAG,__func__,__VA_ARGS__)
-  #define  logv(...)  hu_log(hu_LOG_VER,LOGTAG,__func__,__VA_ARGS__)
-  #define  logd(...)  hu_log(hu_LOG_DEB,LOGTAG,__func__,__VA_ARGS__)
-  #define  logw(...)  hu_log(hu_LOG_WAR,LOGTAG,__func__,__VA_ARGS__)
-  #define  loge(...)  hu_log(hu_LOG_ERR,LOGTAG,__func__,__VA_ARGS__)
+#define STR2(s) STR(s)
+#define STR(s) #s
+
+#define  logx(...)  hu_log(hu_LOG_EXT,__FILE__ ":" STR(__line__),__func__,__VA_ARGS__)
+#define  logv(...)  hu_log(hu_LOG_VER,__FILE__ ":" STR(__line__),__func__,__VA_ARGS__)
+#define  logd(...)  hu_log(hu_LOG_DEB,__FILE__ ":" STR(__line__),__func__,__VA_ARGS__)
+#define  logw(...)  hu_log(hu_LOG_WAR,__FILE__ ":" STR(__line__),__func__,__VA_ARGS__)
+#define  loge(...)  hu_log(hu_LOG_ERR,__FILE__ ":" STR(__line__),__func__,__VA_ARGS__)
 
 //!!
 //  #define  logx(...)
@@ -90,112 +89,27 @@
 
 #endif
 
-  int hu_log (int prio, const char * tag, const char * func, const char * fmt, ...);
+int hu_log (int prio, const char * tag, const char * func, const char * fmt, ...);
 
 
-  unsigned long ms_get          ();
-  unsigned long ms_sleep        (unsigned long ms);
-  void hex_dump                 (const char * prefix, int width, unsigned char * buf, int len);
-  char * vid_write_tail_buf_get  (int len);
-  char * vid_read_head_buf_get   (int * len);
-  char * aud_write_tail_buf_get  (int len);
-  char * aud_read_head_buf_get   (int * len);
+unsigned long ms_sleep        (unsigned long ms);
+void hex_dump                 (const char * prefix, int width, unsigned char * buf, int len);
+char * vid_write_tail_buf_get  (int len);
+char * vid_read_head_buf_get   (int * len);
+char * aud_write_tail_buf_get  (int len);
+char * aud_read_head_buf_get   (int * len);
 
-  extern int vid_buf_buf_tail;    // Tail is next index for writer to write to.   If head = tail, there is no info.
-  extern int vid_buf_buf_head;    // Head is next index for reader to read from.
-  extern int aud_buf_buf_tail;    // Tail is next index for writer to write to.   If head = tail, there is no info.
-  extern int aud_buf_buf_head;    // Head is next index for reader to read from.
+extern int vid_buf_buf_tail;    // Tail is next index for writer to write to.   If head = tail, there is no info.
+extern int vid_buf_buf_head;    // Head is next index for reader to read from.
+extern int aud_buf_buf_tail;    // Tail is next index for writer to write to.   If head = tail, there is no info.
+extern int aud_buf_buf_head;    // Head is next index for reader to read from.
 
-  #ifndef __ANDROID_API__
-    #define strlcpy   strncpy
-    #define strlcat   strncat
-  #endif
+#ifndef __ANDROID_API__
+  #define strlcpy   strncpy
+  #define strlcat   strncat
+#endif
 
-  //#ifndef __ANDROID_API__
-  #ifdef  DONT_USE
-#ifndef HAVE_STRLCAT
-/*
- * '_cups_strlcat()' - Safely concatenate two strings.
- */
-
-size_t                  /* O - Length of string */
-strlcat(char       *dst,        /* O - Destination string */
-              const char *src,      /* I - Source string */
-          size_t     size)      /* I - Size of destination string buffer */
-{
-  size_t    srclen;         /* Length of source string */
-  size_t    dstlen;         /* Length of destination string */
-
-
- /*
-  * Figure out how much room is left...
-  */
-
-  dstlen = strlen(dst);
-  size   -= dstlen + 1;
-
-  if (!size)
-    return (dstlen);        /* No room, return immediately... */
-
- /*
-  * Figure out how much room is needed...
-  */
-
-  srclen = strlen(src);
-
- /*
-  * Copy the appropriate amount...
-  */
-
-  if (srclen > size)
-    srclen = size;
-
-  memcpy(dst + dstlen, src, srclen);
-  dst[dstlen + srclen] = '\0';
-
-  return (dstlen + srclen);
-}
-#endif /* !HAVE_STRLCAT */
-
-#ifndef HAVE_STRLCPY
-/*
- * '_cups_strlcpy()' - Safely copy two strings.
- */
-
-size_t                  /* O - Length of string */
-strlcpy(char       *dst,        /* O - Destination string */
-              const char *src,      /* I - Source string */
-          size_t      size)     /* I - Size of destination string buffer */
-{
-  size_t    srclen;         /* Length of source string */
-
-
- /*
-  * Figure out how much room is needed...
-  */
-
-  size --;
-
-  srclen = strlen(src);
-
- /*
-  * Copy the appropriate amount...
-  */
-
-  if (srclen > size)
-    srclen = size;
-
-  memcpy(dst, src, srclen);
-  dst[srclen] = '\0';
-
-  return (srclen);
-}
-#endif /* !HAVE_STRLCPY */
-
-  #endif
-
-
-  // Android USB device priority:
+// Android USB device priority:
 
 
 //1d6b  Linux Foundation  PIDs:	0001  1.1 root hub  0002  2.0 root hub  -0003  3.0 root hub
@@ -253,18 +167,5 @@ strlcpy(char       *dst,        /* O - Destination string */
 
 //#endif  //#ifndef UTILS_INCLUDED
 
-int file_get (const char * filename);
-
-inline const char* state_get(int s) 
-{
-  switch (s)
-  {
-      case hu_STATE_INITIAL: return "hu_STATE_INITIAL";
-      case hu_STATE_STARTIN: return "hu_STATE_STARTIN";
-      case hu_STATE_STARTED: return "hu_STATE_STARTED";
-      case hu_STATE_STOPPIN: return "hu_STATE_STOPPIN";
-      case hu_STATE_STOPPED: return "hu_STATE_STOPPED";
-  }
-  return "";
-}
+const char* state_get(int s);
 const char* iusb_error_get(int error);

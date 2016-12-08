@@ -3,7 +3,6 @@
 
   #define LOGTAG "hu_usb"
   #include "hu_uti.h"                                                  // Utilities
-  #include "hu_oap.h"                                                  // Open Accessory Protocol
   #include "hu_usb.h"
   #include <vector>
   #include <algorithm>
@@ -34,72 +33,49 @@
   #endif
 //  #endif
 
-/* APIs used:
 
-libusb_init
-libusb_set_debug
-libusb_exit
-libusb_open
-libusb_close
+  // Accessory/ADB/Audio
 
-libusb_get_device_list
-libusb_free_device_list
-
-libusb_get_config_descriptor
-libusb_free_config_descriptor
-
-libusb_get_device_descriptor
-
-libusb_claim_interface
-libusb_release_interface
-
-libusb_control_transfer
-libusb_bulk_transfer
+  //    char AAP_VAL_MAN [31] = "Android";
+  //    char AAP_VAL_MOD [97] = "Android Auto";    // "Android Open Automotive Protocol"
 
 
-Standard libusb to Android libusbhost API mappings:
+  static char AAP_VAL_MAN[] =  "Android";
+  static char AAP_VAL_MOD[] =  "Android Auto";    // "Android Open Automotive Protocol"
+  //#define AAP_VAL_DES   "Description"
+  //#define AAP_VAL_VER   "VersionName"
+  //#define AAP_VAL_URI   "https://developer.android.com/auto/index.html"
+  //#define AAP_VAL_SER   "62skidoo"
 
-#define libusb_device                     struct usb_device   ??
-#define libusb_device_handle      struct usb_device
-#define libusb_context            struct usb_host_context
-#define libusb_device_descriptor  const struct usb_device_descriptor
+  #define ACC_IDX_MAN   0   // Manufacturer
+  #define ACC_IDX_MOD   1   // Model
+  //#define ACC_IDX_DES   2   // Description
+  //#define ACC_IDX_VER   3   // Version
+  //#define ACC_IDX_URI   4   // URI
+  //#define ACC_IDX_SER   5   // Serial Number
 
-int     LIBUSB_CALL libusb_init                   (libusb_context **ctx);
-void    LIBUSB_CALL libusb_exit                   (libusb_context *ctx);
-void    LIBUSB_CALL libusb_set_debug              (libusb_context *ctx, int level);
-int     LIBUSB_CALL libusb_open                   (libusb_device *dev, libusb_device_handle **handle);
-void    LIBUSB_CALL libusb_close                  (libusb_device_handle *dev_handle);
+  #define ACC_REQ_GET_PROTOCOL        51
+  #define ACC_REQ_SEND_STRING         52
+  #define ACC_REQ_START               53
 
-ssize_t LIBUSB_CALL libusb_get_device_list        (libusb_context *ctx, libusb_device ***list);
-void    LIBUSB_CALL libusb_free_device_list       (libusb_device **list, int unref_devices);
-int     LIBUSB_CALL libusb_get_config_descriptor  (libusb_device *dev, uint8_t config_index, struct libusb_config_descriptor **config);
-void    LIBUSB_CALL libusb_free_config_descriptor (struct libusb_config_descriptor *config);
-int     LIBUSB_CALL libusb_get_device_descriptor  (libusb_device *dev, struct libusb_device_descriptor *desc);
+  //#define ACC_REQ_REGISTER_HID        54
+  //#define ACC_REQ_UNREGISTER_HID      55
+  //#define ACC_REQ_SET_HID_REPORT_DESC 56
+  //#define ACC_REQ_SEND_HID_EVENT      57
+  #define ACC_REQ_AUDIO               58
 
-int     LIBUSB_CALL libusb_claim_interface        (libusb_device_handle *dev, int interface_number);
-int     LIBUSB_CALL libusb_release_interface      (libusb_device_handle *dev, int interface_number);
-int     LIBUSB_CALL libusb_control_transfer       (libusb_device_handle *dev_handle, uint8_t request_type, uint8_t bRequest, uint16_t wValue, uint16_t wIndex, unsigned char *data, uint16_t wLength, unsigned int timeout);
-int     LIBUSB_CALL libusb_bulk_transfer          (libusb_device_handle *dev_handle, unsigned char endpoint, unsigned char *data, int length, int *actual_length, unsigned int timeout);
+  #define USB_SETUP_HOST_TO_DEVICE                0x00    // transfer direction - host to device transfer   = USB_DIR_OUT (Output from host)
+  #define USB_SETUP_DEVICE_TO_HOST                0x80    // transfer direction - device to host transfer   = USB_DIR_IN  (Input  to   host)
 
-    #define libusb_init                   usb_host_init                       struct usb_host_context * usb_host_init     (void);
-    #define libusb_exit                   usb_host_cleanup                    void                      usb_host_cleanup  (struct usb_host_context *context);
--
-    #define libusb_open                   usb_device_open                     struct usb_device *       usb_device_open   (const char *dev_name);
-#define libusb_close                  usb_device_close                    void                usb_device_close              (struct usb_device *device);
+  //#define USB_SETUP_TYPE_STANDARD                 0x00    // type - standard
+  //#define USB_SETUP_TYPE_CLASS                    0x20    // type - class
+  #define USB_SETUP_TYPE_VENDOR                   0x40    // type - vendor   = USB_TYPE_VENDOR
 
-?
-?
-?
-?
-#define libusb_get_device_descriptor  usb_device_get_device_descriptor    const struct usb_device_descriptor* usb_device_get_device_descriptor  (struct usb_device *device);
+  #define USB_SETUP_RECIPIENT_DEVICE              0x00    // recipient - device
+  //#define USB_SETUP_RECIPIENT_INTERFACE           0x01    // recipient - interface
+  //#define USB_SETUP_RECIPIENT_ENDPOINT            0x02    // recipient - endpoint
+  //#define USB_SETUP_RECIPIENT_OTHER               0x03    // recipient - other
 
-#define libusb_claim_interface        usb_device_claim_interface
-#define libusb_release_interface      usb_device_release_interface
-#define libusb_control_transfer       usb_device_control_transfer
-    #define libusb_bulk_transfer          usb_device_bulk_transfer        int                 usb_device_bulk_transfer      (struct usb_device *device,        int endpoint,           void* buffer,        int length,                     unsigned int timeout);
-
-
-*/
 
 
 
@@ -354,6 +330,10 @@ struct usbvpid {
       logd ("Done libusb_release_interface usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
 
 	  libusb_reset_device (iusb_dev_hndl);
+
+    usb_err = libusb_attach_kernel_driver (iusb_dev_hndl, 0);
+    logw ("Done libusb_attach_kernel_driver usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
+
 	
     libusb_close (iusb_dev_hndl);
     logd ("Done libusb_close");
@@ -500,18 +480,7 @@ struct usbvpid iusb_vendor_get (libusb_device * device) {
     }
     printf ("Device found iusb_best_vendor: 0x%04x  iusb_best_device: %p  iusb_best_man: \"%s\"  iusb_best_pro: \"%s\" \n", iusb_best_vendor, iusb_best_device, iusb_best_man, iusb_best_pro);
 
-    //usb_perms_set ();                                                 // Setup USB permissions, where needed
-
-    if ((ep_in_addr == 255 && ep_out_addr == 0) || file_get ("/sdcard/hu_disable_selinux_chmod_bus")) {    // 
-                                                                        // Disable SELinux and open /dev/bus permissions for SUsb
-      int ret = system ("su -c \"setenforce 0 ; chmod -R 777 /dev/bus 1>/dev/null 2>/dev/null\""); // !! Binaries like ssd that write to stdout cause C system() to crash !
-      logd ("iusb_usb_init system() w/ su ret: %d", ret);
-
-      ret = system ("chmod -R 777 /dev/bus 1>/dev/null 2>/dev/null"); // !! Binaries like ssd that write to stdout cause C system() to crash !
-      logd ("iusb_usb_init system() no su ret: %d", ret);
-    }
-
-
+ 
     usb_err = libusb_open (iusb_best_device, & iusb_dev_hndl);
     logd ("libusb_open usb_err: %d (%s)  iusb_dev_hndl: %p  list: %p", usb_err, iusb_error_get (usb_err), iusb_dev_hndl, list);
 
@@ -523,13 +492,10 @@ struct usbvpid iusb_vendor_get (libusb_device * device) {
     }
     logd ("Done libusb_open iusb_dev_hndl: %p", iusb_dev_hndl);
 
-/*
-    usb_err = libusb_set_auto_detach_kernel_driver (iusb_dev_hndl, 1);
-    if (usb_err)
-      loge ("Done libusb_set_auto_detach_kernel_driver usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
-    else
-      logd ("Done libusb_set_auto_detach_kernel_driver usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
-//*/
+
+    usb_err = libusb_detach_kernel_driver (iusb_dev_hndl, 0);
+    logw ("Done libusb_detach_kernel_driver usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
+
     usb_err = libusb_claim_interface (iusb_dev_hndl, 0);
     if (usb_err) {
       loge ("Error libusb_claim_interface usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
