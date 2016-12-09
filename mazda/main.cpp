@@ -15,7 +15,9 @@
 #include "hu_uti.h"
 #include "hu_aap.h"
 
-#define EVENT_DEVICE_TS    "/dev/input/filtered-touchscreen0"
+#include "nm/mzd_nightmode.h"
+
+#define EVENT_DEVICE_TS	"/dev/input/filtered-touchscreen0"
 #define EVENT_DEVICE_CMD   "/dev/input/event1"
 #define EVENT_TYPE      EV_ABS
 #define EVENT_CODE_X    ABS_X
@@ -345,8 +347,6 @@ static void read_mic_data (GstElement * sink)
 		});
 	}
 } 
-
-int nightmode = 0;
 
 gboolean touch_poll_event(gpointer data)
 {
@@ -703,69 +703,20 @@ static void * input_thread(void *app) {
 	}
 }
 
+
+static int nightmode = NM_NO_VALUE;
 static void * nightmode_thread(void *app) 
 {
+	// Wait for proper startup.
+	ms_sleep(500);
+	mzd_nightmode_start();
+	while (g_main_loop_is_running (mainloop)) {		
+		int nightmodenow = mzd_is_night_mode_set();
 
-	// Initialize HMI bus
-	DBusConnection *hmi_bus;
-	DBusError error;
-
-	hmi_bus = dbus_connection_open(HMI_BUS_ADDRESS, &error);
-
-	if (!hmi_bus) {
-		printf("DBUS: failed to connect to HMI bus: %s: %s\n", error.name, error.message);
-	}
-
-	if (!dbus_bus_register(hmi_bus, &error)) {
-		printf("DBUS: failed to register with HMI bus: %s: %s\n", error.name, error.message);
-	}
-
-	// Wait for mainloop to start
-	ms_sleep(100);
-
-	while (g_main_loop_is_running (mainloop)) {
-
-		DBusMessage *msg = dbus_message_new_method_call("com.jci.BLM_TIME", "/com/jci/BLM_TIME", "com.jci.BLM_TIME", "GetClock");
-		DBusPendingCall *pending = NULL;
-
-		if (!msg) {
-			printf("DBUS: failed to create message \n");
-		}
-
-		if (!dbus_connection_send_with_reply(hmi_bus, msg, &pending, -1)) {
-			printf("DBUS: failed to send message \n");
-		}
-
-		dbus_connection_flush(hmi_bus);
-		dbus_message_unref(msg);
-
-		dbus_pending_call_block(pending);
-		msg = dbus_pending_call_steal_reply(pending);
-		if (!msg) {
-			printf("DBUS: received null reply \n");
-		}
-
-		dbus_uint32_t nm_hour;
-		dbus_uint32_t nm_min;
-		dbus_uint32_t nm_timestamp;
-		dbus_uint64_t nm_calltimestamp;
-		if (!dbus_message_get_args(msg, &error, DBUS_TYPE_UINT32, &nm_hour,
-					DBUS_TYPE_UINT32, &nm_min,
-					DBUS_TYPE_UINT32, &nm_timestamp,
-					DBUS_TYPE_UINT64, &nm_calltimestamp,
-					DBUS_TYPE_INVALID)) {
-			printf("DBUS: failed to get result %s: %s\n", error.name, error.message);
-		}
-
-		dbus_message_unref(msg);
-
-		int nightmodenow = 1;
-
-		if (nm_hour >= 6 && nm_hour <= 18)
-			nightmodenow = 0;
-
-		if (nightmode != nightmodenow) {
-
+		// We send nightmode status periodically, otherwise Google Maps
+		// doesn't switch to nightmode if it's started late. Even if the
+		// other AA UI is already in nightmode.
+		if (nightmodenow != NM_NO_VALUE) {
 			nightmode = nightmodenow;
 			queueSend([nightmodenow]()
 			{
@@ -775,9 +726,11 @@ static void * nightmode_thread(void *app)
 		        hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
 			});
 		}
-
-		sleep(600);		
+		
+		ms_sleep(1000);
 	}
+
+	mzd_nightmode_stop();
 }
 
 

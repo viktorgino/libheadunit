@@ -22,6 +22,7 @@ SRCS += $(TOP)/hu/hu_usb.cpp
 SRCS += $(TOP)/hu/hu_uti.cpp
 SRCS += $(TOP)/hu/hu_tcp.cpp
 SRCS += $(TOP)/hu/generated.arm/hu.pb.cc
+SRCS += nm/mzd_nightmode.cpp
 SRCS += main.cpp
 
 OBJS = $(addsuffix .arm.o, $(basename $(SRCS)))
