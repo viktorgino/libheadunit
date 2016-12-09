@@ -8,10 +8,10 @@ LD=$(M3TOOLCHAIN)/bin/arm-cortexa9_neon-linux-gnueabi-ld
 SYSROOT=$(M3TOOLCHAIN)/arm-cortexa9_neon-linux-gnueabi/sysroot
 
 INCLUDES=$(shell ./pkg-config-wrapper $(SYSROOT) --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0  libcrypto openssl) -I$(TOP)/hu -I$(TOP)/hu/generated.arm -Imazda-connector -I$(PROTOTOOLCHAIN)/include
-CFLAGS=-O3 --sysroot=$(SYSROOT) 
-CXXFLAGS=$(CFLAGS) -std=c++11 -static-libstdc++
+CFLAGS=-O3 --sysroot=$(SYSROOT)
+CXXFLAGS=$(CFLAGS) -std=c++11 -static-libstdc++ -pthread
 
-LFLAGS= --sysroot=$(SYSROOT) -static-libstdc++ $(shell ./pkg-config-wrapper $(SYSROOT) --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0 libcrypto openssl) -L$(PROTOTOOLCHAIN)/lib -lprotobuf
+LFLAGS= --sysroot=$(SYSROOT) -static-libstdc++ -pthread $(shell ./pkg-config-wrapper $(SYSROOT) --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0 libcrypto openssl) -L$(PROTOTOOLCHAIN)/lib -lprotobuf
 LFLAGS_IF= --sysroot=$(SYSROOT) -static-libstdc++ $(shell ./pkg-config-wrapper $(SYSROOT) --libs dbus-1)
 
 #headunit binary
@@ -23,6 +23,8 @@ SRCS += $(TOP)/hu/hu_uti.cpp
 SRCS += $(TOP)/hu/hu_tcp.cpp
 SRCS += $(TOP)/hu/generated.arm/hu.pb.cc
 SRCS += nm/mzd_nightmode.cpp
+SRCS += gps/mzd_gps.cpp
+SRCS += gps/minmea.c
 SRCS += main.cpp
 
 OBJS = $(addsuffix .arm.o, $(basename $(SRCS)))
@@ -37,6 +39,9 @@ DEPS_IF = $(addsuffix .arm.d, $(basename $(SRCS_IF)))
 
 #input_filter binary
 APP_IF = input_filter
+
+# Minmea compiles in C99 mode
+gps/minmea.arm.o: CFLAGS += -std=c99 -D_POSIX_C_SOURCE=199309L -D_BSD_SOURCE -D_DEFAULT_SOURCE
 
 all: proto $(APP) $(APP_IF)
 

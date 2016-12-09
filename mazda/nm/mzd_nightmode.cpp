@@ -27,7 +27,7 @@ void mzd_nightmode_start() {
         service_bus = NULL;
         return;
     }
-
+    
     printf("Nightmode service connection established.\n");
 }
 

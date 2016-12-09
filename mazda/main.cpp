@@ -16,6 +16,7 @@
 #include "hu_aap.h"
 
 #include "nm/mzd_nightmode.h"
+#include "gps/mzd_gps.h"
 
 #define EVENT_DEVICE_TS	"/dev/input/filtered-touchscreen0"
 #define EVENT_DEVICE_CMD   "/dev/input/event1"
@@ -806,6 +807,26 @@ static void signals_handler (int signum)
 	}
 }
 
+static void gps_location_handler(uint64_t timestamp, double lat, double lng, int bearing, double speed, double alt) {
+	printf("[LOC][%ld] - Lat: %f Lng: %f Brng: %d Spd: %f Alt: %f \n", 
+			timestamp, lat, lng, bearing, speed, alt);
+
+	HU::SensorEvent sensorEvent;
+	HU::SensorEvent::LocationData* location = sensorEvent.add_location_data();
+
+	if (lat == 0 && lng == 0) return;
+	location->set_timestamp(timestamp);
+	location->set_latitude(static_cast<int32_t>(lat * 1E7));
+	location->set_longitude(static_cast<int32_t>(lng * 1E7));
+	location->set_bearing(static_cast<int32_t>(bearing * 1E6));
+	location->set_speed(static_cast<int32_t>(speed * 1E3));
+	if (alt != 0) {
+		location->set_altitude(static_cast<int32_t>(alt * 1E2));
+	}
+
+	hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
+}
+
 int main (int argc, char *argv[])
 {	
 	GOOGLE_PROTOBUF_VERIFY_VERSION;
@@ -861,17 +882,18 @@ int main (int argc, char *argv[])
 
 	sendqueue = g_async_queue_new();
 
+	// Input processing
 	pthread_t iput_thread;
-
 	pthread_create(&iput_thread, NULL, &input_thread, (void *)app);
 
+	// Nightmode sensor processing
 	pthread_t nm_thread;
-
 	pthread_create(&nm_thread, NULL, &nightmode_thread, (void *)app);
 
+	// GPS processing
+	mzd_gps_start(gps_location_handler);
 
 	pthread_t mn_thread;
-
 	pthread_create(&mn_thread, NULL, &main_thread, (void *)app);
 
 	/* Start gstreamer pipeline and main loop */
@@ -890,6 +912,7 @@ int main (int argc, char *argv[])
 
 	close(mTouch.fd);
 
+	mzd_gps_stop();
 	pthread_cancel(nm_thread);
 	pthread_cancel(mn_thread);
 	pthread_cancel(iput_thread);
