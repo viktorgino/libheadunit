@@ -306,8 +306,8 @@
       videoConfig->set_frame_rate(HU::ChannelDescriptor::OutputStreamChannel::VideoConfig::VIDEO_FPS_30);
       videoConfig->set_margin_width(0);
       videoConfig->set_margin_height(0);
-      videoConfig->set_dpi(160);
-      inner->set_available_while_in_call(true);
+      videoConfig->set_dpi(140);
+      inner->set_available_while_in_call(false);
     }
 
     HU::ChannelDescriptor* inputChannel = carInfo.add_channels();
