@@ -944,6 +944,14 @@
     {
       int ret = hu_queue_command([this](IHUCommandStream& s)
       {
+        if (iaap_state == hu_STATE_STARTED)
+        {
+          logw("Sending ShutdownRequest");
+          HU::ShutdownRequest byebye;
+          byebye.set_reason(HU::ShutdownRequest::REASON_QUIT);
+          s.hu_aap_enc_send_message(0, AA_CH_CTR, HU_PROTOCOL_MESSAGE::ShutdownRequest, byebye);
+          ms_sleep(500);
+        }
         s.hu_aap_stop();
       });
 

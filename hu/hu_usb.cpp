@@ -211,7 +211,7 @@ int HUTransportStreamUSB::iusb_deinit () {                                      
     libusb_reset_device (iusb_dev_hndl);
 
     usb_err = libusb_attach_kernel_driver (iusb_dev_hndl, 0);
-    logw ("Done libusb_attach_kernel_driver usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
+    logd ("Done libusb_attach_kernel_driver. Failing here is ok if no kernel driver usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
 
 
     libusb_close (iusb_dev_hndl);
@@ -378,7 +378,7 @@ int HUTransportStreamUSB::iusb_init (byte ep_in_addr, byte ep_out_addr) {
 
 
   usb_err = libusb_detach_kernel_driver (iusb_dev_hndl, 0);
-  logw ("Done libusb_detach_kernel_driver usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
+  logd ("Done libusb_detach_kernel_driver. Failing here is ok if no kernel driver. usb_err: %d (%s)", usb_err, iusb_error_get (usb_err));
 
   usb_err = libusb_claim_interface (iusb_dev_hndl, 0);
   if (usb_err) {
