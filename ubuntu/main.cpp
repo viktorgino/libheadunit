@@ -22,7 +22,6 @@ typedef struct {
 } gst_app_t;
 
 
-int terminate_app = 0;
 static gst_app_t gst_app;
 
 GstElement *mic_pipeline = nullptr;
@@ -203,7 +202,7 @@ static int gst_pipeline_init(gst_app_t *app)
     gst_init(NULL, NULL);
 
 
-    vid_pipeline = gst_parse_launch("appsrc name=mysrc is-live=true block=false max-latency=100000 do-timestamp=true ! video/x-h264, width=800,height=480,framerate=30/1 ! decodebin2 name=mydecoder ! videoscale name=myconvert ! xvimagesink name=mysink", &error);
+    vid_pipeline = gst_parse_launch("appsrc name=mysrc is-live=true block=true max-latency=100000 do-timestamp=true ! video/x-h264, width=800,height=480,framerate=30/1 ! decodebin2 name=mydecoder ! videoscale name=myconvert ! xvimagesink name=mysink", &error);
 
     bus = gst_pipeline_get_bus(GST_PIPELINE(vid_pipeline));
     gst_bus_add_watch(bus, (GstBusFunc)bus_callback, app);
@@ -212,8 +211,6 @@ static int gst_pipeline_init(gst_app_t *app)
     vid_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (vid_pipeline), "mysrc"));
 
 	gst_app_src_set_stream_type(vid_src, GST_APP_STREAM_TYPE_STREAM);
-	//so we don't need to copy to push, since it block until used
-	g_object_set(G_OBJECT(vid_src), "block", TRUE, NULL);
 
     app->decoder = gst_bin_get_by_name (GST_BIN (vid_pipeline), "mydecoder");
     app->convert = gst_bin_get_by_name (GST_BIN (vid_pipeline), "myconvert");
@@ -227,7 +224,7 @@ static int gst_pipeline_init(gst_app_t *app)
             G_CALLBACK(on_pad_added), app->decoder);
 
     
-    aud_pipeline = gst_parse_launch("appsrc name=audsrc ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=48000, channels=2 ! volume volume=0.5 ! alsasink buffer-time=400000",&error);
+    aud_pipeline = gst_parse_launch("appsrc name=audsrc block=true ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=48000, channels=2 ! volume volume=0.5 ! alsasink buffer-time=400000",&error);
 
     if (error != NULL) {
         printf("could not construct pipeline: %s\n", error->message);
@@ -238,10 +235,9 @@ static int gst_pipeline_init(gst_app_t *app)
     aud_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (aud_pipeline), "audsrc"));
     
     gst_app_src_set_stream_type(aud_src, GST_APP_STREAM_TYPE_STREAM);
-    g_object_set(G_OBJECT(aud_src), "block", TRUE, NULL);
 
 
-    au1_pipeline = gst_parse_launch("appsrc name=au1src ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=16000, channels=1 ! volume volume=0.5 ! alsasink buffer-time=400000 ",&error);
+    au1_pipeline = gst_parse_launch("appsrc name=au1src block=true ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=16000, channels=1 ! volume volume=0.5 ! alsasink buffer-time=400000 ",&error);
 
     if (error != NULL) {
         printf("could not construct pipeline: %s\n", error->message);
@@ -252,7 +248,6 @@ static int gst_pipeline_init(gst_app_t *app)
     au1_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (au1_pipeline), "au1src"));
     
     gst_app_src_set_stream_type(au1_src, GST_APP_STREAM_TYPE_STREAM);
-    g_object_set(G_OBJECT(au1_src), "block", TRUE, NULL);
     
     
     mic_pipeline = gst_parse_launch("alsasrc name=micsrc ! audioconvert ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, channels=1, rate=16000 ! queue !appsink name=micsink async=false emit-signals=true blocksize=8192",&error);

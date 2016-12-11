@@ -153,3 +153,11 @@ void hex_dump                 (const char * prefix, int width, unsigned char * b
 //#endif  //#ifndef UTILS_INCLUDED
 
 
+#if CMU
+
+inline int pthread_setname_np (pthread_t __target_thread, const char *__name)
+{
+  return 0;
+}
+
+#endif

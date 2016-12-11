@@ -1073,7 +1073,7 @@
     logd("hu_thread_main exit");
   }
 
-  static_assert(PIPE_BUF >= sizeof(HUServer::HUThreadCommand*));
+  static_assert(PIPE_BUF >= sizeof(HUServer::HUThreadCommand*), "PIPE_BUF is tool small for a pointer?");
 
   int HUServer::hu_aap_start (byte ep_in_addr, byte ep_out_addr) {                // Starts Transport/USBACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
 

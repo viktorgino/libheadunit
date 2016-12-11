@@ -123,6 +123,7 @@ public:
 class HUServer : protected IHUCommandStream
 {
 public:
+  //Must be called from the "main" thread (as defined by the user)
   int hu_aap_start    (byte ep_in_addr, byte ep_out_addr);                 // Used by          hu_mai,  hu_jni     // Starts USB/ACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
   int hu_aap_shutdown ();
 
@@ -131,6 +132,7 @@ public:
 
   typedef std::function<void(IHUCommandStream&)> HUThreadCommand;
 
+  //Can be called from any thread
   int hu_queue_command(HUThreadCommand&& command);
 
 protected:
