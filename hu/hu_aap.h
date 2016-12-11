@@ -124,10 +124,10 @@ class HUServer : protected IHUCommandStream
 {
 public:
   int hu_aap_start    (byte ep_in_addr, byte ep_out_addr);                 // Used by          hu_mai,  hu_jni     // Starts USB/ACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
-  virtual int hu_aap_stop     () override;                                                  // Used by          hu_mai,  hu_jni     // NEED: Send Byebye, Stops USB/ACC/OAP                                                                                                                       
+  int hu_aap_shutdown ();
 
   HUServer(IHUEventCallbacks& callbacks);
-  ~HUServer() { hu_aap_stop(); }
+  ~HUServer() { hu_aap_shutdown(); }
 
   typedef std::function<void(IHUCommandStream&)> HUThreadCommand;
 
@@ -180,7 +180,7 @@ protected:
   virtual int hu_aap_enc_send_media_packet(int retry, int chan, uint16_t messageCode, uint64_t timeStamp, const byte* buffer, int bufferLen, int overrideTimeout = -1) override;
   virtual int hu_aap_unenc_send_blob(int retry, int chan, uint16_t messageCode, const byte* buffer, int bufferLen, int overrideTimeout = -1) override;
   virtual int hu_aap_unenc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout = -1) override;
-
+  virtual int hu_aap_stop     () override;    
 
   using IHUCommandStream::hu_aap_enc_send_message;
   using IHUCommandStream::hu_aap_enc_send_media_packet;

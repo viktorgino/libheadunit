@@ -937,17 +937,14 @@
     }
   }
 
-  int HUServer::hu_aap_stop () {                                                  // Sends Byebye, then stops Transport/USBACC/OAP
-
-                                                                        // Continue only if started or starting...
-    if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN)
-      return (0);
+  int HUServer::hu_aap_shutdown()
+  {
 
     if (hu_thread.joinable())
     {
-      int ret = hu_queue_command([this](IHUCommandStream&)
+      int ret = hu_queue_command([this](IHUCommandStream& s)
       {
-        hu_thread_quit_flag = true;
+        s.hu_aap_stop();
       });
 
       if (ret < 0)
@@ -974,6 +971,23 @@
     logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
     
     return (ret);
+  }
+
+  int HUServer::hu_aap_stop () {                                                  // Sends Byebye, then stops Transport/USBACC/OAP
+    //assumes HU thread
+    if (iaap_state == hu_STATE_STARTIN)
+    {
+      //hu_thread not ready yet
+      return hu_aap_shutdown();
+    }
+                                                                        // Continue only if started or starting...
+    if (iaap_state != hu_STATE_STARTED)
+      return (0);
+
+    hu_thread_quit_flag = true;
+    callbacks.DisconnectionOrError();
+
+    return (0);
   }
 
   HUServer::HUThreadCommand* HUServer::hu_pop_command()
@@ -1043,6 +1057,7 @@
           if (ret < 0)
           {
             loge("hu_aap_recv_process failed %d", ret);
+            hu_aap_stop();
           }
         }
       }
@@ -1081,8 +1096,8 @@
     while(iaap_state == hu_STATE_STARTIN)
     {
       ret = hu_aap_recv_process(2000);
-      if (ret) {
-        hu_aap_stop ();
+      if (ret < 0) {
+        hu_aap_shutdown();
         return (ret);
       }
     }
@@ -1093,7 +1108,7 @@
     if (ret < 0)
     {
       loge ("pipe2 failed ret: %d %i", ret, errno);
-      hu_aap_stop ();
+      hu_aap_shutdown ();
       return (-1);
     }
 
@@ -1135,7 +1150,6 @@
       
       if (have_len < min_size_hdr) {                                      // If we don't have a full 6 byte header at least...
         loge ("Recv have_len: %d", have_len);
-        hu_aap_stop ();
         return (-1);
       }  
 
@@ -1147,7 +1161,6 @@
       if (cur_chan != chan && chan >= 0)
       {
           loge ("Interleaved channels");
-          hu_aap_stop ();
           return (-1);
       }
       chan = cur_chan;
@@ -1159,7 +1172,6 @@
       if (frame_len > MAX_FRAME_PAYLOAD_SIZE)
       {
           loge ("Too big");
-          hu_aap_stop ();
           return (-1);
       }
 
@@ -1179,7 +1191,6 @@
         int got_bytes = hu_aap_tra_recv (&enc_buf[have_len], remaining_bytes_in_frame, tmo);     // Get Rx packet from Transport
         if (got_bytes < 0) {                                      // If we don't have a full 6 byte header at least...
           loge ("Recv got_bytes: %d", got_bytes);
-          hu_aap_stop ();
           return (-1);
         }  
         have_len += got_bytes;
@@ -1189,7 +1200,6 @@
       if (!has_first && !(flags & HU_FRAME_FIRST_FRAME))
       {
           loge ("No HU_FRAME_FIRST_FRAME");
-          hu_aap_stop ();
           return (-1);
       }
       has_first = true;
@@ -1247,7 +1257,6 @@
       ret = iaap_msg_process (chan, msg_type, &temp_assembly_buffer[2], buf_len - 2);          // Decrypt & Process 1 received encrypted message
       if (ret < 0 && iaap_state != hu_STATE_STOPPED) {                                                    // If error...
         loge ("Error iaap_msg_process() ret: %d  ", ret);
-        hu_aap_stop ();
         return (ret);  
       }
     }

@@ -63,10 +63,9 @@ public:
 
 	if (gst_src)
 	{
-		GstBuffer * buffer = gst_buffer_new();
-	    gst_buffer_set_data(buffer, (guint8*)buf, len);
+		GstBuffer * buffer = gst_buffer_new_and_alloc(len);
+	    memcpy(GST_BUFFER_DATA(buffer), buf, len);
 	    int ret = gst_app_src_push_buffer(gst_src, buffer);
-
 	    if(ret !=  GST_FLOW_OK){
 	        printf("push buffer returned %d for %d bytes \n", ret, len);
 	    }
@@ -211,6 +210,11 @@ static int gst_pipeline_init(gst_app_t *app)
     gst_object_unref(bus);
 
     vid_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (vid_pipeline), "mysrc"));
+
+	gst_app_src_set_stream_type(vid_src, GST_APP_STREAM_TYPE_STREAM);
+	//so we don't need to copy to push, since it block until used
+	g_object_set(G_OBJECT(vid_src), "block", TRUE, NULL);
+
     app->decoder = gst_bin_get_by_name (GST_BIN (vid_pipeline), "mydecoder");
     app->convert = gst_bin_get_by_name (GST_BIN (vid_pipeline), "myconvert");
     app->sink = gst_bin_get_by_name (GST_BIN (vid_pipeline), "mysink");
@@ -234,6 +238,7 @@ static int gst_pipeline_init(gst_app_t *app)
     aud_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (aud_pipeline), "audsrc"));
     
     gst_app_src_set_stream_type(aud_src, GST_APP_STREAM_TYPE_STREAM);
+    g_object_set(G_OBJECT(aud_src), "block", TRUE, NULL);
 
 
     au1_pipeline = gst_parse_launch("appsrc name=au1src ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=16000, channels=1 ! volume volume=0.5 ! alsasink buffer-time=400000 ",&error);
@@ -247,6 +252,7 @@ static int gst_pipeline_init(gst_app_t *app)
     au1_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (au1_pipeline), "au1src"));
     
     gst_app_src_set_stream_type(au1_src, GST_APP_STREAM_TYPE_STREAM);
+    g_object_set(G_OBJECT(au1_src), "block", TRUE, NULL);
     
     
     mic_pipeline = gst_parse_launch("alsasrc name=micsrc ! audioconvert ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, channels=1, rate=16000 ! queue !appsink name=micsink async=false emit-signals=true blocksize=8192",&error);
@@ -643,6 +649,8 @@ int main (int argc, char *argv[])
     SDL_EnableUNICODE(1);
     
     gst_x_overlay_set_window_handle(GST_X_OVERLAY(app->sink), wmInfo.info.x11.window);
+    //Let SDL do the key events, etc
+    gst_x_overlay_handle_events(GST_X_OVERLAY(app->sink), FALSE);
 
     //Don't use SDL's weird cursor, too small on HiDPI
     XUndefineCursor(wmInfo.info.x11.display, wmInfo.info.x11.window);
@@ -654,7 +662,7 @@ int main (int argc, char *argv[])
     }
 
     /* Stop AA processing */
-    ret = g_hu.hu_aap_stop ();
+    ret = g_hu.hu_aap_shutdown ();
     if (ret < 0) {
         printf("STATUS:hu_aap_stop() ret: %d\n", ret);
         SDL_Quit();

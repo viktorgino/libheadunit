@@ -580,7 +580,10 @@ void HUTransportStreamUSB::usb_recv_thread_main()
   int errData = -1;
   if (write(error_write_fd, &errData, sizeof(errData)) < 0)
   {
-    loge("Writing error data failed");
+    if (!abort_usbthread)
+    {
+      loge("Writing error data failed");
+    }
   }
 
 }
