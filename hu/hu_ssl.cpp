@@ -1,4 +1,5 @@
 
+  #define MR_SSL_INTERNAL   // For certificate and private key only
   #define LOGTAG "hu_ssl"
   #include "hu_uti.h"
   #include "hu_aap.h"
@@ -11,18 +12,10 @@
   #include <openssl/x509_vfy.h>
   #include <openssl/rand.h>
   #include <pthread.h>
-
-  SSL_METHOD  * hu_ssl_method  = NULL;
-  SSL_CTX     * hu_ssl_ctx     = NULL;
-  SSL         * hu_ssl_ssl     = NULL;
-  BIO         * hu_ssl_rm_bio  = NULL;
-  BIO         * hu_ssl_wm_bio  = NULL;
-
-  #define MR_SSL_INTERNAL   // For certificate and private key only
   #include "hu_ssl.h"
 
 
-  void hu_ssl_inf_log () {
+  void HUServer::hu_ssl_inf_log () {
     //logd ("SSL_is_init_finished(): %d", SSL_is_init_finished (hu_ssl_ssl));
 
     const char * ssl_state_string_long = SSL_state_string_long (hu_ssl_ssl);   // "SSLv3 write client hello B"
@@ -36,7 +29,7 @@
     logd ("ssl_cipher_name: %s", ssl_cipher_name);
   }
 
-  void hu_ssl_ret_log (int ret) {
+  void HUServer::hu_ssl_ret_log (int ret) {
     int ssl_err = SSL_get_error (hu_ssl_ssl, ret);
     const char * err_str = "";
 
@@ -61,7 +54,7 @@
       loge ("ret: %d  ssl_err: %d (%s)", ret, ssl_err, err_str);
   }
 
-  static int send_ssl_handshake_packet()
+  int HUServer::send_ssl_handshake_packet()
   {
     byte hs_buf [MAX_FRAME_SIZE] = {0}; 
 
@@ -82,7 +75,7 @@
   }
 
 
-  int hu_ssl_begin_handshake () {
+  int HUServer::hu_ssl_begin_handshake () {
 
     int                 ret;
     BIO               * cert_bio = NULL;
@@ -227,9 +220,7 @@
 
   }
 
-  extern int iaap_state;
-
-  int hu_handle_SSLHandshake(int chan, byte * buf, int len)
+    int HUServer::hu_handle_SSLHandshake(int chan, byte * buf, int len)
   {
       int ret = BIO_write (hu_ssl_rm_bio, buf, len);          // Write to the BIO Server response
       if (ret <= 0) {

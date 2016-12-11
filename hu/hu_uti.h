@@ -2,14 +2,8 @@
 #pragma once
 
 
-#define NDEBUG // Ensure debug stuff
+//#define NDEBUG // Ensure debug stuff
 
-#define hu_STATE_INITIAL   0
-#define hu_STATE_STARTIN   1
-#define hu_STATE_STARTED   2
-#define hu_STATE_STOPPIN   3
-#define hu_STATE_STOPPED   4
-//#define hu_STATE_   5
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,7 +56,7 @@ typedef unsigned char byte;
 #define hu_LOG_WAR   ANDROID_LOG_WARN
 #define hu_LOG_ERR   ANDROID_LOG_ERROR
 
-#ifdef NDEBUG2
+#ifdef NDEBUG
 
 #define  logx(...)
 #define  logv(...)
@@ -72,14 +66,14 @@ typedef unsigned char byte;
 
 #else
 
-#define STR2(s) STR(s)
-#define STR(s) #s
+#define STR(s) STR2(s)
+#define STR2(s) #s
 
-#define  logx(...)  hu_log(hu_LOG_EXT,__FILE__ ":" STR(__line__),__func__,__VA_ARGS__)
-#define  logv(...)  hu_log(hu_LOG_VER,__FILE__ ":" STR(__line__),__func__,__VA_ARGS__)
-#define  logd(...)  hu_log(hu_LOG_DEB,__FILE__ ":" STR(__line__),__func__,__VA_ARGS__)
-#define  logw(...)  hu_log(hu_LOG_WAR,__FILE__ ":" STR(__line__),__func__,__VA_ARGS__)
-#define  loge(...)  hu_log(hu_LOG_ERR,__FILE__ ":" STR(__line__),__func__,__VA_ARGS__)
+#define  logx(...)  hu_log(hu_LOG_EXT,__FILE__ ":" STR(__LINE__),__func__,__VA_ARGS__)
+#define  logv(...)  hu_log(hu_LOG_VER,__FILE__ ":" STR(__LINE__),__func__,__VA_ARGS__)
+#define  logd(...)  hu_log(hu_LOG_DEB,__FILE__ ":" STR(__LINE__),__func__,__VA_ARGS__)
+#define  logw(...)  hu_log(hu_LOG_WAR,__FILE__ ":" STR(__LINE__),__func__,__VA_ARGS__)
+#define  loge(...)  hu_log(hu_LOG_ERR,__FILE__ ":" STR(__LINE__),__func__,__VA_ARGS__)
 
 //!!
 //  #define  logx(...)
@@ -94,15 +88,6 @@ int hu_log (int prio, const char * tag, const char * func, const char * fmt, ...
 
 unsigned long ms_sleep        (unsigned long ms);
 void hex_dump                 (const char * prefix, int width, unsigned char * buf, int len);
-char * vid_write_tail_buf_get  (int len);
-char * vid_read_head_buf_get   (int * len);
-char * aud_write_tail_buf_get  (int len);
-char * aud_read_head_buf_get   (int * len);
-
-extern int vid_buf_buf_tail;    // Tail is next index for writer to write to.   If head = tail, there is no info.
-extern int vid_buf_buf_head;    // Head is next index for reader to read from.
-extern int aud_buf_buf_tail;    // Tail is next index for writer to write to.   If head = tail, there is no info.
-extern int aud_buf_buf_head;    // Head is next index for reader to read from.
 
 #ifndef __ANDROID_API__
   #define strlcpy   strncpy
@@ -167,5 +152,4 @@ extern int aud_buf_buf_head;    // Head is next index for reader to read from.
 
 //#endif  //#ifndef UTILS_INCLUDED
 
-const char* state_get(int s);
-const char* iusb_error_get(int error);
+

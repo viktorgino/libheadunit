@@ -4,13 +4,26 @@
 #include "hu_uti.h"
 #include "hu_ssl.h"
 #include "hu_aap.h"
-#ifndef NDEBUG
-  #include "hu_aad.h"
-#endif
+#include "hu_aad.h"
 #include <fstream>
+#include <memory>
 #include <endian.h>
 
-  int iaap_state = 0; // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
+  const char * state_get (int state) {
+    switch (state) {
+      case hu_STATE_INITIAL:                                           // 0
+        return ("hu_STATE_INITIAL");
+      case hu_STATE_STARTIN:                                           // 1
+        return ("hu_STATE_STARTIN");
+      case hu_STATE_STARTED:                                           // 2
+        return ("hu_STATE_STARTED");
+      case hu_STATE_STOPPIN:                                           // 3
+        return ("hu_STATE_STOPPIN");
+      case hu_STATE_STOPPED:                                           // 4
+        return ("hu_STATE_STOPPED");
+    }
+    return ("hu_STATE Unknown error");
+  }
 
   const char * chan_get (int chan) {
     switch (chan) {
@@ -28,82 +41,79 @@
 #include "hu_usb.h"
 #include "hu_tcp.h"
 
-//dummy functions
-  // int hu_tcp_recv  (byte * buf, int len, int tmo) {}                     // Used by hu_aap:hu_aap_tcp_recv ()
-  // int hu_tcp_send  (byte * buf, int len, int tmo)  {}                    // Used by hu_aap:hu_aap_tcp_send ()
-  // int hu_tcp_stop  () {}                                                 // Used by hu_aap:hu_aap_stop     ()
-  // int hu_tcp_start (byte ep_in_addr, byte ep_out_addr) {}                // Used by hu_aap:hu_aap_start    ()
+  HUServer::HUServer(IHUEventCallbacks& callbacks)
+  : callbacks(callbacks)
+  {
 
-
-  HU_TRANSPORT_TYPE transport_type = HU_TRANSPORT_TYPE::USB; // 1=USB 2=WiFi
-
-  int ihu_tra_recv  (byte * buf, int len, int tmo) {
-    if (transport_type == HU_TRANSPORT_TYPE::USB)
-      return (hu_usb_recv  (buf, len, tmo));
-    else if (transport_type == HU_TRANSPORT_TYPE::WIFI)
-      return (hu_tcp_recv  (buf, len, tmo));
-    else
-      return (-1);
-  }
-  int ihu_tra_send  (byte * buf, int len, int tmo) {
-    if (transport_type == HU_TRANSPORT_TYPE::USB)
-      return (hu_usb_send  (buf, len, tmo));
-    else if (transport_type == HU_TRANSPORT_TYPE::WIFI)
-      return (hu_tcp_send  (buf, len, tmo));
-    else
-      return (-1);
-  }
-  int ihu_tra_stop  () {
-    if (transport_type == HU_TRANSPORT_TYPE::USB)
-      return (hu_usb_stop  ());
-    else if (transport_type == HU_TRANSPORT_TYPE::WIFI)
-      return (hu_tcp_stop  ());
-    else
-      return (-1);
   }
 
 
-  int iaap_tra_recv_tmo = 150;//100;//1;//10;//100;//250;//100;//250;//100;//25; // 10 doesn't work ? 100 does
-  int iaap_tra_send_tmo = 500;//2;//25;//250;//500;//100;//500;//250;
-
-  int ihu_tra_start (byte ep_in_addr, byte ep_out_addr) {
+  int HUServer::ihu_tra_start (byte ep_in_addr, byte ep_out_addr) {
     if (ep_in_addr == 255 && ep_out_addr == 255) {
       logd ("AA over Wifi");
-      transport_type = HU_TRANSPORT_TYPE::WIFI;       // WiFi
-      iaap_tra_recv_tmo = 1;
-      iaap_tra_send_tmo = 2;
+      transport = std::unique_ptr<HUTransportStream>(new HUTransportStreamTCP());
+      iaap_tra_recv_tmo = 1000;
+      iaap_tra_send_tmo = 2000;
     }
     else { 
-      transport_type = HU_TRANSPORT_TYPE::USB;       // USB
+      transport = std::unique_ptr<HUTransportStream>(new HUTransportStreamUSB());
       logd ("AA over USB");
-      iaap_tra_recv_tmo = 150;//100;
-      iaap_tra_send_tmo = 250;
+      iaap_tra_recv_tmo = 0;//100;
+      iaap_tra_send_tmo = 2500;
     }
-    if (transport_type == HU_TRANSPORT_TYPE::USB)
-      return (hu_usb_start  (ep_in_addr, ep_out_addr));
-    else if (transport_type == HU_TRANSPORT_TYPE::WIFI)
-      return (hu_tcp_start  (ep_in_addr, ep_out_addr));
-    else
-      return (-1);
+    return transport->Start(ep_in_addr, ep_out_addr);
   }
 
-  int hu_aap_tra_recv (byte * buf, int len, int tmo) {
+  int HUServer::ihu_tra_stop() {
+    int ret = 0;
+    if (transport)
+    {
+      ret = transport->Stop();
+      transport.reset();
+    }
+    return ret;
+  }
+
+  int HUServer::hu_aap_tra_recv (byte * buf, int len, int tmo) {
     int ret = 0;
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {   // Need to recv when starting
       loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       return (-1);
     }
-    ret = ihu_tra_recv (buf, len, tmo);
+
+    int readfd = transport->GetReadFD();
+    if (tmo > 0 && false)
+    {
+      fd_set sock_set;
+      FD_ZERO(&sock_set);
+      FD_SET(readfd, &sock_set);
+
+      timeval tv_timeout;
+      tv_timeout.tv_sec = tmo / 1000;
+      tv_timeout.tv_usec = tmo * 1000;
+
+      int ret = select(1, &sock_set, NULL, NULL, &tv_timeout);
+      if (ret < 0)
+        return ret;
+      else if (ret == 0)
+      {
+        loge("hu_aap_tra_recv Timeout");
+        return -1;
+      }
+    }
+
+    ret = read(readfd, buf, len);
     if (ret < 0) {
       loge ("ihu_tra_recv() error so stop Transport & AAP  ret: %d", ret);
       hu_aap_stop (); 
     }
+    hex_dump("------OUTPIPE", 16, buf, ret);
     return (ret);
   }
 
   int log_packet_info = 1;
 
-  int hu_aap_tra_send (int retry, byte * buf, int len, int tmo) {                  // Send Transport data: chan,flags,len,type,...
+  int HUServer::hu_aap_tra_send (int retry, byte * buf, int len, int tmo) {                  // Send Transport data: chan,flags,len,type,...
                                                                         // Need to send when starting
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
       loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
@@ -111,12 +121,13 @@
     }
 
 	
-    int ret = ihu_tra_send (buf, len, tmo);
+    int ret = transport->Write(buf, len, tmo);
     if (ret < 0 || ret != len) {
       if (retry == 0) {
-		hu_aap_stop ();
-		loge ("Error ihu_tra_send() error so stop Transport & AAP  ret: %d  len: %d", ret, len);
-	  } 
+        loge ("Error ihu_tra_send() error so stop Transport & AAP  ret: %d  len: %d", ret, len);
+		    hu_aap_stop ();
+
+	     }   
       return (-1);
     }  
 
@@ -125,18 +136,17 @@
     return (ret);
   }
 
-  static std::vector<uint8_t> tempEncodingBuffer;
-
-  int hu_aap_enc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout)
+  
+  int HUServer::hu_aap_enc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout)
   {
     const int messageSize = message.ByteSize();
     const int requiredSize = messageSize + 2;
-    if (tempEncodingBuffer.size() < requiredSize)
+    if (temp_assembly_buffer.size() < requiredSize)
     {
-      tempEncodingBuffer.resize(requiredSize);
+      temp_assembly_buffer.resize(requiredSize);
     }
 
-    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(tempEncodingBuffer.data());
+    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(temp_assembly_buffer.data());
     *destMessageCode++ = htobe16(messageCode);
 
     if (!message.SerializeToArray(destMessageCode, messageSize))
@@ -146,20 +156,20 @@
     }
 
     logd ("Send %s on channel %i %s", message.GetTypeName().c_str(), chan, chan_get(chan));
-    //hex_dump("PB:", 80, tempEncodingBuffer.data(), requiredSize);
-    return hu_aap_enc_send(retry, chan, tempEncodingBuffer.data(), requiredSize, overrideTimeout);
+    //hex_dump("PB:", 80, temp_assembly_buffer.data(), requiredSize);
+    return hu_aap_enc_send(retry, chan, temp_assembly_buffer.data(), requiredSize, overrideTimeout);
 
   }
 
-  int hu_aap_enc_send_media_packet(int retry, int chan, uint16_t messageCode, uint64_t timeStamp, const byte* buffer, int bufferLen, int overrideTimeout)
+  int HUServer::hu_aap_enc_send_media_packet(int retry, int chan, uint16_t messageCode, uint64_t timeStamp, const byte* buffer, int bufferLen, int overrideTimeout)
   {
     const int requiredSize = bufferLen + 2 + 8;
-    if (tempEncodingBuffer.size() < requiredSize)
+    if (temp_assembly_buffer.size() < requiredSize)
     {
-      tempEncodingBuffer.resize(requiredSize);
+      temp_assembly_buffer.resize(requiredSize);
     }
 
-    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(tempEncodingBuffer.data());
+    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(temp_assembly_buffer.data());
     *destMessageCode++ = htobe16(messageCode);
 
     uint64_t* destTimestamp = reinterpret_cast<uint64_t*>(destMessageCode);
@@ -168,13 +178,11 @@
     memcpy(destTimestamp, buffer, bufferLen);
 
     //logd ("Send %s on channel %i %s", message.GetTypeName().c_str(), chan, chan_get(chan));
-    //hex_dump("PB:", 80, tempEncodingBuffer.data(), requiredSize);
-    return hu_aap_enc_send(retry, chan, tempEncodingBuffer.data(), requiredSize, overrideTimeout);
+    //hex_dump("PB:", 80, temp_assembly_buffer.data(), requiredSize);
+    return hu_aap_enc_send(retry, chan, temp_assembly_buffer.data(), requiredSize, overrideTimeout);
   }
 
-  static byte enc_buf[MAX_FRAME_SIZE];
-
-  int hu_aap_enc_send (int retry,int chan, byte * buf, int len, int overrideTimeout) {                 // Encrypt data and send: type,...
+  int HUServer::hu_aap_enc_send (int retry,int chan, byte * buf, int len, int overrideTimeout) {                 // Encrypt data and send: type,...
     if (iaap_state != hu_STATE_STARTED) {
       logw ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       //logw ("chan: %d  len: %d  buf: %p", chan, len, buf);
@@ -260,7 +268,7 @@
     return (0);
   }
 
- int hu_aap_unenc_send (int retry,int chan, byte * buf, int len, int overrideTimeout) {                 // Encrypt data and send: type,...
+ int HUServer::hu_aap_unenc_send (int retry,int chan, byte * buf, int len, int overrideTimeout) {                 // Encrypt data and send: type,...
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
       logw ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       //logw ("chan: %d  len: %d  buf: %p", chan, len, buf);
@@ -316,42 +324,40 @@
       memcpy(&enc_buf[header_size], &buf[frag_start], cur_len);
 
       int ret = 0;
-      ret = hu_aap_tra_send (retry, enc_buf, cur_len + header_size, overrideTimeout < 0 ? iaap_tra_send_tmo : overrideTimeout);           // Send encrypted data to AA Server
-      if (retry)
-        return (ret);
+      return hu_aap_tra_send (retry, enc_buf, cur_len + header_size, overrideTimeout < 0 ? iaap_tra_send_tmo : overrideTimeout);           // Send encrypted data to AA Server
     }
 
     return (0);
   }
 
-  int hu_aap_unenc_send_blob(int retry, int chan, uint16_t messageCode, const byte* buffer, int bufferLen, int overrideTimeout)
+  int HUServer::hu_aap_unenc_send_blob(int retry, int chan, uint16_t messageCode, const byte* buffer, int bufferLen, int overrideTimeout)
   {
     const int requiredSize = bufferLen + 2;
-    if (tempEncodingBuffer.size() < requiredSize)
+    if (temp_assembly_buffer.size() < requiredSize)
     {
-      tempEncodingBuffer.resize(requiredSize);
+      temp_assembly_buffer.resize(requiredSize);
     }
 
-    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(tempEncodingBuffer.data());
+    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(temp_assembly_buffer.data());
     *destMessageCode++ = htobe16(messageCode);
 
      memcpy(destMessageCode, buffer, bufferLen);
 
     //logd ("Send %s on channel %i %s", message.GetTypeName().c_str(), chan, chan_get(chan));
-    //hex_dump("PB:", 80, tempEncodingBuffer.data(), requiredSize);
-    return hu_aap_unenc_send(retry, chan, tempEncodingBuffer.data(), requiredSize, overrideTimeout);
+    //hex_dump("PB:", 80, temp_assembly_buffer.data(), requiredSize);
+    return hu_aap_unenc_send(retry, chan, temp_assembly_buffer.data(), requiredSize, overrideTimeout);
   }
 
-  int hu_aap_unenc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout)
+  int HUServer::hu_aap_unenc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout)
   {
     const int messageSize = message.ByteSize();
     const int requiredSize = messageSize + 2;
-    if (tempEncodingBuffer.size() < requiredSize)
+    if (temp_assembly_buffer.size() < requiredSize)
     {
-      tempEncodingBuffer.resize(requiredSize);
+      temp_assembly_buffer.resize(requiredSize);
     }
 
-    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(tempEncodingBuffer.data());
+    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(temp_assembly_buffer.data());
     *destMessageCode++ = htobe16(messageCode);
 
     if (!message.SerializeToArray(destMessageCode, messageSize))
@@ -361,12 +367,12 @@
     }
 
     logd ("Send %s on channel %i %s", message.GetTypeName().c_str(), chan, chan_get(chan));
-    //hex_dump("PB:", 80, tempEncodingBuffer.data(), requiredSize);
-    return hu_aap_unenc_send(retry, chan, tempEncodingBuffer.data(), requiredSize, overrideTimeout);
+    //hex_dump("PB:", 80, temp_assembly_buffer.data(), requiredSize);
+    return hu_aap_unenc_send(retry, chan, temp_assembly_buffer.data(), requiredSize, overrideTimeout);
   }
 
 
-  int hu_handle_VersionResponse (int chan, byte * buf, int len) {         
+  int HUServer::hu_handle_VersionResponse (int chan, byte * buf, int len) {         
 
     logd ("Version response recv len: %d", len);
     hex_dump("version", 40, buf, len);
@@ -379,7 +385,7 @@
   }
 
 //  extern int wifi_direct;// = 0;//1;//0;
-  int hu_handle_ServiceDiscoveryRequest (int chan, byte * buf, int len) {                  // Service Discovery Request
+  int HUServer::hu_handle_ServiceDiscoveryRequest (int chan, byte * buf, int len) {                  // Service Discovery Request
 
     HU::ServiceDiscoveryRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -426,6 +432,8 @@
       inner->add_keycodes_supported(HUIB_PREV);
       inner->add_keycodes_supported(HUIB_PHONE);
       inner->add_keycodes_supported(HUIB_SCROLLWHEEL);
+
+      callbacks.CustomizeInputConfig(*inner);
       
     }
 
@@ -435,6 +443,8 @@
       auto inner = sensorChannel->mutable_sensor_channel();
       inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_DRIVING_STATUS);
       inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_NIGHT_DATA);
+
+      callbacks.CustomizeSensorConfig(*inner);
     }
 
     HU::ChannelDescriptor* videoChannel = carInfo.add_channels();
@@ -449,6 +459,8 @@
       videoConfig->set_margin_height(0);
       videoConfig->set_dpi(160);
       inner->set_available_while_in_call(true);
+
+      callbacks.CustomizeOutputChannel(AA_CH_VID, *inner);
     }
 
     HU::ChannelDescriptor* audioChannel0 = carInfo.add_channels();
@@ -461,6 +473,8 @@
       audioConfig->set_sample_rate(48000);
       audioConfig->set_bit_depth(16);
       audioConfig->set_channel_count(2);
+
+      callbacks.CustomizeOutputChannel(AA_CH_AUD, *inner);
     }
 
     HU::ChannelDescriptor* audioChannel1 = carInfo.add_channels();
@@ -473,6 +487,8 @@
       audioConfig->set_sample_rate(16000);
       audioConfig->set_bit_depth(16);
       audioConfig->set_channel_count(1);
+
+      callbacks.CustomizeOutputChannel(AA_CH_AU1, *inner);
     }
 
 #ifdef PLAY_GUIDANCE_FROM_PHONE_SPEAKER
@@ -486,6 +502,8 @@
       audioConfig->set_sample_rate(16000);
       audioConfig->set_bit_depth(16);
       audioConfig->set_channel_count(1);
+
+      callbacks.CustomizeOutputChannel(AA_CH_AU2, *inner);
     }
 #endif
 
@@ -498,13 +516,14 @@
       audioConfig->set_sample_rate(16000);
       audioConfig->set_bit_depth(16);
       audioConfig->set_channel_count(1);
+      callbacks.CustomizeInputChannel(AA_CH_MIC, *inner);
     }
 
     return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::ServiceDiscoveryResponse, carInfo);
   }
 
   
-  int hu_handle_PingRequest (int chan, byte * buf, int len) {                  // Ping Request
+  int HUServer::hu_handle_PingRequest (int chan, byte * buf, int len) {                  // Ping Request
     HU::PingRequest request;
     if (!request.ParseFromArray(buf, len))
       loge ("Ping Request");
@@ -516,7 +535,7 @@
     return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::PingResponse, response);
   }
 
-  int hu_handle_NavigationFocusRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
+  int HUServer::hu_handle_NavigationFocusRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
     HU::NavigationFocusRequest request;
     if (!request.ParseFromArray(buf, len))
       loge ("Navigation Focus Request");
@@ -528,7 +547,7 @@
     return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::NavigationFocusResponse, response);
   }
 
-  int hu_handle_ShutdownRequest (int chan, byte * buf, int len) {                  // Byebye Request
+  int HUServer::hu_handle_ShutdownRequest (int chan, byte * buf, int len) {                  // Byebye Request
 
     HU::ShutdownRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -548,7 +567,7 @@
     return (-1);
   }
   
-  int hu_handle_VoiceSessionRequest (int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
+  int HUServer::hu_handle_VoiceSessionRequest (int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
     
     HU::VoiceSessionRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -563,7 +582,7 @@
   }
 
 
-  int hu_handle_AudioFocusRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
+  int HUServer::hu_handle_AudioFocusRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
     HU::AudioFocusRequest request;
     if (!request.ParseFromArray(buf, len))
       loge ("AudioFocusRequest Focus Request");
@@ -581,7 +600,7 @@
     return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::AudioFocusResponse, response);
   }
 
-  int hu_handle_ChannelOpenRequest(int chan, byte * buf, int len) {                  // Channel Open Request
+  int HUServer::hu_handle_ChannelOpenRequest(int chan, byte * buf, int len) {                  // Channel Open Request
 
     HU::ChannelOpenRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -606,7 +625,7 @@
     return (ret);
   }
 
-  int hu_handle_MediaSetupRequest(int chan, byte * buf, int len) {  
+  int HUServer::hu_handle_MediaSetupRequest(int chan, byte * buf, int len) {  
 
     HU::MediaSetupRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -633,7 +652,7 @@
   }
 
 
-  int hu_handle_VideoFocusRequest(int chan, byte * buf, int len) {  
+  int HUServer::hu_handle_VideoFocusRequest(int chan, byte * buf, int len) {  
 
     HU::VideoFocusRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -665,11 +684,8 @@
     }
   }
 
-  int32_t channel_session_id[AA_CH_MAX+1] = {0,0,0,0,0,0,0};
-  int out_state_channel[AA_CH_MAX+1] = {-1,-1,-1,-1,-1,-1,-1};
 
-
-  int hu_handle_MediaStartRequest(int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
+  int HUServer::hu_handle_MediaStartRequest(int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
     
     HU::MediaStartRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -678,17 +694,11 @@
       logd ("MediaStartRequest: %d", request.session());
 
     channel_session_id[chan] = request.session();
-    return (0);
-  }
+    return callbacks.MediaStart(chan);
+   }
 
-  int hu_aap_out_get (int chan) {
-    int state = out_state_channel[chan]; // Get current audio output state change
-    out_state_channel[chan] = -1; // Reset audio output state change indication
 
-    return (state);                                                     // Return what the new state was before reset
-  }
-
-  int hu_handle_MediaStopRequest(int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
+  int HUServer::hu_handle_MediaStopRequest(int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
     
     HU::MediaStopRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -696,12 +706,12 @@
     else
       logd ("MediaStopRequest");
 
-    out_state_channel[chan] = 1;
-    return (0);
+    channel_session_id[chan] = 0;
+    return callbacks.MediaStop(chan);
   }
 
 
-  int hu_handle_SensorStartRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
+  int HUServer::hu_handle_SensorStartRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
     HU::SensorStartRequest request;
     if (!request.ParseFromArray(buf, len))
       loge ("SensorStartRequest Focus Request");
@@ -715,7 +725,7 @@
   }
   
   
-  int hu_handle_BindingRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
+  int HUServer::hu_handle_BindingRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
     HU::BindingRequest request;
     if (!request.ParseFromArray(buf, len))
       loge ("BindingRequest Focus Request");
@@ -728,16 +738,7 @@
     return hu_aap_enc_send_message(0, chan, HU_INPUT_CHANNEL_MESSAGE::BindingResponse, response);
   }
 
-  int mic_change_status = 0;
-  int hu_aap_mic_get () {
-    int ret_status = mic_change_status;                                 // Get current mic change status
-    if (mic_change_status == 2 || mic_change_status == 1) {             // If start or stop...
-      mic_change_status = 0;                                            // Reset mic change status to "No Change"
-    }
-    return (ret_status);                                                // Return original mic change status
-  }
-
-  int hu_handle_MediaAck (int chan, byte * buf, int len) {
+  int HUServer::hu_handle_MediaAck (int chan, byte * buf, int len) {
 
     HU::MediaAck request;
     if (!request.ParseFromArray(buf, len))
@@ -747,7 +748,7 @@
     return (0);
   }
 
-  int hu_handle_MicRequest (int chan, byte * buf, int len) {
+  int HUServer::hu_handle_MicRequest (int chan, byte * buf, int len) {
 
     HU::MicRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -757,67 +758,24 @@
 
     if (!request.open()) {
       logd ("Mic Start/Stop Request: 0 STOP");
-      mic_change_status = 1;                                            // Stop Mic
+      return callbacks.MediaStop(chan);
     }
     else {
       logd ("Mic Start/Stop Request: 1 START");
-      mic_change_status = 2;                                            // Start Mic
+      return callbacks.MediaStart(chan);
     }
     return (0);
   }
 
-
-
-  void iaap_video_decode (byte * buf, int len) {
-
-    byte * q_buf = (byte*)vid_write_tail_buf_get (len);                         // Get queue buffer tail to write to     !!! Need to lock until buffer written to !!!!
-    if (ena_log_verbo)
-      logd ("video q_buf: %p  buf: %p  len: %d", q_buf, buf, len);
-    if (q_buf == NULL) {
-      loge ("Error video no q_buf: %p  buf: %p  len: %d", q_buf, buf, len);
-      //return;                                                         // Continue in order to write to record file
-    }
-    else
-      memcpy (q_buf, buf, len);                                         // Copy video to queue buffer
-  }
-
-  int aud_rec_ena = 0;                                                // Audio recording to file
-  int aud_rec_fd  = -1;
-
-  void iaap_audio_decode (int chan, byte * buf, int len) {
-
-    //hu_uti.c:  #define aud_buf_BUFS_SIZE    65536 * 4      // Up to 256 Kbytes
-#define aud_buf_BUFS_SIZE    65536 * 4      // Up to 256 Kbytes
-    if (len > aud_buf_BUFS_SIZE) {
-      loge ("Error audio len: %d  aud_buf_BUFS_SIZE: %d", len, aud_buf_BUFS_SIZE);
-      len = aud_buf_BUFS_SIZE;
-    }
-
-
-    byte * q_buf = (byte*)aud_write_tail_buf_get (len);                         // Get queue buffer tail to write to     !!! Need to lock until buffer written to !!!!
-    if (ena_log_verbo)
-      logd ("audio q_buf: %p  buf: %p  len: %d", q_buf, buf, len);
-    if (q_buf == NULL) {
-      loge ("Error audio no q_buf: %p  buf: %p  len: %d", q_buf, buf, len);
-      //return;                                                         // Continue in order to write to record file
-    }
-    else {
-      memcpy (q_buf, buf, len);                                         // Copy audio to queue buffer
-    }
-  }
-
-  int hu_handle_MediaDataWithTimestamp (int chan, byte * buf, int len) {
+  int HUServer::hu_handle_MediaDataWithTimestamp (int chan, byte * buf, int len) {
 
     uint64_t timestamp = be64toh(*((uint64_t*)buf));
     logd("Media timestamp %s %llu", chan_get(chan), timestamp);
 
-    if (chan == AA_CH_VID)
+    int ret  = callbacks.MediaPacket(chan, timestamp, &buf [8], len - 8);
+    if (ret < 0)
     {
-      iaap_video_decode (&buf[8], len - 8);                                                                               // Decode H264 video  
-    }
-    else
-    {
-      iaap_audio_decode (chan, & buf [8], len - 8);//assy, assy_size);                                                                                    // Decode PCM audio fully re-assembled
+      return ret;
     }
 
 
@@ -828,15 +786,12 @@
     return hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::MediaAck, mediaAck);
   }
 
-  int hu_handle_MediaData(int chan, byte * buf, int len) {
+  int HUServer::hu_handle_MediaData(int chan, byte * buf, int len) {
     
-    if (chan == AA_CH_VID)
+    int ret  = callbacks.MediaPacket(chan, 0, buf, len);
+    if (ret < 0)
     {
-      iaap_video_decode (buf, len);                                                                               // Decode H264 video  
-    }
-    else
-    {
-      iaap_audio_decode (chan, buf, len);//assy, assy_size);                                                                                    // Decode PCM audio fully re-assembled
+      return ret;
     }
 
 
@@ -848,16 +803,20 @@
   }
 
 
-  int iaap_msg_process (int chan, byte * buf, int len) {
-
-    uint16_t msg_type = be16toh(*reinterpret_cast<uint16_t*>(buf));
-
-    //remove the message type
-    buf += 2;
-    len -= 2;
+  int HUServer::iaap_msg_process (int chan, uint16_t msg_type, byte * buf, int len) {
 
     if (ena_log_verbo)
       logd ("iaap_msg_process msg_type: %d  len: %d  buf: %p", msg_type, len, buf);
+
+    int filter_ret = callbacks.MessageFilter(*this, iaap_state, chan, msg_type, buf, len);
+    if (filter_ret < 0)
+    {
+      return filter_ret;
+    }
+    else if (filter_ret > 0)
+    {
+      return 0; //handled
+    }
 
     if (iaap_state == hu_STATE_STARTIN)
     {
@@ -952,11 +911,44 @@
     return (0);
   }
 
-  int hu_aap_stop () {                                                  // Sends Byebye, then stops Transport/USBACC/OAP
+  int HUServer::hu_queue_command(HUThreadCommand&& command)
+  {
+    HUThreadCommand* ptr = new HUThreadCommand(command);
+    int ret = write(command_write_fd, &ptr, sizeof(ptr));
+    if (ret < 0)
+    {
+      delete ptr;
+      loge("hu_queue_command error %d", ret);
+    }
+  }
+
+  int HUServer::hu_aap_stop () {                                                  // Sends Byebye, then stops Transport/USBACC/OAP
 
                                                                         // Continue only if started or starting...
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN)
       return (0);
+
+    if (hu_thread.joinable())
+    {
+      int ret = hu_queue_command([this](IHUCommandStream&)
+      {
+        hu_thread_quit_flag = true;
+      });
+
+      if (ret < 0)
+      {
+        loge("write end command error %d", ret);
+      }
+      hu_thread.join();
+    }
+   
+    if (command_write_fd >= 0)
+      close(command_write_fd);
+    command_write_fd = -1;
+
+    if (command_read_fd >= 0)
+      close(command_read_fd);
+    command_read_fd = -1;
 
     // Send Byebye
     iaap_state = hu_STATE_STOPPIN;
@@ -966,16 +958,67 @@
     iaap_state = hu_STATE_STOPPED;
     logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
     
-//    g_free(rx_buf);
-//	thread_cleanup();
     return (ret);
   }
 
-  int hu_aap_start (byte ep_in_addr, byte ep_out_addr) {                // Starts Transport/USBACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
+  HUServer::HUThreadCommand* HUServer::hu_pop_command()
+  {
+    HUThreadCommand* ptr = nullptr;
+    int ret = read(command_read_fd, &ptr, sizeof(ptr));
+    if (ret < 0)
+    {
+      loge("hu_pop_command error %d", ret);
+    }
+    else if (ret == sizeof(ptr))
+    {
+      return ptr;
+    }
+    return nullptr;
+  }
 
-//	rx_buf = (byte *)g_malloc(DEFBUF);
+  void HUServer::hu_thread_main()
+  {
+    int transportFD = transport->GetReadFD();
+    fd_set sock_set;
+    FD_ZERO(&sock_set);
+    FD_SET(command_read_fd, &sock_set);
+    FD_SET(transportFD, &sock_set);
+
+    while(!hu_thread_quit_flag)
+    {
+      int ret = select(2, &sock_set, NULL, NULL, NULL);
+      if (ret <= 0)
+      {
+        loge("Select failed %d", ret);
+        return;
+      }
+      if (FD_ISSET(command_read_fd, &sock_set))
+      {
+        HUThreadCommand* ptr = nullptr;
+        while(ptr = hu_pop_command())
+        {
+          (*ptr)(*this);
+          delete ptr;
+        }
+      }
+      if (FD_ISSET(transportFD, &sock_set))
+      {
+        //data ready
+        ret = hu_aap_recv_process(iaap_tra_recv_tmo);
+        if (ret <= 0)
+        {
+          loge("hu_aap_recv_process failed %d", ret);
+        }
+      }
+    }
+  }
+
+  static_assert(PIPE_BUF >= sizeof(HUServer::HUThreadCommand*));
+
+  int HUServer::hu_aap_start (byte ep_in_addr, byte ep_out_addr) {                // Starts Transport/USBACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
+
 	
-    if (iaap_state == hu_STATE_STARTED) {
+    if (iaap_state == hu_STATE_STARTED || iaap_state == hu_STATE_STARTIN) {
       loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       return (0);
     }
@@ -994,7 +1037,6 @@
     ret = hu_aap_unenc_send_blob(0, AA_CH_CTR, HU_INIT_MESSAGE::VersionRequest, vr_buf, sizeof (vr_buf), 2000);
     if (ret < 0) {
       loge ("Version request send ret: %d", ret);
-      hu_aap_stop ();
       return (-1);
     }  
 
@@ -1007,15 +1049,27 @@
       }
     }
 
-//*/
+    
+    int pipefd[2];
+    ret = pipe2(pipefd, O_DIRECT | O_NONBLOCK);
+    if (ret < 0)
+    {
+      loge ("pipe2 failed ret: %d %i", ret, errno);
+      hu_aap_stop ();
+      return (-1);
+    }
+
+    logw("Starting HU thread");
+    command_read_fd = pipefd[0];
+    command_write_fd = pipefd[1];
+    hu_thread_quit_flag = false;
+    hu_thread = std::thread([this] { this->hu_thread_main(); });
+
+
     return (0);
   }
 
-
-  static std::vector<byte> temp_assembly_buffer;
-  static byte rx_buf[MAX_FRAME_SIZE];
-
-  int hu_aap_recv_process (int overrideTimeout) {                                          // 
+  int HUServer::hu_aap_recv_process (int tmo) {                                          // 
                                                                         // Terminate unless started or starting (we need to process when starting)
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
       loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
@@ -1035,7 +1089,7 @@
     int chan = -1;
     while (!has_last) 
     {                                              // While length remaining to process,... Process Rx packet:
-      have_len = hu_aap_tra_recv (rx_buf, min_size_hdr, overrideTimeout < 0 ? iaap_tra_recv_tmo : overrideTimeout );
+      have_len = hu_aap_tra_recv (enc_buf, min_size_hdr, tmo);
       if (have_len == 0 && !has_first)
       {
         return 0;
@@ -1049,9 +1103,9 @@
 
       if (ena_log_verbo) {
         logd ("Recv while (have_len > 0): %d", have_len);
-        hex_dump ("LR: ", 16, rx_buf, have_len);
+        hex_dump ("LR: ", 16, enc_buf, have_len);
       }
-      int cur_chan = (int) rx_buf [0];                                         // Channel
+      int cur_chan = (int) enc_buf [0];                                         // Channel
       if (cur_chan != chan && chan >= 0)
       {
           loge ("Interleaved channels");
@@ -1059,8 +1113,8 @@
           return (-1);
       }
       chan = cur_chan;
-      int flags = rx_buf [1];                                              // Flags
-      int frame_len = be16toh(*((uint16_t*)&rx_buf[2]));
+      int flags = enc_buf [1];                                              // Flags
+      int frame_len = be16toh(*((uint16_t*)&enc_buf[2]));
 
       logd("Frame flags %i len %i", flags, frame_len);
 
@@ -1084,7 +1138,7 @@
       while(remaining_bytes_in_frame > 0)
       {
         logd("Getting more %i", remaining_bytes_in_frame);
-        int got_bytes = hu_aap_tra_recv (&rx_buf[have_len], remaining_bytes_in_frame, overrideTimeout < 0 ? iaap_tra_recv_tmo : overrideTimeout);     // Get Rx packet from Transport
+        int got_bytes = hu_aap_tra_recv (&enc_buf[have_len], remaining_bytes_in_frame, tmo);     // Get Rx packet from Transport
         if (got_bytes < 0) {                                      // If we don't have a full 6 byte header at least...
           loge ("Recv got_bytes: %d", got_bytes);
           hu_aap_stop ();
@@ -1105,7 +1159,7 @@
 
       if (has_total_size_header)
       {
-        uint32_t total_size = be32toh(*((uint32_t*)&rx_buf[4]));
+        uint32_t total_size = be32toh(*((uint32_t*)&enc_buf[4]));
         logd("First only, total len %u", total_size);
         temp_assembly_buffer.reserve(total_size);
       }
@@ -1120,7 +1174,7 @@
           size_t cur_vec = temp_assembly_buffer.size();
           temp_assembly_buffer.resize(cur_vec + frame_len); //just incase
 
-          int bytes_written = BIO_write (hu_ssl_rm_bio, &rx_buf[header_size], frame_len);           // Write encrypted to SSL input BIO
+          int bytes_written = BIO_write (hu_ssl_rm_bio, &enc_buf[header_size], frame_len);           // Write encrypted to SSL input BIO
           if (bytes_written <= 0) {
             loge ("BIO_write() bytes_written: %d", bytes_written);
             return (-1);
@@ -1143,15 +1197,21 @@
       }
       else
       {
-          temp_assembly_buffer.insert(temp_assembly_buffer.end(), &rx_buf[header_size], &rx_buf[frame_len+header_size]);
+          temp_assembly_buffer.insert(temp_assembly_buffer.end(), &enc_buf[header_size], &enc_buf[frame_len+header_size]);
       }
     }
 
-    ret = iaap_msg_process (chan, temp_assembly_buffer.data(), temp_assembly_buffer.size());          // Decrypt & Process 1 received encrypted message
-    if (ret < 0 && iaap_state != hu_STATE_STOPPED) {                                                    // If error...
-      loge ("Error iaap_msg_process() ret: %d  ", ret);
-      hu_aap_stop ();
-      return (ret);  
+    const int buf_len = temp_assembly_buffer.size();
+    if (buf_len >= 2)
+    {
+      uint16_t msg_type = be16toh(*reinterpret_cast<uint16_t*>(temp_assembly_buffer.data()));
+
+      ret = iaap_msg_process (chan, msg_type, &temp_assembly_buffer[2], buf_len - 2);          // Decrypt & Process 1 received encrypted message
+      if (ret < 0 && iaap_state != hu_STATE_STOPPED) {                                                    // If error...
+        loge ("Error iaap_msg_process() ret: %d  ", ret);
+        hu_aap_stop ();
+        return (ret);  
+      }
     }
 
     return (ret);                                                       // Return value from the last iaap_recv_dec_process() call; should be 0

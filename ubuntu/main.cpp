@@ -35,78 +35,67 @@ GstElement *aud_pipeline, *aud_src;
 GstElement *au1_pipeline, *au1_src;
 
 
-int mic_change_state = 0;
-
-pthread_mutex_t mutexsend;
+bool mic_change_state = false;
 
 float g_dpi_scalefactor = 1.0f;
 
+class DesktopEventCallbacks : public IHUEventCallbacks
+{
+public:
+  virtual int MediaPacket(int chan, uint64_t timestamp, const byte * buf, int len) override
+  {
+  	GstAppSrc* gst_src = nullptr;
+  	if (chan == AA_CH_VID)
+  	{
+  		gst_src = (GstAppSrc *)gst_app.src;
+  	}
+  	else if (chan == AA_CH_AUD)
+  	{
+  		gst_src  = (GstAppSrc *)aud_src;
+  	}
+  	else if (chan == AA_CH_AU1)
+	{
+		gst_src = (GstAppSrc *)au1_src;
+	}
+
+	if (gst_src)
+	{
+		GstBuffer * buffer = gst_buffer_new();
+	    gst_buffer_set_data(buffer, (guint8*)buf, len);
+	    int ret = gst_app_src_push_buffer(gst_src, buffer);
+
+	    if(ret !=  GST_FLOW_OK){
+	        printf("push buffer returned %d for %d bytes \n", ret, len);
+	    }
+	}
+  	return 0;
+  }
+
+  virtual int MediaStart(int chan) override
+  {
+	printf("SHAI1 : Mic Started\n");
+	mic_change_state = true;
+	gst_element_set_state (mic_pipeline, GST_STATE_PLAYING);
+  	return 0;
+  }
+
+  virtual int MediaStop(int chan) override
+  {
+	printf("SHAI1 : Mic Stopped\n");
+	mic_change_state = false;
+	gst_element_set_state (mic_pipeline, GST_STATE_READY);
+  	return 0;
+  }
+};
+
+DesktopEventCallbacks g_callbacks;
+HUServer g_hu(g_callbacks);
 
 static void read_mic_data (GstElement * sink);
 
-struct cmd_arg_struct {
-    int retry;
-    int chan;
-    int cmd_len; 
-    unsigned char *cmd_buf; 
-    int res_max; 
-    unsigned char *res_buf;
-    int result;
-};
-
 static gboolean read_data(gst_app_t *app)
 {
-    GstBuffer *buffer;
-    guint8 *ptr;
-    GstFlowReturn ret;
-    int iret;
-    guint8 *vbuf;
-    guint8 *abuf;
-    int res_len = 0;
-
-
-    pthread_mutex_lock (&mutexsend);
-    iret = hu_aap_recv_process ();                       
-    pthread_mutex_unlock (&mutexsend);
-    
-    if (iret != 0) {
-        printf("hu_aap_recv_process() iret: %d\n", iret);
-        g_main_loop_quit(app->loop);
-        return FALSE;
-    }
-
-    /* Is there a video buffer queued? */
-    vbuf = (guint8*)vid_read_head_buf_get (&res_len);
-    if (vbuf != NULL) {
-        
-        buffer = gst_buffer_new();
-        gst_buffer_set_data(buffer, vbuf, res_len);
-        ret = gst_app_src_push_buffer((GstAppSrc *)app->src, buffer);
-
-        if(ret !=  GST_FLOW_OK){
-            printf("push buffer returned %d for %d bytes \n", ret, res_len);
-            return FALSE;
-        }
-    }
-
-    /* Is there an audio buffer queued? */
-    abuf = (guint8*)aud_read_head_buf_get (&res_len);
-    if (abuf != NULL) {
-        
-        buffer = gst_buffer_new();
-        gst_buffer_set_data(buffer, abuf, res_len);
-        
-        if (res_len <= 2048 + 96)
-            ret = gst_app_src_push_buffer((GstAppSrc *)au1_src, buffer);
-        else
-            ret = gst_app_src_push_buffer((GstAppSrc *)aud_src, buffer);
-
-        if(ret !=  GST_FLOW_OK){
-            printf("push buffer returned %d for %d bytes \n", ret, res_len);
-            return FALSE;
-        }
-    }
-
+ 
     return TRUE;
 }
 
@@ -300,32 +289,27 @@ uint64_t get_cur_timestamp()
 }
 
 
-static int aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, unsigned int y) {
+static void aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, unsigned int y) {
 
-    HU::InputEvent inputEvent;
-    inputEvent.set_timestamp(get_cur_timestamp());
-    HU::TouchInfo* touchEvent = inputEvent.mutable_touch();
-    touchEvent->set_action(action);
-    HU::TouchInfo::Location* touchLocation = touchEvent->add_location();
-    touchLocation->set_x(x);
-    touchLocation->set_y(y);
-    touchLocation->set_pointer_id(0);
+	g_hu.hu_queue_command([action, x, y](IHUCommandStream& s)
+	{
+ 		HU::InputEvent inputEvent;
+	    inputEvent.set_timestamp(get_cur_timestamp());
+	    HU::TouchInfo* touchEvent = inputEvent.mutable_touch();
+	    touchEvent->set_action(action);
+	    HU::TouchInfo::Location* touchLocation = touchEvent->add_location();
+	    touchLocation->set_x(x);
+	    touchLocation->set_y(y);
+	    touchLocation->set_pointer_id(0);
 
-    /* Send touch event */
-    
-    pthread_mutex_lock (&mutexsend);
-    int ret = hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
-    pthread_mutex_unlock (&mutexsend);
-    
-    if (ret < 0) {
-        printf("aa_touch_event(): hu_aap_enc_send() failed with (%d)\n", ret);
-    }
-        
-    return ret;
+	    /* Send touch event */
+	    
+	    int ret = s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
+	    if (ret < 0) {
+	        printf("aa_touch_event(): hu_aap_enc_send() failed with (%d)\n", ret);
+	    }
+	});
 }
-
-
-static const int max_size = 8192;
 
 
 static void read_mic_data (GstElement * sink)
@@ -342,7 +326,7 @@ static void read_mic_data (GstElement * sink)
 
         /* if mic is stopped, don't bother sending */    
 
-        if (mic_change_state == 0) {
+        if (!mic_change_state) {
             printf("Mic stopped.. dropping buffers \n");
             gst_buffer_unref(gstbuf);
             return;
@@ -361,15 +345,17 @@ static void read_mic_data (GstElement * sink)
             return;
         }
         
-        pthread_mutex_lock (&mutexsend);
-        ret = hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaDataWithTimestamp, get_cur_timestamp(), GST_BUFFER_DATA(gstbuf), mic_buf_sz);
-        pthread_mutex_unlock (&mutexsend);
-        
-        if (ret < 0) {
-            printf("read_mic_data(): hu_aap_enc_send() failed with (%d)\n", ret);
-        }
-        
-        gst_buffer_unref(gstbuf);
+        uint64_t timestamp = get_cur_timestamp();
+        g_hu.hu_queue_command([timestamp, gstbuf, mic_buf_sz](IHUCommandStream& s)
+		{
+	        int ret = s.hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaDataWithTimestamp, timestamp, GST_BUFFER_DATA(gstbuf), mic_buf_sz);
+	       
+	        if (ret < 0) {
+	            printf("read_mic_data(): hu_aap_enc_send() failed with (%d)\n", ret);
+	        }
+	        
+	        gst_buffer_unref(gstbuf);
+	    });
     }
 }
 
@@ -409,21 +395,7 @@ void PrintKeyInfo( SDL_KeyboardEvent *key ){
 gboolean sdl_poll_event(gpointer data)
 {
     gst_app_t *app = (gst_app_t *)data;
-    
-    int mic_ret = hu_aap_mic_get ();
-    
-    if (mic_change_state == 0 && mic_ret == 2) {
-        printf("SHAI1 : Mic Started\n");
-        mic_change_state = 2;
-        gst_element_set_state (mic_pipeline, GST_STATE_PLAYING);
-    }
-        
-    if (mic_change_state == 2 && mic_ret == 1) {
-        printf("SHAI1 : Mic Stopped\n");
-        mic_change_state = 0;
-        gst_element_set_state (mic_pipeline, GST_STATE_READY);
-    }    
-    
+
     SDL_Event event;
     SDL_MouseButtonEvent *mbevent;
     SDL_MouseMotionEvent *mmevent;
@@ -438,34 +410,19 @@ gboolean sdl_poll_event(gpointer data)
             mmevent = &event.motion;
             if (mmevent->state & SDL_BUTTON_LMASK)
             {
-                ret = aa_touch_event(HU::TouchInfo::TOUCH_ACTION_DRAG, (unsigned int)((float)mmevent->x/g_dpi_scalefactor ), (unsigned int)((float)mmevent->y/g_dpi_scalefactor));
-                if (ret == -1) {
-                    g_main_loop_quit(app->loop);
-                    SDL_Quit();
-                    return FALSE;
-                }
+                aa_touch_event(HU::TouchInfo::TOUCH_ACTION_DRAG, (unsigned int)((float)mmevent->x/g_dpi_scalefactor ), (unsigned int)((float)mmevent->y/g_dpi_scalefactor));
             }
             break;
         case SDL_MOUSEBUTTONDOWN:
             mbevent = &event.button;
             if (mbevent->button == SDL_BUTTON_LEFT) {
-                ret = aa_touch_event(HU::TouchInfo::TOUCH_ACTION_PRESS, (unsigned int)((float)mbevent->x/g_dpi_scalefactor ), (unsigned int)((float)mbevent->y/g_dpi_scalefactor));
-                if (ret == -1) {
-                    g_main_loop_quit(app->loop);
-                    SDL_Quit();
-                    return FALSE;
-                }
+                aa_touch_event(HU::TouchInfo::TOUCH_ACTION_PRESS, (unsigned int)((float)mbevent->x/g_dpi_scalefactor ), (unsigned int)((float)mbevent->y/g_dpi_scalefactor));
             }
             break;
         case SDL_MOUSEBUTTONUP:
             mbevent = &event.button;
             if (mbevent->button == SDL_BUTTON_LEFT) {
-                ret = aa_touch_event(HU::TouchInfo::TOUCH_ACTION_RELEASE, (unsigned int)((float)mbevent->x/g_dpi_scalefactor), (unsigned int)((float)mbevent->y/g_dpi_scalefactor));
-                if (ret == -1) {
-                    g_main_loop_quit(app->loop);
-                    SDL_Quit();
-                    return FALSE;
-                }
+                aa_touch_event(HU::TouchInfo::TOUCH_ACTION_RELEASE, (unsigned int)((float)mbevent->x/g_dpi_scalefactor), (unsigned int)((float)mbevent->y/g_dpi_scalefactor));
             } else if (mbevent->button == SDL_BUTTON_RIGHT) {
                 printf("Quitting...\n");
                 g_main_loop_quit(app->loop);
@@ -509,9 +466,10 @@ gboolean sdl_poll_event(gpointer data)
                         rel->set_delta(key->keysym.sym == SDLK_LEFT ? -1 : 1);
                         rel->set_scan_code(HUIB_SCROLLWHEEL);
 
-                        pthread_mutex_lock (&mutexsend);
-                        ret = hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent2);
-                        pthread_mutex_unlock (&mutexsend);
+				 		g_hu.hu_queue_command([inputEvent2](IHUCommandStream& s)
+						{
+                        	s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent2);
+                    	});
                     }
                 }
                 else if (key->keysym.sym == SDLK_m) {
@@ -540,10 +498,10 @@ gboolean sdl_poll_event(gpointer data)
                 }
 
                 if (buttonInfo->has_scan_code()) {
-                    pthread_mutex_lock (&mutexsend);
-                    ret = hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
-                    pthread_mutex_unlock (&mutexsend);
-
+			 		ret = g_hu.hu_queue_command([inputEvent](IHUCommandStream& s)
+					{
+                		s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
+                	});
                     if (ret == -1) {
                         g_main_loop_quit(app->loop);
                         SDL_Quit();
@@ -567,12 +525,14 @@ gboolean sdl_poll_event(gpointer data)
     if (g_nightmode != nightmodenow) {
         g_nightmode = nightmodenow;
 
-        HU::SensorEvent sensorEvent;
-        sensorEvent.add_night_mode()->set_is_night(g_nightmode);
+		g_hu.hu_queue_command([nightmodenow](IHUCommandStream& s)
+		{
+	        HU::SensorEvent sensorEvent;
+	        sensorEvent.add_night_mode()->set_is_night(nightmodenow);
 
-        pthread_mutex_lock (&mutexsend);
-        hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
-           pthread_mutex_unlock (&mutexsend);
+	        s.hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
+    	});
+
         printf("Nightmode: %s\n", g_nightmode ? "On" : "Off");
     }
     
@@ -657,12 +617,12 @@ int main (int argc, char *argv[])
 
 
     /* Start AA processing */
-    ret = hu_aap_start (ep_in_addr, ep_out_addr);
+    ret = g_hu.hu_aap_start (ep_in_addr, ep_out_addr);
     if (ret == -1)
     {
         printf("Phone switched to accessory mode. Attempting once more.\n");
         sleep(1);
-        ret = hu_aap_start (ep_in_addr, ep_out_addr);
+        ret = g_hu.hu_aap_start (ep_in_addr, ep_out_addr);
     }    
     if (ret < 0) {
         if (ret == -2)
@@ -695,8 +655,6 @@ int main (int argc, char *argv[])
     //Don't use SDL's weird cursor, too small on HiDPI
     XUndefineCursor(wmInfo.info.x11.display, wmInfo.info.x11.window);
 
-    pthread_mutex_init(&mutexsend, NULL);
-
     /* Start gstreamer pipeline and main loop */
     ret = gst_loop(app);
     if (ret < 0) {
@@ -704,12 +662,10 @@ int main (int argc, char *argv[])
     }
 
     /* Stop AA processing */
-    ret = hu_aap_stop ();
+    ret = g_hu.hu_aap_stop ();
     if (ret < 0) {
         printf("STATUS:hu_aap_stop() ret: %d\n", ret);
         SDL_Quit();
-        pthread_mutex_destroy(&mutexsend);
-        pthread_exit(NULL);
         return (ret);
     }
 
@@ -718,8 +674,6 @@ int main (int argc, char *argv[])
     if (ret == 0) {
         printf("STATUS:Press Back or Home button to close\n");
     }
-    
-    pthread_mutex_destroy(&mutexsend);
 
     return (ret);
 }

@@ -20,51 +20,22 @@
   #include <netinet/in.h>
   #include <netdb.h> 
 
-
-    // Data: 
-
-  //struct libtcp_device_handle * itcp_dev_hndl      = NULL;
-  //libtcp_device *               itcp_best_device  = NULL;
-  int   itcp_ep_in          = -1;
-  int   itcp_ep_out         = -1;
- 
-  int tcp_so_fd = -1;  // Socket FD
-  int tcp_io_fd = -1;  // IO FD returned by accept()
-
-  int hu_tcp_recv (byte * buf, int len, int tmo) {
-    //int ret = itcp_bulk_transfer (itcp_ep_in, buf, len, tmo);         // milli-second timeout
-      if (tcp_io_fd < 0)                                                // If TCP IO not ready...
-        return (-1);
-
-    fd_set sock_set;
-    FD_ZERO(&sock_set);
-    FD_SET(tcp_io_fd, &sock_set);
-
-    timeval tv_timeout;
-    tv_timeout.tv_sec = tmo / 1000;
-    tv_timeout.tv_usec = tmo * 1000;
-
-    int ret = select(1, &sock_set, NULL, NULL, &tv_timeout);
-    if (ret <= 0)
-      return ret;
-
-
-    errno = 0;
-    ret = read (tcp_io_fd, buf, len);
-    if (ret <= 0) {
-      loge ("Error read  errno: %d (%s)", errno, strerror (errno));
+  HUTransportStreamTCP::~HUTransportStreamTCP()
+  {
+    if (itcp_state != hu_STATE_STOPPED)
+    {
+      Stop();
     }
-    return (ret);
   }
 
-  int hu_tcp_send (byte * buf, int len, int tmo) {
+  int HUTransportStreamTCP::Write (const byte * buf, int len, int tmo) {
     //int ret = itcp_bulk_transfer (itcp_ep_out, buf, len, tmo);      // milli-second timeout
-    if (tcp_io_fd < 0)
+    if (readfd < 0)
       return (-1);
 
     fd_set sock_set;
     FD_ZERO(&sock_set);
-    FD_SET(tcp_io_fd, &sock_set);
+    FD_SET(readfd, &sock_set);
 
     timeval tv_timeout;
     tv_timeout.tv_sec = tmo / 1000;
@@ -76,24 +47,23 @@
 
 
     errno = 0;
-    ret = write (tcp_io_fd, buf, len);
+    ret = write (readfd, buf, len);
     if (ret != len) {             // Write, if can't write full buffer...
       loge ("Error write  errno: %d (%s)", errno, strerror (errno));
       //ms_sleep (101);                                                 // Sleep 0.1 second to try to clear errors
     }
-      //close (tcp_io_fd);
+      //close (readfd);
     //}
     //close (tcp_so_fd);
 
     return (ret);
   }
 
+  int HUTransportStreamTCP::itcp_deinit () {                                              // !!!! Need to better reset and wait a while to kill transfers in progress and auto-restart properly
 
-  int itcp_deinit () {                                              // !!!! Need to better reset and wait a while to kill transfers in progress and auto-restart properly
-
-    if (tcp_io_fd >= 0)
-      close (tcp_io_fd);
-    tcp_io_fd = -1;
+    if (readfd >= 0)
+      close (readfd);
+    readfd = -1;
 
     if (tcp_so_fd >= 0)
       close (tcp_so_fd);
@@ -110,16 +80,8 @@
   #define CS_SOCK_TYPE    SOCK_STREAM
   #define   RES_DATA_MAX  65536
 
-  //int gen_server_exiting = 0;
 
-  //int tmo = 100;
-
-  struct sockaddr_in  cli_addr = {0};
-  socklen_t cli_len = 0;
-
-  int wifi_direct = 1;//0;
-
-  int itcp_accept (int tmo) {
+  int HUTransportStreamTCP::itcp_accept (int tmo) {
 
     if (tcp_so_fd < 0)
       return (-1);
@@ -131,8 +93,8 @@
     errno = 0;
     int ret = 0;
     if (wifi_direct) {
-      tcp_io_fd = accept (tcp_so_fd, (struct sockaddr *) & cli_addr, & cli_len);
-      if (tcp_io_fd < 0) {
+      readfd = accept (tcp_so_fd, (struct sockaddr *) & cli_addr, & cli_len);
+      if (readfd < 0) {
         loge ("Error accept errno: %d (%s)", errno, strerror (errno));
         return (-1);
       }
@@ -148,20 +110,17 @@
         loge ("Error connect errno: %d (%s)", errno, strerror (errno));
         return (-1);
       }
-      tcp_io_fd = tcp_so_fd;
+      readfd = tcp_so_fd;
     }
 
 
     return (tcp_so_fd);
   }
 
-  struct sockaddr_in  srv_addr = {0};
-  socklen_t srv_len = 0;
-  int itcp_init (byte ep_in_addr, byte ep_out_addr) {
+
+  int HUTransportStreamTCP::itcp_init (byte ep_in_addr, byte ep_out_addr) {
     logd ("ep_in_addr: %d  ep_out_addr: %d", ep_in_addr, ep_out_addr);
 
-    itcp_ep_in  = -1;
-    itcp_ep_out = -1;
     int net_port = 30515;
 
     int cmd_len = 0, ctr = 0;
@@ -216,8 +175,8 @@
         logd ("itcp_init Ready");
     }
 
-    //tcp_io_fd = -1;
-    while (tcp_io_fd < 0) {                                             // While we don't have an IO socket file descriptor...
+    //readfd = -1;
+    while (readfd < 0) {                                             // While we don't have an IO socket file descriptor...
       itcp_accept (100);                                                // Try to get one with 100 ms timeout
     }
     logd ("itcp_accept done");
@@ -225,7 +184,7 @@
     return (0);
   }
 
-  int hu_tcp_stop () {
+  int HUTransportStreamTCP::Stop () {
     itcp_state = hu_STATE_STOPPIN;
     logd ("  SET: itcp_state: %d (%s)", itcp_state, state_get (itcp_state));
     int ret = itcp_deinit ();
@@ -235,7 +194,7 @@
   }
 
 
-  int hu_tcp_start (byte ep_in_addr, byte ep_out_addr) {
+  int HUTransportStreamTCP::Start(byte ep_in_addr, byte ep_out_addr) {
     int ret = 0;
 
     if (itcp_state == hu_STATE_STARTED) {

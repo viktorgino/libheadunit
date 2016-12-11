@@ -1,8 +1,9 @@
+#pragma once
 #include "hu_uti.h"
 #include "hu.pb.h"
-
-int hu_aap_mic_get ();
-int hu_aap_out_get (int chan);
+#include "hu_ssl.h"
+#include <functional>
+#include <thread>
 
 // Channels ( or Service IDs)
 #define AA_CH_CTR 0                                                                                  // Sync with hu_tra.java, hu_aap.h and hu_aap.c:aa_type_array[]
@@ -13,7 +14,18 @@ int hu_aap_out_get (int chan);
 #define AA_CH_AU1 5
 #define AA_CH_AU2 6
 #define AA_CH_MIC 7
-#define AA_CH_MAX 7
+#define AA_CH_MAX 256
+
+enum HU_STATE
+{
+  hu_STATE_INITIAL = 0,
+  hu_STATE_STARTIN  = 1,
+  hu_STATE_STARTED = 2,
+  hu_STATE_STOPPIN = 3,
+  hu_STATE_STOPPED = 4,
+};
+
+const char* state_get(int s);
 
 enum HU_FRAME_FLAGS
 {
@@ -27,52 +39,168 @@ enum HU_FRAME_FLAGS
 //At 16 bytes for header
 #define MAX_FRAME_SIZE 0x4100
 
-enum class HU_TRANSPORT_TYPE
+class HUTransportStream
 {
-  USB,
-  WIFI
+protected:
+  int readfd = -1;
+public:
+  virtual ~HUTransportStream() {}
+  inline HUTransportStream() {}
+  virtual int Start(byte ep_in_addr, byte ep_out_addr) = 0;
+  virtual int Stop() = 0;
+  virtual int Write(const byte* buf, int len, int tmo) = 0;
+
+  inline int GetReadFD() { return readfd; }  
 };
 
-int hu_aap_tra_recv (byte * buf, int len, int tmo);                      // Used by intern,                      hu_ssl
-int hu_aap_tra_send (int retry, byte * buf, int len, int tmo);                      // Used by intern,                      hu_ssl
-int hu_aap_enc_send (int retry, int chan, byte * buf, int len, int overrideTimeout = -1);                     // Used by intern,            hu_jni     // Encrypted Send
-int hu_aap_unenc_send (int retry, int chan, byte * buf, int len, int overrideTimeout = -1); 
-int hu_aap_stop     ();                                                  // Used by          hu_mai,  hu_jni     // NEED: Send Byebye, Stops USB/ACC/OAP
-int hu_aap_start    (byte ep_in_addr, byte ep_out_addr);                 // Used by          hu_mai,  hu_jni     // Starts USB/ACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
-int hu_aap_recv_process (int overrideTimeout = -1);                                              // Used by          hu_mai,  hu_jni     // Process 1 encrypted receive message set:
-                                                                                                                        // Read encrypted message from USB
-                                                                                                                        // Respond to decrypted message
-int hu_aap_enc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout = -1);
-
-template<typename EnumType>
-inline int hu_aap_enc_send_message(int retry, int chan, EnumType messageCode, const google::protobuf::MessageLite& message, int overrideTimeout = -1)
+class IHUCommandStream
 {
-  return hu_aap_enc_send_message(retry, chan, static_cast<uint16_t>(messageCode), message, overrideTimeout);
-}
+protected:
+  ~IHUCommandStream() {}
+  IHUCommandStream() {}
+public:
+  virtual int hu_aap_enc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout = -1) = 0;
+  virtual int hu_aap_enc_send_media_packet(int retry, int chan, uint16_t messageCode, uint64_t timeStamp, const byte* buffer, int bufferLen, int overrideTimeout = -1) = 0;
+  virtual int hu_aap_unenc_send_blob(int retry, int chan, uint16_t messageCode, const byte* buffer, int bufferLen, int overrideTimeout = -1) = 0;
+  virtual int hu_aap_unenc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout = -1) = 0;
 
-int hu_aap_enc_send_media_packet(int retry, int chan, uint16_t messageCode, uint64_t timeStamp, const byte* buffer, int bufferLen, int overrideTimeout = -1);
+  template<typename EnumType>
+  inline int hu_aap_enc_send_message(int retry, int chan, EnumType messageCode, const google::protobuf::MessageLite& message, int overrideTimeout = -1)
+  {
+    return hu_aap_enc_send_message(retry, chan, static_cast<uint16_t>(messageCode), message, overrideTimeout);
+  }
 
-template<typename EnumType>
-inline int hu_aap_enc_send_media_packet(int retry, int chan, EnumType messageCode, uint64_t timeStamp, const byte* buffer, int bufferLen, int overrideTimeout = -1)
+  template<typename EnumType>
+  inline int hu_aap_enc_send_media_packet(int retry, int chan, EnumType messageCode, uint64_t timeStamp, const byte* buffer, int bufferLen, int overrideTimeout = -1)
+  {
+    return hu_aap_enc_send_media_packet(retry, chan, static_cast<uint16_t>(messageCode), timeStamp, buffer, bufferLen, overrideTimeout);
+  }
+
+  template<typename EnumType>
+  inline int hu_aap_unenc_send_blob(int retry, int chan, EnumType messageCode, const byte* buffer, int bufferLen, int overrideTimeout = -1)
+  {
+    return hu_aap_unenc_send_blob(retry, chan, static_cast<uint16_t>(messageCode), buffer, bufferLen, overrideTimeout);
+  }
+
+  template<typename EnumType>
+  inline int hu_aap_unenc_send_message(int retry, int chan, EnumType messageCode, const google::protobuf::MessageLite& message, int overrideTimeout = -1)
+  {
+    return hu_aap_unenc_send_message(retry, chan, static_cast<uint16_t>(messageCode), message, overrideTimeout);
+  }
+
+  virtual int hu_aap_stop() = 0;  
+};
+
+//These callbacks are executed in the HU thread
+class IHUEventCallbacks
 {
-  return hu_aap_enc_send_media_packet(retry, chan, static_cast<uint16_t>(messageCode), timeStamp, buffer, bufferLen, overrideTimeout);
-}
+protected:
+  ~IHUEventCallbacks() {}
+  IHUEventCallbacks() {}
+public:
 
-int hu_aap_unenc_send_blob(int retry, int chan, uint16_t messageCode, const byte* buffer, int bufferLen, int overrideTimeout = -1);
+  //return > 0 if handled < 0 for error
+  virtual int MessageFilter(IHUCommandStream& stream, HU_STATE state,  int chan, uint16_t msg_type, const byte * buf, int len) { return 0; }
 
-template<typename EnumType>
-inline int hu_aap_unenc_send_blob(int retry, int chan, EnumType messageCode, const byte* buffer, int bufferLen, int overrideTimeout = -1)
+  //return -1 for error
+  virtual int MediaPacket(int chan, uint64_t timestamp, const byte * buf, int len) = 0;
+  virtual int MediaStart(int chan) = 0;
+  virtual int MediaStop(int chan) = 0;
+
+  virtual void CustomizeCarInfo(HU::ServiceDiscoveryResponse& carInfo) {}
+  virtual void CustomizeInputConfig(HU::ChannelDescriptor::InputEventChannel& inputChannel) {}
+  virtual void CustomizeSensorConfig(HU::ChannelDescriptor::SensorChannel& sensorChannel) {}
+  virtual void CustomizeOutputChannel(int chan, HU::ChannelDescriptor::OutputStreamChannel& streamChannel) {}
+  virtual void CustomizeInputChannel(int chan, HU::ChannelDescriptor::InputStreamChannel& streamChannel) {}
+};
+
+
+class HUServer : protected IHUCommandStream
 {
-  return hu_aap_unenc_send_blob(retry, chan, static_cast<uint16_t>(messageCode), buffer, bufferLen, overrideTimeout);
-}
+public:
+  int hu_aap_start    (byte ep_in_addr, byte ep_out_addr);                 // Used by          hu_mai,  hu_jni     // Starts USB/ACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
+  virtual int hu_aap_stop     () override;                                                  // Used by          hu_mai,  hu_jni     // NEED: Send Byebye, Stops USB/ACC/OAP                                                                                                                       
 
-int hu_aap_unenc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout = -1);
+  HUServer(IHUEventCallbacks& callbacks);
+  ~HUServer() { hu_aap_stop(); }
 
-template<typename EnumType>
-inline int hu_aap_unenc_send_message(int retry, int chan, EnumType messageCode, const google::protobuf::MessageLite& message, int overrideTimeout = -1)
-{
-  return hu_aap_unenc_send_message(retry, chan, static_cast<uint16_t>(messageCode), message, overrideTimeout);
-}
+  typedef std::function<void(IHUCommandStream&)> HUThreadCommand;
+
+  int hu_queue_command(HUThreadCommand&& command);
+
+protected:
+  IHUEventCallbacks& callbacks;
+  std::unique_ptr<HUTransportStream> transport;
+  HU_STATE iaap_state = hu_STATE_INITIAL;
+  int iaap_tra_recv_tmo = 150;//100;//1;//10;//100;//250;//100;//250;//100;//25; // 10 doesn't work ? 100 does
+  int iaap_tra_send_tmo = 500;//2;//25;//250;//500;//100;//500;//250;
+  std::vector<uint8_t> temp_assembly_buffer;
+  byte enc_buf[MAX_FRAME_SIZE] = {0};
+  int32_t channel_session_id[AA_CH_MAX] = {0};
+
+  std::thread hu_thread;
+  int command_read_fd = -1;
+  int command_write_fd = -1;
+  bool hu_thread_quit_flag = false;
+
+  HUThreadCommand* hu_pop_command();
+
+  void hu_thread_main();
+
+  SSL_METHOD  * hu_ssl_method  = NULL;
+  SSL_CTX     * hu_ssl_ctx     = NULL;
+  SSL         * hu_ssl_ssl    = NULL;
+  BIO         * hu_ssl_rm_bio = NULL;
+  BIO         * hu_ssl_wm_bio = NULL;
+
+  void hu_ssl_ret_log (int ret);
+  void hu_ssl_inf_log();
+
+  int send_ssl_handshake_packet();
+  int hu_ssl_begin_handshake ();
+  int hu_handle_SSLHandshake(int chan, byte * buf, int len);
+
+  int ihu_tra_start (byte ep_in_addr, byte ep_out_addr);
+  int ihu_tra_stop();
+  int iaap_msg_process (int chan, uint16_t msg_type, byte * buf, int len);
+
+  int hu_aap_tra_recv (byte * buf, int len, int tmo);                      // Used by intern,                      hu_ssl
+  int hu_aap_tra_send (int retry, byte * buf, int len, int tmo);                      // Used by intern,                      hu_ssl
+  int hu_aap_enc_send (int retry, int chan, byte * buf, int len, int overrideTimeout = -1);                     // Used by intern,            hu_jni     // Encrypted Send
+  int hu_aap_unenc_send (int retry, int chan, byte * buf, int len, int overrideTimeout = -1); 
+
+  int hu_aap_recv_process (int tmo);                                              // Used by          hu_mai,  hu_jni     // Process 1 encrypted receive message set:
+                                                                                                                          // Respond to decrypted message
+  virtual int hu_aap_enc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout = -1) override;
+  virtual int hu_aap_enc_send_media_packet(int retry, int chan, uint16_t messageCode, uint64_t timeStamp, const byte* buffer, int bufferLen, int overrideTimeout = -1) override;
+  virtual int hu_aap_unenc_send_blob(int retry, int chan, uint16_t messageCode, const byte* buffer, int bufferLen, int overrideTimeout = -1) override;
+  virtual int hu_aap_unenc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout = -1) override;
+
+
+  using IHUCommandStream::hu_aap_enc_send_message;
+  using IHUCommandStream::hu_aap_enc_send_media_packet;
+  using IHUCommandStream::hu_aap_unenc_send_blob;
+  using IHUCommandStream::hu_aap_unenc_send_message;
+ 
+  int hu_handle_VersionResponse (int chan, byte * buf, int len);
+  int hu_handle_ServiceDiscoveryRequest (int chan, byte * buf, int len);
+  int hu_handle_PingRequest (int chan, byte * buf, int len);
+  int hu_handle_NavigationFocusRequest (int chan, byte * buf, int len);
+  int hu_handle_ShutdownRequest (int chan, byte * buf, int len);
+  int hu_handle_VoiceSessionRequest (int chan, byte * buf, int len);
+  int hu_handle_AudioFocusRequest (int chan, byte * buf, int len);
+  int hu_handle_ChannelOpenRequest(int chan, byte * buf, int len);
+  int hu_handle_MediaSetupRequest(int chan, byte * buf, int len);
+  int hu_handle_VideoFocusRequest(int chan, byte * buf, int len);
+  int hu_handle_MediaStartRequest(int chan, byte * buf, int len);
+  int hu_handle_MediaStopRequest(int chan, byte * buf, int len);
+  int hu_handle_SensorStartRequest (int chan, byte * buf, int len);
+  int hu_handle_BindingRequest (int chan, byte * buf, int len);
+  int hu_handle_MediaAck (int chan, byte * buf, int len);
+  int hu_handle_MicRequest (int chan, byte * buf, int len);
+  int hu_handle_MediaDataWithTimestamp (int chan, byte * buf, int len);
+  int hu_handle_MediaData(int chan, byte * buf, int len);
+};
 
 enum class HU_INIT_MESSAGE : uint16_t
 {
@@ -144,6 +272,5 @@ enum HU_INPUT_BUTTON
     HUIB_START = 126,
     HUIB_STOP = 127,
     HUIB_SCROLLWHEEL = 65536,
-    
 };
 

@@ -1,6 +1,58 @@
+#include "hu_aap.h"
+#include <thread>
+#include <libusb.h>
+#include <vector>
+#include <mutex>
+#include <condition_variable>
 
-  int hu_usb_recv  (byte * buf, int len, int tmo);                     // Used by hu_aap:hu_aap_usb_recv ()
-  int hu_usb_send  (byte * buf, int len, int tmo);                     // Used by hu_aap:hu_aap_usb_send ()
-  int hu_usb_stop  ();                                                 // Used by hu_aap:hu_aap_stop     ()
-  int hu_usb_start (byte ep_in_addr, byte ep_out_addr);                // Used by hu_aap:hu_aap_start    ()
+const char* iusb_error_get(int error);
 
+class HUTransportStreamUSB : public HUTransportStream
+{
+    HU_STATE isub_state = hu_STATE_INITIAL;
+
+    libusb_context* iusb_ctx = NULL;
+    libusb_device_handle * iusb_dev_hndl      = NULL;
+    libusb_device *               iusb_best_device  = NULL;
+    int   iusb_ep_in          = -1;
+    int   iusb_ep_out         = -1;
+
+    int   iusb_best_vendor    = 0;
+    int   iusb_best_product   = 0;
+    char  iusb_curr_man [256] = {0};
+    char  iusb_best_man [256] = {0};
+    char  iusb_curr_pro [256] = {0};
+    char  iusb_best_pro [256] = {0};
+
+    //we can't block on write since we can deadlock with the HU thread
+    std::vector<byte> pipe_write_overflow;
+    int pipe_write_fd = -1;
+    pthread_t reading_thread = 0; 
+
+    //usb recv thread state
+    std::vector<byte> recv_temp_buffer;
+    std::thread usb_recv_thread;
+    void usb_recv_thread_main();
+    int start_usb_recv();
+    void libusb_callback(libusb_transfer *transfer);
+    static void libusb_callback_tramp(libusb_transfer *transfer);
+
+    libusb_transfer_status send_last_status = LIBUSB_TRANSFER_COMPLETED;
+    std::mutex send_mutex;
+    std::condition_variable send_cv;
+
+    void libusb_callback_send(libusb_transfer *transfer);
+    static void libusb_callback_send_tramp(libusb_transfer *transfer);
+
+    bool abort_usbthread = false;
+
+    int iusb_init (byte ep_in_addr, byte ep_out_addr);
+    int iusb_deinit ();
+    int iusb_oap_start ();
+public:
+    ~HUTransportStreamUSB();
+    HUTransportStreamUSB();
+    virtual int Start(byte ep_in_addr, byte ep_out_addr) override;
+    virtual int Stop() override;
+    virtual int Write(const byte* buf, int len, int tmo) override;
+};
