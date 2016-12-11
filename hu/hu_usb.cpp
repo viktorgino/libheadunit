@@ -614,7 +614,7 @@ void HUTransportStreamUSB::libusb_callback(libusb_transfer *transfer)
         ret = write(pipe_write_fd, buffer, bytesToWrite);
         if (ret < 0)
           break;
-        //logd("Wrote %d of %d bytes", ret, transfer->actual_length);
+        logd("Wrote %d of %d bytes", ret, transfer->actual_length);
         buffer += ret;
         bytesToWrite -= ret;
       }

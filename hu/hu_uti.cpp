@@ -49,7 +49,7 @@ int ena_hd_hu_aad_dmp = 1;        // Higher level
 int ena_hd_tra_send   = 0;        // Lower  level
 int ena_hd_tra_recv   = 0;
 
-int ena_log_hexdu = 1;//1;    // Hex dump master enable
+int ena_log_hexdu = 0;//1;    // Hex dump master enable
 int max_hex_dump  = 64;//32;
 
 

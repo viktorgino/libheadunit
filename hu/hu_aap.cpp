@@ -82,7 +82,7 @@
     }
 
     int readfd = transport->GetReadFD();
-    if (tmo > 0 && false)
+    if (tmo > 0)
     {
       fd_set sock_set;
       FD_ZERO(&sock_set);
@@ -92,7 +92,7 @@
       tv_timeout.tv_sec = tmo / 1000;
       tv_timeout.tv_usec = tmo * 1000;
 
-      int ret = select(1, &sock_set, NULL, NULL, &tv_timeout);
+      int ret = select(readfd+1, &sock_set, NULL, NULL, &tv_timeout);
       if (ret < 0)
         return ret;
       else if (ret == 0)
@@ -986,7 +986,7 @@
 
     while(!hu_thread_quit_flag)
     {
-      int ret = select(2, &sock_set, NULL, NULL, NULL);
+      int ret = select(std::max(command_read_fd,transportFD)+1, &sock_set, NULL, NULL, NULL);
       if (ret <= 0)
       {
         loge("Select failed %d", ret);
@@ -1005,7 +1005,7 @@
       {
         //data ready
         ret = hu_aap_recv_process(iaap_tra_recv_tmo);
-        if (ret <= 0)
+        if (ret < 0)
         {
           loge("hu_aap_recv_process failed %d", ret);
         }

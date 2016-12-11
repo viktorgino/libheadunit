@@ -41,7 +41,7 @@
     tv_timeout.tv_sec = tmo / 1000;
     tv_timeout.tv_usec = tmo * 1000;
 
-    int ret = select(1, NULL, &sock_set, NULL, &tv_timeout);
+    int ret = select(readfd+1, NULL, &sock_set, NULL, &tv_timeout);
     if (ret <= 0)
       return ret;
 

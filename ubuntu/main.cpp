@@ -73,17 +73,23 @@ public:
 
   virtual int MediaStart(int chan) override
   {
-	printf("SHAI1 : Mic Started\n");
-	mic_change_state = true;
-	gst_element_set_state (mic_pipeline, GST_STATE_PLAYING);
+  	if (chan == AA_CH_MIC)
+  	{
+		printf("SHAI1 : Mic Started\n");
+		mic_change_state = true;
+		gst_element_set_state (mic_pipeline, GST_STATE_PLAYING);
+	}	
   	return 0;
   }
 
   virtual int MediaStop(int chan) override
   {
-	printf("SHAI1 : Mic Stopped\n");
-	mic_change_state = false;
-	gst_element_set_state (mic_pipeline, GST_STATE_READY);
+  	if (chan == AA_CH_MIC)
+  	{
+		printf("SHAI1 : Mic Stopped\n");
+		mic_change_state = false;
+		gst_element_set_state (mic_pipeline, GST_STATE_READY);
+	}
   	return 0;
   }
 };
