@@ -8,7 +8,8 @@ LD=$(M3TOOLCHAIN)/bin/arm-cortexa9_neon-linux-gnueabi-ld
 SYSROOT=$(M3TOOLCHAIN)/arm-cortexa9_neon-linux-gnueabi/sysroot
 
 INCLUDES=$(shell ./pkg-config-wrapper $(SYSROOT) --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0  libcrypto openssl) -I$(TOP)/hu -I$(TOP)/hu/generated.arm -Imazda-connector -I$(PROTOTOOLCHAIN)/include
-CFLAGS=-O3 --sysroot=$(SYSROOT)
+
+CFLAGS=-O3 --sysroot=$(SYSROOT) -march=armv7-a -mtune=cortex-a9 -mfpu=neon -mthumb
 CXXFLAGS=$(CFLAGS) -std=c++11 -static-libstdc++ -pthread
 
 LFLAGS= --sysroot=$(SYSROOT) -static-libstdc++ -pthread $(shell ./pkg-config-wrapper $(SYSROOT) --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0 libcrypto openssl) -L$(PROTOTOOLCHAIN)/lib -lprotobuf
