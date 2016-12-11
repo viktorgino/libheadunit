@@ -9,6 +9,8 @@
 #include <errno.h>
 #include <dbus/dbus.h>
 #include <poll.h>
+#include <inttypes.h>
+#include <cmath>
 #include <functional>
 
 
@@ -807,22 +809,26 @@ static void signals_handler (int signum)
 	}
 }
 
-static void gps_location_handler(uint64_t timestamp, double lat, double lng, int bearing, double speed, double alt) {
-	printf("[LOC][%ld] - Lat: %f Lng: %f Brng: %d Spd: %f Alt: %f \n", 
-			timestamp, lat, lng, bearing, speed, alt);
+void gps_location_handler(uint64_t timestamp, double lat, double lng, double bearing, double speed, double alt, double accuracy) {
+	logd("[LOC][%" PRIu64 "] - Lat: %f Lng: %f Brng: %f Spd: %f Alt: %f Acc: %f \n", 
+			timestamp, lat, lng, bearing, speed, alt, accuracy);
 
 	HU::SensorEvent sensorEvent;
 	HU::SensorEvent::LocationData* location = sensorEvent.add_location_data();
-
-	if (lat == 0 && lng == 0) return;
 	location->set_timestamp(timestamp);
 	location->set_latitude(static_cast<int32_t>(lat * 1E7));
 	location->set_longitude(static_cast<int32_t>(lng * 1E7));
-	location->set_bearing(static_cast<int32_t>(bearing * 1E6));
+
+	if (bearing != 0) {
+		location->set_bearing(static_cast<int32_t>(bearing * 1E6));
+	}
+
 	location->set_speed(static_cast<int32_t>(speed * 1E3));
 	if (alt != 0) {
 		location->set_altitude(static_cast<int32_t>(alt * 1E2));
 	}
+
+	location->set_accuracy(static_cast<int32_t>(accuracy * 1E3));
 
 	hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
 }
@@ -891,7 +897,7 @@ int main (int argc, char *argv[])
 	pthread_create(&nm_thread, NULL, &nightmode_thread, (void *)app);
 
 	// GPS processing
-	mzd_gps_start(gps_location_handler);
+	mzd_gps_start(&gps_location_handler);
 
 	pthread_t mn_thread;
 	pthread_create(&mn_thread, NULL, &main_thread, (void *)app);
