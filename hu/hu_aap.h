@@ -43,6 +43,8 @@ class HUTransportStream
 {
 protected:
   int readfd = -1;
+  //optional if required for pipe, etc
+  int errorfd = -1;
 public:
   virtual ~HUTransportStream() {}
   inline HUTransportStream() {}
@@ -51,6 +53,7 @@ public:
   virtual int Write(const byte* buf, int len, int tmo) = 0;
 
   inline int GetReadFD() { return readfd; }  
+  inline int GetErrorFD() { return errorfd; } 
 };
 
 class IHUCommandStream
@@ -106,6 +109,8 @@ public:
   virtual int MediaPacket(int chan, uint64_t timestamp, const byte * buf, int len) = 0;
   virtual int MediaStart(int chan) = 0;
   virtual int MediaStop(int chan) = 0;
+
+  virtual int DisconnectionOrError() = 0;
 
   virtual void CustomizeCarInfo(HU::ServiceDiscoveryResponse& carInfo) {}
   virtual void CustomizeInputConfig(HU::ChannelDescriptor::InputEventChannel& inputChannel) {}

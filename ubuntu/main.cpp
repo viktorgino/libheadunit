@@ -16,23 +16,26 @@
 
 typedef struct {
     GMainLoop *loop;
-    GstPipeline *pipeline;
-    GstAppSrc *src;
     GstElement *sink;
     GstElement *decoder;
     GstElement *convert;
-    guint sourceid;
 } gst_app_t;
 
 
 int terminate_app = 0;
 static gst_app_t gst_app;
 
-GstElement *mic_pipeline, *mic_sink;
+GstElement *mic_pipeline = nullptr;
+GstElement *mic_sink = nullptr;
 
-GstElement *aud_pipeline, *aud_src;
+GstElement *aud_pipeline = nullptr;
+GstAppSrc *aud_src = nullptr;
 
-GstElement *au1_pipeline, *au1_src;
+GstElement *au1_pipeline = nullptr;
+GstAppSrc *au1_src = nullptr;
+
+GstElement *vid_pipeline = nullptr;
+GstAppSrc *vid_src = nullptr;
 
 
 bool mic_change_state = false;
@@ -47,15 +50,15 @@ public:
   	GstAppSrc* gst_src = nullptr;
   	if (chan == AA_CH_VID)
   	{
-  		gst_src = (GstAppSrc *)gst_app.src;
+  		gst_src = vid_src;
   	}
   	else if (chan == AA_CH_AUD)
   	{
-  		gst_src  = (GstAppSrc *)aud_src;
+  		gst_src  = aud_src;
   	}
   	else if (chan == AA_CH_AU1)
 	{
-		gst_src = (GstAppSrc *)au1_src;
+		gst_src = au1_src;
 	}
 
 	if (gst_src)
@@ -92,35 +95,16 @@ public:
 	}
   	return 0;
   }
+
+  virtual int DisconnectionOrError() override
+  {
+  	printf("DisconnectionOrError\n");
+  	g_main_loop_quit(gst_app.loop);
+  }
 };
 
 DesktopEventCallbacks g_callbacks;
 HUServer g_hu(g_callbacks);
-
-static void read_mic_data (GstElement * sink);
-
-static gboolean read_data(gst_app_t *app)
-{
- 
-    return TRUE;
-}
-
-static void start_feed (GstElement * pipeline, guint size, gst_app_t *app)
-{
-    if (app->sourceid == 0) {
-        GST_DEBUG ("start feeding");
-        app->sourceid = g_idle_add ((GSourceFunc) read_data, app);
-    }
-}
-
-static void stop_feed (GstElement * pipeline, gst_app_t *app)
-{
-    if (app->sourceid != 0) {
-        GST_DEBUG ("stop feeding");
-        g_source_remove (app->sourceid);
-        app->sourceid = 0;
-    }
-}
 
 static void on_pad_added(GstElement *element, GstPad *pad)
 {
@@ -208,6 +192,8 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message, gpointer *ptr)
     return TRUE;
 }
 
+static void read_mic_data (GstElement * sink);
+
 static int gst_pipeline_init(gst_app_t *app)
 {
     GstBus *bus;
@@ -218,24 +204,21 @@ static int gst_pipeline_init(gst_app_t *app)
     gst_init(NULL, NULL);
 
 
-    app->pipeline = (GstPipeline*)gst_parse_launch("appsrc name=mysrc is-live=true block=false max-latency=100000 do-timestamp=true ! video/x-h264, width=800,height=480,framerate=30/1 ! decodebin2 name=mydecoder ! videoscale name=myconvert ! xvimagesink name=mysink", &error);
+    vid_pipeline = gst_parse_launch("appsrc name=mysrc is-live=true block=false max-latency=100000 do-timestamp=true ! video/x-h264, width=800,height=480,framerate=30/1 ! decodebin2 name=mydecoder ! videoscale name=myconvert ! xvimagesink name=mysink", &error);
 
-    bus = gst_pipeline_get_bus(app->pipeline);
+    bus = gst_pipeline_get_bus(GST_PIPELINE(vid_pipeline));
     gst_bus_add_watch(bus, (GstBusFunc)bus_callback, app);
     gst_object_unref(bus);
 
-    app->src = (GstAppSrc*)gst_bin_get_by_name (GST_BIN (app->pipeline), "mysrc");
-    app->decoder = gst_bin_get_by_name (GST_BIN (app->pipeline), "mydecoder");
-    app->convert = gst_bin_get_by_name (GST_BIN (app->pipeline), "myconvert");
-    app->sink = gst_bin_get_by_name (GST_BIN (app->pipeline), "mysink");
+    vid_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (vid_pipeline), "mysrc"));
+    app->decoder = gst_bin_get_by_name (GST_BIN (vid_pipeline), "mydecoder");
+    app->convert = gst_bin_get_by_name (GST_BIN (vid_pipeline), "myconvert");
+    app->sink = gst_bin_get_by_name (GST_BIN (vid_pipeline), "mysink");
 
-    g_assert(app->src);
     g_assert(app->decoder);
     g_assert(app->convert);
     g_assert(app->sink);
 
-    g_signal_connect(app->src, "need-data", G_CALLBACK(start_feed), app);
-    g_signal_connect(app->src, "enough-data", G_CALLBACK(stop_feed), app);
     g_signal_connect(app->decoder, "pad-added",
             G_CALLBACK(on_pad_added), app->decoder);
 
@@ -248,9 +231,9 @@ static int gst_pipeline_init(gst_app_t *app)
         return -1;
     }    
 
-    aud_src = gst_bin_get_by_name (GST_BIN (aud_pipeline), "audsrc");
+    aud_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (aud_pipeline), "audsrc"));
     
-    gst_app_src_set_stream_type((GstAppSrc *)aud_src, GST_APP_STREAM_TYPE_STREAM);
+    gst_app_src_set_stream_type(aud_src, GST_APP_STREAM_TYPE_STREAM);
 
 
     au1_pipeline = gst_parse_launch("appsrc name=au1src ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=16000, channels=1 ! volume volume=0.5 ! alsasink buffer-time=400000 ",&error);
@@ -261,9 +244,9 @@ static int gst_pipeline_init(gst_app_t *app)
         return -1;
     }    
 
-    au1_src = gst_bin_get_by_name (GST_BIN (au1_pipeline), "au1src");
+    au1_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (au1_pipeline), "au1src"));
     
-    gst_app_src_set_stream_type((GstAppSrc *)au1_src, GST_APP_STREAM_TYPE_STREAM);
+    gst_app_src_set_stream_type(au1_src, GST_APP_STREAM_TYPE_STREAM);
     
     
     mic_pipeline = gst_parse_launch("alsasrc name=micsrc ! audioconvert ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, channels=1, rate=16000 ! queue !appsink name=micsink async=false emit-signals=true blocksize=8192",&error);
@@ -558,9 +541,9 @@ static int gst_loop(gst_app_t *app)
     int ret;
     GstStateChangeReturn state_ret;
 
-    state_ret = gst_element_set_state((GstElement*)app->pipeline, GST_STATE_PLAYING);
-    state_ret = gst_element_set_state((GstElement*)aud_pipeline, GST_STATE_PLAYING);
-    state_ret = gst_element_set_state((GstElement*)au1_pipeline, GST_STATE_PLAYING);
+    state_ret = gst_element_set_state(vid_pipeline, GST_STATE_PLAYING);
+    state_ret = gst_element_set_state(aud_pipeline, GST_STATE_PLAYING);
+    state_ret = gst_element_set_state(au1_pipeline, GST_STATE_PLAYING);
 //    g_warning("set state returned %d\n", state_ret);
 
     app->loop = g_main_loop_new (NULL, FALSE);
@@ -570,10 +553,13 @@ static int gst_loop(gst_app_t *app)
       g_main_loop_run (app->loop);
 
 
-    state_ret = gst_element_set_state((GstElement*)app->pipeline, GST_STATE_NULL);
+    state_ret = gst_element_set_state(vid_pipeline, GST_STATE_NULL);
+    state_ret = gst_element_set_state(mic_pipeline, GST_STATE_NULL);
+    state_ret = gst_element_set_state(aud_pipeline, GST_STATE_NULL);
+    state_ret = gst_element_set_state(au1_pipeline, GST_STATE_NULL);
 //    g_warning("set state null returned %d\n", state_ret);
 
-    gst_object_unref(app->pipeline);
+    gst_object_unref(vid_pipeline);
     gst_object_unref(mic_pipeline);
     gst_object_unref(aud_pipeline);
     gst_object_unref(au1_pipeline);

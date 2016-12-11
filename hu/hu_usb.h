@@ -27,7 +27,7 @@ class HUTransportStreamUSB : public HUTransportStream
     //we can't block on write since we can deadlock with the HU thread
     std::vector<byte> pipe_write_overflow;
     int pipe_write_fd = -1;
-    pthread_t reading_thread = 0; 
+    int error_write_fd = -1;
 
     //usb recv thread state
     std::vector<byte> recv_temp_buffer;
@@ -36,13 +36,6 @@ class HUTransportStreamUSB : public HUTransportStream
     int start_usb_recv();
     void libusb_callback(libusb_transfer *transfer);
     static void libusb_callback_tramp(libusb_transfer *transfer);
-
-    libusb_transfer_status send_last_status = LIBUSB_TRANSFER_COMPLETED;
-    std::mutex send_mutex;
-    std::condition_variable send_cv;
-
-    void libusb_callback_send(libusb_transfer *transfer);
-    static void libusb_callback_send_tramp(libusb_transfer *transfer);
 
     bool abort_usbthread = false;
 

@@ -88,40 +88,20 @@ const char * iusb_error_get (int error) {
 
 int HUTransportStreamUSB::Write(const byte * buf, int len, int tmo) {
 
-  send_last_status = (libusb_transfer_status)-1;
-
-  libusb_transfer *transfer = libusb_alloc_transfer(0);
-  libusb_fill_bulk_transfer(transfer, iusb_dev_hndl, iusb_ep_out, 
-      (byte*)buf, len, &libusb_callback_send_tramp, this, tmo);
-
-  int usb_err = libusb_submit_transfer(transfer);
-  if (usb_err < 0)
-  {
-    loge("  Failed: libusb_submit_transfer: %d (%s)", usb_err, iusb_error_get (usb_err));
-    libusb_free_transfer(transfer);
-    return usb_err;
-  }
-
-  {
-    std::unique_lock<std::mutex> lv(send_mutex);
-    send_cv.wait(lv, [this]{ return send_last_status != -1; });
-  }
- 
-
+  int bytes_xfrd = 0;
+  int usb_err = libusb_bulk_transfer(iusb_dev_hndl, iusb_ep_out, (byte*)buf, len, &bytes_xfrd, tmo);
   const char* dir = "send";
-  int bytes_xfrd = transfer->actual_length;
-  libusb_free_transfer(transfer);
     //unsigned long ms_duration = ms_get () - ms_start;
-  if (send_last_status < 0 )
-    loge ("Done dir: %s  len: %d  bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, send_last_status, iusb_error_get (send_last_status), errno, strerror (errno));
-  else if (ena_log_verbo && send_last_status < 0)// && (ena_hd_tra_send || ep == iusb_ep_in))
-    logd ("Done dir: %s  len: %d  bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, send_last_status, iusb_error_get (send_last_status), errno, strerror (errno));
+  if (usb_err < 0 )
+    loge ("Done dir: %s  len: %d  bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
+  else if (ena_log_verbo && usb_err < 0)// && (ena_hd_tra_send || ep == iusb_ep_in))
+    logd ("Done dir: %s  len: %d  bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
   else if (ena_log_extra)
-    logw ("Done dir: %s  len: %d  bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, send_last_status, iusb_error_get (send_last_status), errno, strerror (errno));
+    logw ("Done dir: %s  len: %d  bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
 
   if (bytes_xfrd <= 0 && usb_err < 0) {
 
-    loge ("Done dir: %s  len: %d  bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, send_last_status, iusb_error_get (send_last_status), errno, strerror (errno));
+    loge ("Done dir: %s  len: %d  bytes_xfrd: %d  usb_err: %d (%s)  errno: %d (%s)", dir, len, bytes_xfrd, usb_err, iusb_error_get (usb_err), errno, strerror (errno));
 
     return (-1);
   }
@@ -513,13 +493,16 @@ int HUTransportStreamUSB::Stop() {
   iusb_state = hu_STATE_STOPPIN;
   logd ("  SET: iusb_state: %d (%s)", iusb_state, state_get (iusb_state));
 
-
-
   
   close(readfd);
   close(pipe_write_fd);
   readfd = -1;
   pipe_write_fd = -1;
+
+  close(errorfd);
+  close(error_write_fd);
+  errorfd = -1;
+  error_write_fd = -1;
 
   int ret = iusb_deinit ();
 
@@ -535,58 +518,71 @@ int HUTransportStreamUSB::Stop() {
 
 void HUTransportStreamUSB::usb_recv_thread_main()
 {
-  int iusb_state = 0;
-  while(iusb_state == 0 && !abort_usbthread)
+  pthread_setname_np(pthread_self(), "usb_recv_thread_main");
+  while(!abort_usbthread)
   {
-     iusb_state = libusb_handle_events_completed(iusb_ctx, nullptr);
-
-    size_t bytesToWrite = pipe_write_overflow.size();
-    unsigned char *buffer = pipe_write_overflow.data();
-    size_t written = 0;
-
-    hex_dump("-----INPIPE2", 16, buffer, bytesToWrite);
-    
-    ssize_t ret = 0;
-    errno = 0;
-    while (bytesToWrite > 0 && (ret = write(pipe_write_fd, buffer, bytesToWrite) >= 0))
+    int iusb_state = libusb_handle_events_completed(iusb_ctx, nullptr);
+    if (iusb_state || abort_usbthread)
     {
-      //logd("Wrote %d of %d bytes", ret, transfer->actual_length);
-      buffer += ret;
-      bytesToWrite -= ret;
-      written += ret;
+      break;
     }
 
-    pipe_write_overflow.erase(pipe_write_overflow.begin(), pipe_write_overflow.begin() + written);
-    if (ret < 0)
+    size_t bytesToWrite = pipe_write_overflow.size();
+    if (bytesToWrite > 0)
     {
-      if (errno == EAGAIN)
+      unsigned char *buffer = pipe_write_overflow.data();
+      size_t written = 0;
+
+      hex_dump("-----INPIPE2", 16, buffer, bytesToWrite);
+      
+      ssize_t ret = 0;
+      errno = 0;
+      while (bytesToWrite > 0 && (ret = write(pipe_write_fd, buffer, bytesToWrite) >= 0))
       {
-        //ignore this here
+        //logd("Wrote %d of %d bytes", ret, transfer->actual_length);
+        buffer += ret;
+        bytesToWrite -= ret;
+        written += ret;
+      }
+
+      pipe_write_overflow.erase(pipe_write_overflow.begin(), pipe_write_overflow.begin() + written);
+      if (ret < 0)
+      {
+        if (errno == EAGAIN)
+        {
+          //ignore this here
+        }
+        else
+        {
+          loge("libusb_callback: write failed");
+          abort_usbthread = true;
+          return;
+        }
       }
       else
       {
-        loge("libusb_callback: write failed");
-        abort_usbthread = true;
-        return;
+        //done start a new read
+        start_usb_recv();
       }
     }
-    else
-    {
-      //done start a new read
-      start_usb_recv();
-    }
-    
   }
   logw("libusb_handle_events_completed: %d (%s)", iusb_state, state_get (iusb_state));
 
   if (abort_usbthread)
   {
     logw("USB thread exit");
-    return;
-
   }
-  loge("libusb_callback read failed");
-  pthread_kill(reading_thread, SIGUSR1);
+  else
+  {
+    loge("libusb_callback read failed");
+  }
+  //Wake up the reader if required
+  int errData = -1;
+  if (write(error_write_fd, &errData, sizeof(errData)) < 0)
+  {
+    loge("Writing error data failed");
+  }
+
 }
 
 void HUTransportStreamUSB::libusb_callback(libusb_transfer *transfer)
@@ -671,19 +667,6 @@ void HUTransportStreamUSB::libusb_callback_tramp(libusb_transfer *transfer)
   reinterpret_cast<HUTransportStreamUSB*>(transfer->user_data)->libusb_callback(transfer);
 }
 
-static int fd_set_blocking(int fd, bool blocking) {
-    /* Save the current flags */
-    int flags = fcntl(fd, F_GETFL, 0);
-    if (flags == -1)
-        return 0;
-
-    if (blocking)
-        flags &= ~O_NONBLOCK;
-    else
-        flags |= O_NONBLOCK;
-    return fcntl(fd, F_SETFL, flags) != -1;
-}
-
 int HUTransportStreamUSB::Start(byte ep_in_addr, byte ep_out_addr) {
   int ret = 0;
 
@@ -760,9 +743,13 @@ int HUTransportStreamUSB::Start(byte ep_in_addr, byte ep_out_addr) {
   readfd = pipefd[0];
   pipe_write_fd = pipefd[1];
 
-  fd_set_blocking(pipe_write_fd, true);
-
-  reading_thread = pthread_self();
+  if (pipe(pipefd) < 0)
+  {
+    loge("Error pipe create failed");
+    return -1;
+  }
+  errorfd = pipefd[0];
+  error_write_fd = pipefd[1];
 
   abort_usbthread = false;
   usb_recv_thread = std::thread([this]{ this->usb_recv_thread_main(); });
@@ -775,23 +762,3 @@ int HUTransportStreamUSB::Start(byte ep_in_addr, byte ep_out_addr) {
   return (0);
 }
 
-void HUTransportStreamUSB::libusb_callback_send(libusb_transfer *transfer)
-{
-  logd("libusb_callback_send %d", transfer->status);
-  send_last_status = transfer->status;
-
-  if (send_last_status != LIBUSB_TRANSFER_COMPLETED
-    && send_last_status != LIBUSB_TRANSFER_TIMED_OUT)
-  {
-    loge("libusb_callback_send: abort");
-    abort_usbthread = true;
-  }
-
-  std::unique_lock<std::mutex> lv(send_mutex);
-  send_cv.notify_one(); 
-}
-
-void HUTransportStreamUSB::libusb_callback_send_tramp(libusb_transfer *transfer)
-{
-   reinterpret_cast<HUTransportStreamUSB*>(transfer->user_data)->libusb_callback_send(transfer);
-}

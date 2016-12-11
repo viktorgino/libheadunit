@@ -82,19 +82,34 @@
     }
 
     int readfd = transport->GetReadFD();
-    if (tmo > 0)
+    int errorfd = transport->GetErrorFD();
+    if (tmo > 0 || errorfd >= 0)
     {
       fd_set sock_set;
       FD_ZERO(&sock_set);
       FD_SET(readfd, &sock_set);
+      int maxfd = readfd;
+      if (errorfd >= 0)
+      {
+        maxfd = std::max(maxfd, errorfd);
+        FD_SET(errorfd, &sock_set);
+      }
 
       timeval tv_timeout;
       tv_timeout.tv_sec = tmo / 1000;
       tv_timeout.tv_usec = tmo * 1000;
 
-      int ret = select(readfd+1, &sock_set, NULL, NULL, &tv_timeout);
+      int ret = select(maxfd+1, &sock_set, NULL, NULL, (tmo > 0) ? &tv_timeout : NULL);
       if (ret < 0)
+      {
         return ret;
+      }
+      else if (errorfd >= 0 && FD_ISSET(errorfd, &sock_set))
+      {
+        //got an error
+        loge("errorf was signaled");
+        return -1;
+      }
       else if (ret == 0)
       {
         loge("hu_aap_tra_recv Timeout");
@@ -978,50 +993,73 @@
 
   void HUServer::hu_thread_main()
   {
-    int transportFD = transport->GetReadFD();
-    fd_set sock_set;
-    FD_ZERO(&sock_set);
-    FD_SET(command_read_fd, &sock_set);
-    FD_SET(transportFD, &sock_set);
+    pthread_setname_np(pthread_self(), "hu_thread_main");
 
+    int transportFD = transport->GetReadFD();
+    int errorfd = transport->GetErrorFD();
     while(!hu_thread_quit_flag)
     {
-      int ret = select(std::max(command_read_fd,transportFD)+1, &sock_set, NULL, NULL, NULL);
+      fd_set sock_set;
+      FD_ZERO(&sock_set);
+      FD_SET(command_read_fd, &sock_set);
+      FD_SET(transportFD, &sock_set);
+      int maxfd = std::max(command_read_fd, transportFD);
+      if (errorfd >= 0)
+      {
+        maxfd = std::max(maxfd, errorfd);
+        FD_SET(errorfd, &sock_set);
+      }
+
+      int ret = select(maxfd+1, &sock_set, NULL, NULL, NULL);
       if (ret <= 0)
       {
         loge("Select failed %d", ret);
         return;
       }
-      if (FD_ISSET(command_read_fd, &sock_set))
+      if (errorfd >= 0 && FD_ISSET(errorfd, &sock_set))
       {
-        HUThreadCommand* ptr = nullptr;
-        while(ptr = hu_pop_command())
-        {
-          (*ptr)(*this);
-          delete ptr;
-        }
+        logd("Got errorfd");
+        hu_thread_quit_flag = true;
+        callbacks.DisconnectionOrError();
       }
-      if (FD_ISSET(transportFD, &sock_set))
+      else
       {
-        //data ready
-        ret = hu_aap_recv_process(iaap_tra_recv_tmo);
-        if (ret < 0)
+        if (FD_ISSET(command_read_fd, &sock_set))
         {
-          loge("hu_aap_recv_process failed %d", ret);
+          logd("Got command_read_fd");
+          HUThreadCommand* ptr = nullptr;
+          if(ptr = hu_pop_command())
+          {
+            logd("Running %p", ptr);
+            (*ptr)(*this);
+            delete ptr;
+          }
+        }
+        if (FD_ISSET(transportFD, &sock_set))
+        {
+          //data ready
+          logd("Got transportFD");
+          ret = hu_aap_recv_process(iaap_tra_recv_tmo);
+          if (ret < 0)
+          {
+            loge("hu_aap_recv_process failed %d", ret);
+          }
         }
       }
     }
+    logd("hu_thread_main exit");
   }
 
   static_assert(PIPE_BUF >= sizeof(HUServer::HUThreadCommand*));
 
   int HUServer::hu_aap_start (byte ep_in_addr, byte ep_out_addr) {                // Starts Transport/USBACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
 
-	
     if (iaap_state == hu_STATE_STARTED || iaap_state == hu_STATE_STARTIN) {
       loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       return (0);
     }
+    
+    pthread_setname_np(pthread_self(), "main_thread");
 
     iaap_state = hu_STATE_STARTIN;
     logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
@@ -1051,7 +1089,7 @@
 
     
     int pipefd[2];
-    ret = pipe2(pipefd, O_DIRECT | O_NONBLOCK);
+    ret = pipe2(pipefd, O_DIRECT);
     if (ret < 0)
     {
       loge ("pipe2 failed ret: %d %i", ret, errno);
