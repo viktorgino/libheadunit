@@ -538,6 +538,25 @@ gboolean sdl_poll_event(gpointer data)
                     	nightmodenow = !nightmodenow;
                     }
                 }
+                else if (key->keysym.sym = SDLK_F2) {
+                    if (event.type == SDL_KEYUP) {
+                        // Send a fake location in germany
+                        HU::SensorEvent sensorEvent;
+                        HU::SensorEvent_LocationData* location = sensorEvent.add_location_data();
+                        location->set_timestamp(get_cur_timestamp());
+                        location->set_latitude(48.562964 * 1E7);
+                        location->set_longitude(13.385639 * 1E7);
+                        location->set_speed(48 * 1E3);
+                        HU::SensorEvent_DrivingStatus* driving = sensorEvent.add_driving_status();
+                        driving->set_is_driving(1);
+
+                        pthread_mutex_lock (&mutexsend);
+                        hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
+       	                pthread_mutex_unlock (&mutexsend);
+
+                        printf("Sending fake location.");
+                    }
+                }
 
                 if (buttonInfo->has_scan_code()) {
                     pthread_mutex_lock (&mutexsend);

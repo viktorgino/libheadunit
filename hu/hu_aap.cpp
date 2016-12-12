@@ -300,6 +300,7 @@
       //1 seems to be "show cursor"
       inner->add_keycodes_supported(1);
       inner->add_keycodes_supported(2);
+      inner->add_keycodes_supported(4);
       inner->add_keycodes_supported(HUIB_BACK);
       inner->add_keycodes_supported(HUIB_UP);
       inner->add_keycodes_supported(HUIB_DOWN);
@@ -322,6 +323,7 @@
       inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_DRIVING_STATUS);
       inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_NIGHT_DATA);
       inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_LOCATION);
+      inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_UNKNOWN_SHOW_KEYBOARD);
     }
 
     HU::ChannelDescriptor* videoChannel = carInfo.add_channels();
