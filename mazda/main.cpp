@@ -823,7 +823,9 @@ void gps_location_handler(uint64_t timestamp, double lat, double lng, double bea
 		location->set_bearing(static_cast<int32_t>(bearing * 1E6));
 	}
 
-	location->set_speed(static_cast<int32_t>(speed * 1E3));
+	// AA expects speed in knots, so convert back
+	location->set_speed(static_cast<int32_t>((speed / 1.852) * 1E3));
+
 	if (alt != 0) {
 		location->set_altitude(static_cast<int32_t>(alt * 1E2));
 	}
