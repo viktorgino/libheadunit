@@ -9,12 +9,14 @@
 
 #define LOGTAG "hu_uti"
 #include "hu_uti.h"
+#include "hu.pb.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <ctype.h>
+#include <openssl/ssl.h>
 
 
 #include <string.h>
@@ -29,7 +31,14 @@
 #include <sys/stat.h>
 
 #include <dirent.h>                                                   // For opendir (), readdir (), closedir (), DIR, struct dirent.
-
+#include <sys/utsname.h>
+#include <libusb.h>
+#include <execinfo.h>
+#if CMU
+#include "backtrace.h"
+#else
+#include <backtrace.h>
+#endif
 
 int gen_server_loop_func (unsigned char * cmd_buf, int cmd_len, unsigned char * res_buf, int res_max);
 int gen_server_poll_func (int poll_ms);
@@ -49,7 +58,7 @@ int ena_hd_hu_aad_dmp = 1;        // Higher level
 int ena_hd_tra_send   = 0;        // Lower  level
 int ena_hd_tra_recv   = 0;
 
-int ena_log_hexdu = 0;//1;    // Hex dump master enable
+int ena_log_hexdu = 1;//1;    // Hex dump master enable
 int max_hex_dump  = 64;//32;
 
 
@@ -89,13 +98,8 @@ int hu_log (int prio, const char * tag, const char * func, const char * fmt, ...
   va_list aq;
   va_start (aq, fmt); 
   int len = vsnprintf (log_line, sizeof (log_line), fmt, aq);
-  time_t timet = time (NULL);
-  const time_t * timep = & timet;
-  char asc_time [512] = "";
-  ctime_r (timep, asc_time);
-  int len_time = strlen (asc_time);
-  asc_time [len_time - 1] = 0;        // Remove trailing \n
-  printf ("%s %s: %s:: %s\n", & asc_time [11], prio_get (prio), tag, log_line);
+  //Time doesn't work on CMU anyway, always says 1970
+  printf ("%s: %s: %s : %s\n", prio_get (prio), tag, func, log_line);
 #endif
 
   // if (prio == hu_LOG_ERR)
@@ -161,4 +165,53 @@ void hex_dump (const char * prefix, int width, unsigned char * buf, int len) {
     else if (i == len - 1)                                            // Else if at last byte
       logd (line);                                                    // Log line
   }
+}
+
+void hu_log_library_versions()
+{
+  utsname sysinfo;
+  if (uname(&sysinfo) < 0)
+  {
+    printf("uname failed\n");
+  }
+  else
+  {
+    printf("uname:\n sysname: %s\n release: %s\n version: %s\n machine: %s\n", sysinfo.sysname, sysinfo.release, sysinfo.version, sysinfo.machine);
+  }
+  printf("libprotoversion: %s\n",google::protobuf::internal::VersionString(GOOGLE_PROTOBUF_VERSION).c_str());
+
+  const libusb_version* usbversion = libusb_get_version();
+  printf("libusb_get_version:\n");
+  printf(" version: %u.%u.%u.%u\n", (unsigned int)usbversion->major, (unsigned int)usbversion->minor, (unsigned int)usbversion->micro, (unsigned int)usbversion->nano);
+  printf(" rc: %s\n describe: %s\n", usbversion->rc, usbversion->describe);
+
+  SSL_library_init();
+  printf("openssl version: %s (%#010lx)\n", SSLeay_version(SSLEAY_VERSION), SSLeay());
+}
+
+static backtrace_state* g_bt_state = NULL;
+
+static void crash_handler(int sig) 
+{
+  // print out all the frames to stderr
+  printf("Error: signal %s:\n", strsignal(sig));
+
+  //This would be nice, but it prints no names :(
+  //backtrace_symbols_fd(array, size, STDOUT_FILENO);
+  int skip = 2;
+  backtrace_print(g_bt_state, skip, stdout);
+
+  exit(1);
+}
+
+void hu_install_crash_handler()
+{
+  g_bt_state = backtrace_create_state(NULL, 1, NULL, NULL);
+  signal(SIGSEGV, &crash_handler);
+  signal(SIGILL, &crash_handler);
+  signal(SIGFPE, &crash_handler);
+  signal(SIGBUS, &crash_handler);
+  signal(SIGSYS, &crash_handler);
+  signal(SIGXCPU, &crash_handler);
+  signal(SIGXFSZ, &crash_handler);
 }

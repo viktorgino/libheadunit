@@ -63,7 +63,7 @@
       loge ("BIO_read() HS client req ret: %d", len);
       return (-1);
     }
-    logd ("BIO_read() HS client req ret: %d", len);
+    logw ("BIO_read() HS client req ret: %d", len);
 
     int ret = hu_aap_unenc_send_blob(0, AA_CH_CTR, HU_INIT_MESSAGE::SSLHandshake, hs_buf, len, 5000);
     if (ret < 0) {
@@ -207,7 +207,7 @@
     SSL_set_verify (hu_ssl_ssl, SSL_VERIFY_NONE, NULL);
     
     ret = SSL_do_handshake (hu_ssl_ssl);                             // Do current handshake step processing
-    logd ("SSL_do_handshake() ret: %d", ret);
+    logw ("SSL_do_handshake() ret: %d", ret);
 
     //We should need input data
     if ((SSL_get_error (hu_ssl_ssl, ret) == SSL_ERROR_WANT_READ))
@@ -225,13 +225,15 @@
       int ret = BIO_write (hu_ssl_rm_bio, buf, len);          // Write to the BIO Server response
       if (ret <= 0) {
         loge ("BIO_write() server rsp ret: %d", ret);
+        hu_ssl_ret_log (ret);
+        hu_ssl_inf_log ();
 //        g_free(hs_buf);
         return (-1);
       }
-      logd ("BIO_write() server rsp ret: %d", ret);
+      logw ("BIO_write() server rsp ret: %d", ret);
 
       ret = SSL_do_handshake (hu_ssl_ssl);                             // Do current handshake step processing
-      logd ("SSL_do_handshake() ret: %d", ret);
+      logw ("SSL_do_handshake() ret: %d", ret);
 
 
       if ((SSL_get_error (hu_ssl_ssl, ret) == SSL_ERROR_WANT_READ))
@@ -257,7 +259,7 @@
       hu_ssl_inf_log ();
 
       iaap_state = hu_STATE_STARTED;
-      logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
+      logw ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
 
       return  0;
   }

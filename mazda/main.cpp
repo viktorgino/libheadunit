@@ -11,7 +11,6 @@
 #include <poll.h>
 #include <functional>
 
-
 #include "hu_uti.h"
 #include "hu_aap.h"
 
@@ -814,7 +813,8 @@ int main (int argc, char *argv[])
 {	
 	GOOGLE_PROTOBUF_VERIFY_VERSION;
 
-	printf("libprotoversion: %s\n",google::protobuf::internal::VersionString(GOOGLE_PROTOBUF_VERSION).c_str());
+	hu_log_library_versions();
+	hu_install_crash_handler();
 
 	signal (SIGTERM, signals_handler);
 

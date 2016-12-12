@@ -122,7 +122,6 @@
       loge ("ihu_tra_recv() error so stop Transport & AAP  ret: %d", ret);
       hu_aap_stop (); 
     }
-    hex_dump("------OUTPIPE", 16, buf, ret);
     return (ret);
   }
 

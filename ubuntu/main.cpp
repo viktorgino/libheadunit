@@ -8,6 +8,7 @@
 #include <SDL/SDL_syswm.h>
 #include <time.h>
 #include <glib-unix.h>
+
 //This gets defined by SDL and breaks the protobuf headers
 #undef Status
 
@@ -578,6 +579,10 @@ int main (int argc, char *argv[])
 {    
 
     GOOGLE_PROTOBUF_VERIFY_VERSION;
+
+    hu_log_library_versions();
+    hu_install_crash_handler();
+
     //Assuming we are on Gnome, what's the DPI scale factor?
     gdk_init(&argc, &argv);
 

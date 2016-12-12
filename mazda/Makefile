@@ -2,16 +2,17 @@ TOP = ..
 
 M3TOOLCHAIN=./m3-toolchain
 PROTOTOOLCHAIN=./protobuf-2.6.1-arm
+LIBBACKTRACE=./libbacktrace-6.2.0-arm
 CC=$(M3TOOLCHAIN)/bin/arm-cortexa9_neon-linux-gnueabi-gcc
 CXX=$(M3TOOLCHAIN)/bin/arm-cortexa9_neon-linux-gnueabi-g++
 LD=$(M3TOOLCHAIN)/bin/arm-cortexa9_neon-linux-gnueabi-ld
 SYSROOT=$(M3TOOLCHAIN)/arm-cortexa9_neon-linux-gnueabi/sysroot
 
-INCLUDES=$(shell ./pkg-config-wrapper $(SYSROOT) --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0  libcrypto openssl) -I$(TOP)/hu -I$(TOP)/hu/generated.arm -Imazda-connector -I$(PROTOTOOLCHAIN)/include
-CFLAGS=-O3 --sysroot=$(SYSROOT) -DCMU=1
-CXXFLAGS=$(CFLAGS) -std=c++11 -static-libstdc++ -DCMU=1
+INCLUDES=$(shell ./pkg-config-wrapper $(SYSROOT) --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0  libcrypto openssl) -I$(TOP)/hu -I$(TOP)/hu/generated.arm -Imazda-connector -I$(PROTOTOOLCHAIN)/include -I$(LIBBACKTRACE)
+CFLAGS=-O3 -g -rdynamic --sysroot=$(SYSROOT) -DCMU=1
+CXXFLAGS=$(CFLAGS) -std=c++11 -static-libstdc++
 
-LFLAGS= --sysroot=$(SYSROOT) -static-libstdc++ $(shell ./pkg-config-wrapper $(SYSROOT) --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0 libcrypto openssl) -L$(PROTOTOOLCHAIN)/lib -lprotobuf
+LFLAGS= --sysroot=$(SYSROOT) -g -rdynamic -static-libstdc++ $(shell ./pkg-config-wrapper $(SYSROOT) --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0 libcrypto openssl) -L$(PROTOTOOLCHAIN)/lib -lprotobuf -L$(LIBBACKTRACE) -lbacktrace
 LFLAGS_IF= --sysroot=$(SYSROOT) -static-libstdc++ $(shell ./pkg-config-wrapper $(SYSROOT) --libs dbus-1)
 
 #headunit binary

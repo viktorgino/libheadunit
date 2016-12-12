@@ -69,11 +69,11 @@ typedef unsigned char byte;
 #define STR(s) STR2(s)
 #define STR2(s) #s
 
-#define  logx(...)  hu_log(hu_LOG_EXT,__FILE__ ":" STR(__LINE__),__func__,__VA_ARGS__)
-#define  logv(...)  hu_log(hu_LOG_VER,__FILE__ ":" STR(__LINE__),__func__,__VA_ARGS__)
-#define  logd(...)  hu_log(hu_LOG_DEB,__FILE__ ":" STR(__LINE__),__func__,__VA_ARGS__)
-#define  logw(...)  hu_log(hu_LOG_WAR,__FILE__ ":" STR(__LINE__),__func__,__VA_ARGS__)
-#define  loge(...)  hu_log(hu_LOG_ERR,__FILE__ ":" STR(__LINE__),__func__,__VA_ARGS__)
+#define  logx(...)  hu_log(hu_LOG_EXT,__FILE__ ":" STR(__LINE__),__PRETTY_FUNCTION__,__VA_ARGS__)
+#define  logv(...)  hu_log(hu_LOG_VER,__FILE__ ":" STR(__LINE__),__PRETTY_FUNCTION__,__VA_ARGS__)
+#define  logd(...)  hu_log(hu_LOG_DEB,__FILE__ ":" STR(__LINE__),__PRETTY_FUNCTION__,__VA_ARGS__)
+#define  logw(...)  hu_log(hu_LOG_WAR,__FILE__ ":" STR(__LINE__),__PRETTY_FUNCTION__,__VA_ARGS__)
+#define  loge(...)  hu_log(hu_LOG_ERR,__FILE__ ":" STR(__LINE__),__PRETTY_FUNCTION__,__VA_ARGS__)
 
 //!!
 //  #define  logx(...)
@@ -88,6 +88,10 @@ int hu_log (int prio, const char * tag, const char * func, const char * fmt, ...
 
 unsigned long ms_sleep        (unsigned long ms);
 void hex_dump                 (const char * prefix, int width, unsigned char * buf, int len);
+
+void hu_log_library_versions();
+
+void hu_install_crash_handler();
 
 #ifndef __ANDROID_API__
   #define strlcpy   strncpy

@@ -567,9 +567,7 @@ void HUTransportStreamUSB::usb_recv_thread_main()
     {
       unsigned char *buffer = pipe_write_overflow.data();
       size_t written = 0;
-
-      hex_dump("-----INPIPE2", 16, buffer, bytesToWrite);
-      
+     
       ssize_t ret = 0;
       errno = 0;
       while (bytesToWrite > 0 && (ret = write(pipe_write_fd, buffer, bytesToWrite) >= 0))
@@ -639,7 +637,6 @@ void HUTransportStreamUSB::libusb_callback(libusb_transfer *transfer)
     {
       size_t bytesToWrite = transfer->actual_length;
       unsigned char *buffer = transfer->buffer;
-      hex_dump("-----INPIPE", 16, buffer, bytesToWrite);
       
       ssize_t ret = 0;
       errno = 0;
