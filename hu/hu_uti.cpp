@@ -34,11 +34,8 @@
 #include <sys/utsname.h>
 #include <libusb.h>
 #include <execinfo.h>
-#if CMU
-#include "backtrace.h"
-#else
-#include <backtrace.h>
-#endif
+#include <dlfcn.h>    // for dladdr
+#include <cxxabi.h>   // for __cxa_demangle
 
 int gen_server_loop_func (unsigned char * cmd_buf, int cmd_len, unsigned char * res_buf, int res_max);
 int gen_server_poll_func (int poll_ms);
@@ -189,24 +186,59 @@ void hu_log_library_versions()
   printf("openssl version: %s (%#010lx)\n", SSLeay_version(SSLEAY_VERSION), SSLeay());
 }
 
-static backtrace_state* g_bt_state = NULL;
+static void print_backtrace()
+{
+  int skip = 3;
+  void *callstack[256];
+  const int nMaxFrames = 256;
+  int nFrames = backtrace(callstack, nMaxFrames);
+  char **symbols = backtrace_symbols(callstack, nFrames);
+  for (int i = skip; i < nFrames; i++) {
+    printf("%s\n", symbols[i]);
+
+    Dl_info info;
+    if (dladdr(callstack[i], &info) && info.dli_sname) 
+    {
+      char *demangled = NULL;
+      int status = -1;
+      
+      if (info.dli_sname[0] == '_')
+        demangled = abi::__cxa_demangle(info.dli_sname, NULL, 0, &status);
+
+      printf("%-3d %*p %s + %zd\n",i, int(2 + sizeof(void*) * 2), callstack[i],
+           status == 0 ? demangled : info.dli_sname,
+           (char *)callstack[i] - (char *)info.dli_saddr);
+
+      free(demangled);
+    } else {
+      printf("%-3d %*p %s\n", i, int(2 + sizeof(void*) * 2), callstack[i], symbols[i]);
+    }
+  }
+  free(symbols);
+}
 
 static void crash_handler(int sig) 
 {
   // print out all the frames to stderr
   printf("Error: signal %s:\n", strsignal(sig));
 
-  //This would be nice, but it prints no names :(
-  //backtrace_symbols_fd(array, size, STDOUT_FILENO);
-  int skip = 2;
-  backtrace_print(g_bt_state, skip, stdout);
+  print_backtrace();
 
-  exit(1);
+  abort();
+}
+
+static void crash_handler_terminate() 
+{
+    // print out all the frames to stderr
+  printf("Error: c++ exception\n");
+
+  print_backtrace();
+
+  abort();
 }
 
 void hu_install_crash_handler()
 {
-  g_bt_state = backtrace_create_state(NULL, 1, NULL, NULL);
   signal(SIGSEGV, &crash_handler);
   signal(SIGILL, &crash_handler);
   signal(SIGFPE, &crash_handler);
@@ -214,4 +246,5 @@ void hu_install_crash_handler()
   signal(SIGSYS, &crash_handler);
   signal(SIGXCPU, &crash_handler);
   signal(SIGXFSZ, &crash_handler);
+  std::set_terminate (crash_handler_terminate);
 }

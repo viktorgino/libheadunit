@@ -203,7 +203,7 @@ static int gst_pipeline_init(gst_app_t *app)
     gst_init(NULL, NULL);
 
 
-    vid_pipeline = gst_parse_launch("appsrc name=mysrc is-live=true block=true max-latency=100000 do-timestamp=true ! video/x-h264, width=800,height=480,framerate=30/1 ! decodebin2 name=mydecoder ! videoscale name=myconvert ! xvimagesink name=mysink", &error);
+    vid_pipeline = gst_parse_launch("appsrc name=mysrc is-live=true block=false max-latency=100000 do-timestamp=true ! video/x-h264, width=800,height=480,framerate=30/1 ! decodebin2 name=mydecoder ! videoscale name=myconvert ! xvimagesink name=mysink", &error);
 
     bus = gst_pipeline_get_bus(GST_PIPELINE(vid_pipeline));
     gst_bus_add_watch(bus, (GstBusFunc)bus_callback, app);
@@ -225,7 +225,7 @@ static int gst_pipeline_init(gst_app_t *app)
             G_CALLBACK(on_pad_added), app->decoder);
 
     
-    aud_pipeline = gst_parse_launch("appsrc name=audsrc block=true ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=48000, channels=2 ! volume volume=0.5 ! alsasink buffer-time=400000",&error);
+    aud_pipeline = gst_parse_launch("appsrc name=audsrc block=false ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=48000, channels=2 ! volume volume=0.5 ! alsasink buffer-time=400000",&error);
 
     if (error != NULL) {
         printf("could not construct pipeline: %s\n", error->message);
@@ -238,7 +238,7 @@ static int gst_pipeline_init(gst_app_t *app)
     gst_app_src_set_stream_type(aud_src, GST_APP_STREAM_TYPE_STREAM);
 
 
-    au1_pipeline = gst_parse_launch("appsrc name=au1src block=true ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=16000, channels=1 ! volume volume=0.5 ! alsasink buffer-time=400000 ",&error);
+    au1_pipeline = gst_parse_launch("appsrc name=au1src block=false ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=16000, channels=1 ! volume volume=0.5 ! alsasink buffer-time=400000 ",&error);
 
     if (error != NULL) {
         printf("could not construct pipeline: %s\n", error->message);
