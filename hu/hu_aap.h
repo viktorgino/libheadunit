@@ -56,11 +56,24 @@ public:
   inline int GetErrorFD() { return errorfd; } 
 };
 
-class IHUCommandStream
+class IHUConnectionThreadInterface;
+
+class IHUAnyThreadInterface
 {
 protected:
-  ~IHUCommandStream() {}
-  IHUCommandStream() {}
+  ~IHUAnyThreadInterface() {}
+  IHUAnyThreadInterface() {}
+public:
+  typedef std::function<void(IHUConnectionThreadInterface&)> HUThreadCommand;
+  //Can be called from any thread
+  virtual int hu_queue_command(HUThreadCommand&& command) = 0;
+};
+
+class IHUConnectionThreadInterface : public IHUAnyThreadInterface
+{
+protected:
+  ~IHUConnectionThreadInterface() {}
+  IHUConnectionThreadInterface() {}
 public:
   virtual int hu_aap_enc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout = -1) = 0;
   virtual int hu_aap_enc_send_media_packet(int retry, int chan, uint16_t messageCode, uint64_t timeStamp, const byte* buffer, int bufferLen, int overrideTimeout = -1) = 0;
@@ -95,15 +108,15 @@ public:
 };
 
 //These callbacks are executed in the HU thread
-class IHUEventCallbacks
+class IHUConnectionThreadEventCallbacks
 {
 protected:
-  ~IHUEventCallbacks() {}
-  IHUEventCallbacks() {}
+  ~IHUConnectionThreadEventCallbacks() {}
+  IHUConnectionThreadEventCallbacks() {}
 public:
 
   //return > 0 if handled < 0 for error
-  virtual int MessageFilter(IHUCommandStream& stream, HU_STATE state,  int chan, uint16_t msg_type, const byte * buf, int len) { return 0; }
+  virtual int MessageFilter(IHUConnectionThreadInterface& stream, HU_STATE state,  int chan, uint16_t msg_type, const byte * buf, int len) { return 0; }
 
   //return -1 for error
   virtual int MediaPacket(int chan, uint64_t timestamp, const byte * buf, int len) = 0;
@@ -120,23 +133,21 @@ public:
 };
 
 
-class HUServer : protected IHUCommandStream
+class HUServer : protected IHUConnectionThreadInterface
 {
 public:
   //Must be called from the "main" thread (as defined by the user)
   int hu_aap_start    (byte ep_in_addr, byte ep_out_addr);                 // Used by          hu_mai,  hu_jni     // Starts USB/ACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
   int hu_aap_shutdown ();
 
-  HUServer(IHUEventCallbacks& callbacks);
+  HUServer(IHUConnectionThreadEventCallbacks& callbacks);
   ~HUServer() { hu_aap_shutdown(); }
 
-  typedef std::function<void(IHUCommandStream&)> HUThreadCommand;
-
   //Can be called from any thread
-  int hu_queue_command(HUThreadCommand&& command);
+  virtual int hu_queue_command(IHUAnyThreadInterface::HUThreadCommand&& command) override;
 
 protected:
-  IHUEventCallbacks& callbacks;
+  IHUConnectionThreadEventCallbacks& callbacks;
   std::unique_ptr<HUTransportStream> transport;
   HU_STATE iaap_state = hu_STATE_INITIAL;
   int iaap_tra_recv_tmo = 150;//100;//1;//10;//100;//250;//100;//250;//100;//25; // 10 doesn't work ? 100 does
@@ -184,10 +195,10 @@ protected:
   virtual int hu_aap_unenc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout = -1) override;
   virtual int hu_aap_stop     () override;    
 
-  using IHUCommandStream::hu_aap_enc_send_message;
-  using IHUCommandStream::hu_aap_enc_send_media_packet;
-  using IHUCommandStream::hu_aap_unenc_send_blob;
-  using IHUCommandStream::hu_aap_unenc_send_message;
+  using IHUConnectionThreadInterface::hu_aap_enc_send_message;
+  using IHUConnectionThreadInterface::hu_aap_enc_send_media_packet;
+  using IHUConnectionThreadInterface::hu_aap_unenc_send_blob;
+  using IHUConnectionThreadInterface::hu_aap_unenc_send_message;
  
   int hu_handle_VersionResponse (int chan, byte * buf, int len);
   int hu_handle_ServiceDiscoveryRequest (int chan, byte * buf, int len);

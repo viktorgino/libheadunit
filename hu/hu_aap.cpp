@@ -41,7 +41,7 @@
 #include "hu_usb.h"
 #include "hu_tcp.h"
 
-  HUServer::HUServer(IHUEventCallbacks& callbacks)
+  HUServer::HUServer(IHUConnectionThreadEventCallbacks& callbacks)
   : callbacks(callbacks)
   {
 
@@ -925,9 +925,9 @@
     return (0);
   }
 
-  int HUServer::hu_queue_command(HUThreadCommand&& command)
+  int HUServer::hu_queue_command(IHUAnyThreadInterface::HUThreadCommand&& command)
   {
-    HUThreadCommand* ptr = new HUThreadCommand(command);
+    IHUAnyThreadInterface::HUThreadCommand* ptr = new IHUAnyThreadInterface::HUThreadCommand(command);
     int ret = write(command_write_fd, &ptr, sizeof(ptr));
     if (ret < 0)
     {
@@ -941,7 +941,7 @@
 
     if (hu_thread.joinable())
     {
-      int ret = hu_queue_command([this](IHUCommandStream& s)
+      int ret = hu_queue_command([this](IHUConnectionThreadInterface& s)
       {
         if (iaap_state == hu_STATE_STARTED)
         {
@@ -997,9 +997,9 @@
     return (0);
   }
 
-  HUServer::HUThreadCommand* HUServer::hu_pop_command()
+  IHUAnyThreadInterface::HUThreadCommand* HUServer::hu_pop_command()
   {
-    HUThreadCommand* ptr = nullptr;
+    IHUAnyThreadInterface::HUThreadCommand* ptr = nullptr;
     int ret = read(command_read_fd, &ptr, sizeof(ptr));
     if (ret < 0)
     {
@@ -1048,7 +1048,7 @@
         if (FD_ISSET(command_read_fd, &sock_set))
         {
           logd("Got command_read_fd");
-          HUThreadCommand* ptr = nullptr;
+          IHUAnyThreadInterface::HUThreadCommand* ptr = nullptr;
           if(ptr = hu_pop_command())
           {
             logd("Running %p", ptr);
@@ -1072,7 +1072,7 @@
     logd("hu_thread_main exit");
   }
 
-  static_assert(PIPE_BUF >= sizeof(HUServer::HUThreadCommand*), "PIPE_BUF is tool small for a pointer?");
+  static_assert(PIPE_BUF >= sizeof(IHUAnyThreadInterface::HUThreadCommand*), "PIPE_BUF is tool small for a pointer?");
 
   int HUServer::hu_aap_start (byte ep_in_addr, byte ep_out_addr) {                // Starts Transport/USBACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
 

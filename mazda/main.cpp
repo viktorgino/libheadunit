@@ -62,7 +62,7 @@ bool mic_change_state = false;
 bool display_status = true;
 
 
-class MazdaEventCallbacks : public IHUEventCallbacks
+class MazdaEventCallbacks : public IHUConnectionThreadEventCallbacks
 {
 public:
   virtual int MediaPacket(int chan, uint64_t timestamp, const byte * buf, int len) override
@@ -132,7 +132,7 @@ static void set_display_status(bool st)
 		g_object_set(G_OBJECT(gst_app.sink), "should-display", st ? TRUE : FALSE, NULL);
 		display_status = st;
 
- 		g_hu.hu_queue_command([st](IHUCommandStream& s)
+ 		g_hu.hu_queue_command([st](IHUConnectionThreadInterface& s)
 		{
 		    HU::VideoFocus videoFocusGained;
 		    videoFocusGained.set_mode(st ? HU::VIDEO_FOCUS_MODE_FOCUSED : HU::VIDEO_FOCUS_MODE_UNFOCUSED);
@@ -285,7 +285,7 @@ uint64_t get_cur_timestamp()
 
 static void aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, unsigned int y) {
 
-	g_hu.hu_queue_command([action, x, y](IHUCommandStream& s)
+	g_hu.hu_queue_command([action, x, y](IHUConnectionThreadInterface& s)
 	{
  		HU::InputEvent inputEvent;
 	    inputEvent.set_timestamp(get_cur_timestamp());
@@ -341,7 +341,7 @@ static void read_mic_data (GstElement * sink)
         }
         
         uint64_t timestamp = get_cur_timestamp();
-        g_hu.hu_queue_command([timestamp, gstbuf, mic_buf_sz](IHUCommandStream& s)
+        g_hu.hu_queue_command([timestamp, gstbuf, mic_buf_sz](IHUConnectionThreadInterface& s)
 		{
 	        int ret = s.hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaDataWithTimestamp, timestamp, GST_BUFFER_DATA(gstbuf), mic_buf_sz);
 	       
@@ -611,7 +611,7 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 				break;
 			}
 			if (scanCode != 0 || scrollAmount != 0) {
-			 	g_hu.hu_queue_command([timeStamp, scanCode, scrollAmount, isPressed](IHUCommandStream& s)
+			 	g_hu.hu_queue_command([timeStamp, scanCode, scrollAmount, isPressed](IHUConnectionThreadInterface& s)
 			 	{
 			 		HU::InputEvent inputEvent;
 					inputEvent.set_timestamp(timeStamp);
@@ -766,7 +766,7 @@ static void nightmode_thread_func(std::condition_variable& quitcv, std::mutex& q
 		if (nightmode != nightmodenow) {
 
 			nightmode = nightmodenow;
-			g_hu.hu_queue_command([nightmodenow](IHUCommandStream& s)
+			g_hu.hu_queue_command([nightmodenow](IHUConnectionThreadInterface& s)
 			{
 				HU::SensorEvent sensorEvent;
 				sensorEvent.add_night_mode()->set_is_night(nightmodenow);

@@ -42,7 +42,7 @@ bool mic_change_state = false;
 
 float g_dpi_scalefactor = 1.0f;
 
-class DesktopEventCallbacks : public IHUEventCallbacks
+class DesktopEventCallbacks : public IHUConnectionThreadEventCallbacks
 {
 public:
   virtual int MediaPacket(int chan, uint64_t timestamp, const byte * buf, int len) override
@@ -282,7 +282,7 @@ uint64_t get_cur_timestamp()
 
 static void aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, unsigned int y) {
 
-	g_hu.hu_queue_command([action, x, y](IHUCommandStream& s)
+	g_hu.hu_queue_command([action, x, y](IHUConnectionThreadInterface& s)
 	{
  		HU::InputEvent inputEvent;
 	    inputEvent.set_timestamp(get_cur_timestamp());
@@ -337,7 +337,7 @@ static void read_mic_data (GstElement * sink)
         }
         
         uint64_t timestamp = get_cur_timestamp();
-        g_hu.hu_queue_command([timestamp, gstbuf, mic_buf_sz](IHUCommandStream& s)
+        g_hu.hu_queue_command([timestamp, gstbuf, mic_buf_sz](IHUConnectionThreadInterface& s)
 		{
 	        int ret = s.hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaDataWithTimestamp, timestamp, GST_BUFFER_DATA(gstbuf), mic_buf_sz);
 	       
@@ -457,7 +457,7 @@ gboolean sdl_poll_event(gpointer data)
                         rel->set_delta(key->keysym.sym == SDLK_LEFT ? -1 : 1);
                         rel->set_scan_code(HUIB_SCROLLWHEEL);
 
-				 		g_hu.hu_queue_command([inputEvent2](IHUCommandStream& s)
+				 		g_hu.hu_queue_command([inputEvent2](IHUConnectionThreadInterface& s)
 						{
                         	s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent2);
                     	});
@@ -489,7 +489,7 @@ gboolean sdl_poll_event(gpointer data)
                 }
 
                 if (buttonInfo->has_scan_code()) {
-			 		ret = g_hu.hu_queue_command([inputEvent](IHUCommandStream& s)
+			 		ret = g_hu.hu_queue_command([inputEvent](IHUConnectionThreadInterface& s)
 					{
                 		s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
                 	});
@@ -516,7 +516,7 @@ gboolean sdl_poll_event(gpointer data)
     if (g_nightmode != nightmodenow) {
         g_nightmode = nightmodenow;
 
-		g_hu.hu_queue_command([nightmodenow](IHUCommandStream& s)
+		g_hu.hu_queue_command([nightmodenow](IHUConnectionThreadInterface& s)
 		{
 	        HU::SensorEvent sensorEvent;
 	        sensorEvent.add_night_mode()->set_is_night(nightmodenow);
