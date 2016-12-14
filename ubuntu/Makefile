@@ -1,33 +1,48 @@
-#CC=gcc
-#LD=ld
-INCLUDES=`pkg-config --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl`-I$(TOP)/jni 
-CFLAGS= -g 
-CPPFLAGS=-fPIC
-LFLAGS= -g `pkg-config --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl` -lSDL
 TOP = ..
-SRCS =	$(TOP)/jni/hu_aad.c	\
-	$(TOP)/jni/hu_aap.c	\
-        $(TOP)/jni/hu_ssl.c	\
-	$(TOP)/jni/hu_usb.c	\
-	$(TOP)/jni/hu_uti.c	\
-	main.c
-OBJS = $(SRCS:.c=.o)
+
+INCLUDES=$(shell pkg-config --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl gtk+-3.0 x11 protobuf sdl) -I$(TOP)/hu -I$(TOP)/hu/generated.x64
+CFLAGS= -g 
+LFLAGS= -g $(shell pkg-config --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl gtk+-3.0 x11 protobuf sdl)
+CXXFLAGS= -g -std=c++11 -Wno-narrowing
+
+
+SRCS = $(TOP)/hu/hu_aad.cpp
+SRCS += $(TOP)/hu/hu_aap.cpp
+SRCS += $(TOP)/hu/hu_ssl.cpp
+SRCS += $(TOP)/hu/hu_usb.cpp
+SRCS += $(TOP)/hu/hu_uti.cpp
+SRCS += $(TOP)/hu/hu_tcp.cpp
+SRCS += $(TOP)/hu/generated.x64/hu.pb.cc
+SRCS += main.cpp
+
+OBJS = $(addsuffix .x64.o, $(basename $(SRCS)))
+DEPS = $(addsuffix .x64.d, $(basename $(SRCS)))
 APP = headunit
 
-.PHONY: depend clean
+.PHONY: clean
 
-all: $(APP)
+all: proto $(APP)
+
+proto: $(TOP)/hu/generated.x64/hu.pb.cc
 
 $(APP): $(OBJS)
-	$(CC) -o $(APP) $(OBJS) $(LFLAGS)
+	$(CXX) -o $(APP) $(OBJS) $(LFLAGS)
 
-.c.o:
-	$(CC) $(CFLAGS) $(INCLUDES) -c $<  -o $@
+$(TOP)/hu/generated.x64/hu.pb.cc $(TOP)/hu/generated.x64/hu.pb.h: $(TOP)/hu/hu.proto
+	protoc $< --proto_path=$(TOP)/hu/ --cpp_out=$(TOP)/hu/generated.x64/
+
+%.x64.o : %.c
+	$(CX) -MD $(CFLAGS) $(INCLUDES) -c $<  -o $@
+
+%.x64.o : %.cpp
+	$(CXX) -MD $(CXXFLAGS) $(INCLUDES) -c $<  -o $@
+
+%.x64.o : %.cc
+	$(CXX) -MD $(CXXFLAGS) $(INCLUDES) -c $<  -o $@
 
 clean:
-	rm -f $(OBJS) *~ $(APP)
+	rm -f $(TOP)/hu/generated.x64/* $(OBJS) $(DEPS) *~ $(APP)
 
-depend: $(SRCS)
-	makedepend $^
+-include $(DEPS)
 
 # DO NOT DELETE

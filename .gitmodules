@@ -1,0 +1,6 @@
+[submodule "mazda/mazda-connector"]
+	path = mazda/mazda-connector
+	url = https://github.com/lmagder/mazda-connector
+[submodule "mazda/m3-toolchain"]
+	path = mazda/m3-toolchain
+	url = https://github.com/lmagder/m3-toolchain

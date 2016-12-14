@@ -1,33 +1,80 @@
-#CC=gcc
-#LD=ld
-INCLUDES=`pkg-config --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libcrypto libusb-1.0 openssl`-I$(TOP)/jni
-CFLAGS=-fPIC `sdl-config --libs` -O3
-CPPFLAGS=-fPIC 
-LFLAGS=`pkg-config --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libcrypto libusb-1.0 openssl `   -lrt
 TOP = ..
-SRCS =	$(TOP)/jni/hu_aad.c	\
-	$(TOP)/jni/hu_aap.c	\
-        $(TOP)/jni/hu_ssl.c	\
-	$(TOP)/jni/hu_usb.c	\
-	$(TOP)/jni/hu_uti.c	\
-	main.c
-OBJS = $(SRCS:.c=.o)
+
+M3TOOLCHAIN=./m3-toolchain
+PROTOTOOLCHAIN=./protobuf-2.6.1-arm
+CC=$(M3TOOLCHAIN)/bin/arm-cortexa9_neon-linux-gnueabi-gcc
+CXX=$(M3TOOLCHAIN)/bin/arm-cortexa9_neon-linux-gnueabi-g++
+LD=$(M3TOOLCHAIN)/bin/arm-cortexa9_neon-linux-gnueabi-ld
+SYSROOT=$(M3TOOLCHAIN)/arm-cortexa9_neon-linux-gnueabi/sysroot
+
+INCLUDES=$(shell ./pkg-config-wrapper $(SYSROOT) --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0  libcrypto openssl) -I$(TOP)/hu -I$(TOP)/hu/generated.arm -Imazda-connector -I$(PROTOTOOLCHAIN)/include -Igps/nematode/include
+
+CFLAGS=-O3 --sysroot=$(SYSROOT) -march=armv7-a -mtune=cortex-a9 -mfpu=neon -mthumb
+CXXFLAGS=$(CFLAGS) -std=c++11 -static-libstdc++ -pthread -D__STDC_FORMAT_MACROS
+
+LFLAGS= --sysroot=$(SYSROOT) -static-libstdc++ -pthread $(shell ./pkg-config-wrapper $(SYSROOT) --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0 libcrypto openssl) -L$(PROTOTOOLCHAIN)/lib -lprotobuf
+LFLAGS_IF= --sysroot=$(SYSROOT) -static-libstdc++ $(shell ./pkg-config-wrapper $(SYSROOT) --libs dbus-1)
+
+#headunit binary
+SRCS = $(TOP)/hu/hu_aad.cpp
+SRCS += $(TOP)/hu/hu_aap.cpp
+SRCS += $(TOP)/hu/hu_ssl.cpp
+SRCS += $(TOP)/hu/hu_usb.cpp
+SRCS += $(TOP)/hu/hu_uti.cpp
+SRCS += $(TOP)/hu/hu_tcp.cpp
+SRCS += $(TOP)/hu/generated.arm/hu.pb.cc
+SRCS += nm/mzd_nightmode.cpp
+SRCS += gps/nematode/src/GPSFix.cpp
+SRCS += gps/nematode/src/GPSService.cpp
+SRCS += gps/nematode/src/NMEACommand.cpp
+SRCS += gps/nematode/src/NMEAParser.cpp
+SRCS += gps/nematode/src/NumberConversion.cpp
+SRCS += gps/mzd_gps.cpp
+SRCS += main.cpp
+
+OBJS = $(addsuffix .arm.o, $(basename $(SRCS)))
+DEPS = $(addsuffix .arm.d, $(basename $(SRCS)))
+
 APP = headunit
 
-.PHONY: depend clean
+SRCS_IF = mazda-connector/src/input_filter/input_filter.cpp
 
-all: $(APP)
+OBJS_IF = $(addsuffix .arm.o, $(basename $(SRCS_IF)))
+DEPS_IF = $(addsuffix .arm.d, $(basename $(SRCS_IF)))
+
+#input_filter binary
+APP_IF = input_filter
+
+all: proto $(APP) $(APP_IF)
+
+proto: $(TOP)/hu/generated.arm/hu.pb.cc
 
 $(APP): $(OBJS)
-	$(CC)  -g -o $(APP) $(OBJS) $(LFLAGS)
+	$(CXX) -MD -g -o $(APP) $(OBJS) $(LFLAGS)
 
-.c.o:
-	$(CC) -g $(CFLAGS) $(INCLUDES) -c $<  -o $@
+$(APP_IF): $(OBJS_IF)
+	$(CXX) -MD -g -o $(APP_IF) $(OBJS_IF) $(LFLAGS_IF)
+
+$(TOP)/hu/generated.arm/hu.pb.cc $(TOP)/hu/generated.arm/hu.pb.h: $(TOP)/hu/hu.proto
+	$(PROTOTOOLCHAIN)/bin/protoc $< --proto_path=$(TOP)/hu/ --cpp_out=$(TOP)/hu/generated.arm/
+
+%.arm.o : %.c
+	$(CC) -MD -g $(CFLAGS) $(INCLUDES) -c $<  -o $@
+
+%.arm.o : %.cpp
+	$(CXX) -MD -g $(CXXFLAGS) $(INCLUDES) -c $<  -o $@
+
+%.arm.o : %.cc
+	$(CXX) -MD -g $(CXXFLAGS) $(INCLUDES) -c $<  -o $@
 
 clean:
-	rm -f $(OBJS) *~ $(APP)
+	rm -f *~ $(TOP)/hu/generated.arm/* $(OBJS) $(OBJS_IF) $(APP) $(APP_IF) $(DEPS) $(DEPS_IF)
 
-depend: $(SRCS)
-	makedepend $^
+install: all
+	cp -a -f input_filter installer/config/androidauto/data_persist/dev/bin/
+	cp -a -f headunit installer/config/androidauto/data_persist/dev/bin/
 
-# DO NOT DELETE
+-include $(DEPS)
+-include $(DEPS_IF)
+
+.PHONY: clean
