@@ -533,6 +533,8 @@
       callbacks.CustomizeInputChannel(AA_CH_MIC, *inner);
     }
 
+    callbacks.CustomizeCarInfo(carInfo);
+
     return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::ServiceDiscoveryResponse, carInfo);
   }
 

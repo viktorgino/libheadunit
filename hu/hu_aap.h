@@ -123,7 +123,7 @@ public:
   virtual int MediaStart(int chan) = 0;
   virtual int MediaStop(int chan) = 0;
 
-  virtual int DisconnectionOrError() = 0;
+  virtual void DisconnectionOrError() = 0;
 
   virtual void CustomizeCarInfo(HU::ServiceDiscoveryResponse& carInfo) {}
   virtual void CustomizeInputConfig(HU::ChannelDescriptor::InputEventChannel& inputChannel) {}

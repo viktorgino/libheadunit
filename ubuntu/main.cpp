@@ -95,7 +95,7 @@ public:
   	return 0;
   }
 
-  virtual int DisconnectionOrError() override
+  virtual void DisconnectionOrError() override
   {
   	printf("DisconnectionOrError\n");
   	g_main_loop_quit(gst_app.loop);
