@@ -143,8 +143,7 @@ public:
   HUServer(IHUConnectionThreadEventCallbacks& callbacks);
   ~HUServer() { hu_aap_shutdown(); }
 
-  //Can be called from any thread
-  virtual int hu_queue_command(IHUAnyThreadInterface::HUThreadCommand&& command) override;
+  inline IHUAnyThreadInterface& GetAnyThreadInterface() { return *this; }
 
 protected:
   IHUConnectionThreadEventCallbacks& callbacks;
@@ -218,6 +217,9 @@ protected:
   int hu_handle_MicRequest (int chan, byte * buf, int len);
   int hu_handle_MediaDataWithTimestamp (int chan, byte * buf, int len);
   int hu_handle_MediaData(int chan, byte * buf, int len);
+
+    //Can be called from any thread
+  virtual int hu_queue_command(IHUAnyThreadInterface::HUThreadCommand&& command) override;
 };
 
 enum class HU_INIT_MESSAGE : uint16_t

@@ -1,2 +1,7 @@
 *.x64.d
 headunit
+/headunit-ubuntu.config
+/headunit-ubuntu.creator
+/headunit-ubuntu.creator.user
+/headunit-ubuntu.files
+/headunit-ubuntu.includes

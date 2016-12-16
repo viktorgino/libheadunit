@@ -38,72 +38,10 @@ GstElement *vid_pipeline = nullptr;
 GstAppSrc *vid_src = nullptr;
 
 
-bool mic_change_state = false;
-
 float g_dpi_scalefactor = 1.0f;
 
-class DesktopEventCallbacks : public IHUConnectionThreadEventCallbacks
-{
-public:
-  virtual int MediaPacket(int chan, uint64_t timestamp, const byte * buf, int len) override
-  {
-  	GstAppSrc* gst_src = nullptr;
-  	if (chan == AA_CH_VID)
-  	{
-  		gst_src = vid_src;
-  	}
-  	else if (chan == AA_CH_AUD)
-  	{
-  		gst_src  = aud_src;
-  	}
-  	else if (chan == AA_CH_AU1)
-	{
-		gst_src = au1_src;
-	}
+IHUAnyThreadInterface* g_hu = nullptr;
 
-	if (gst_src)
-	{
-		GstBuffer * buffer = gst_buffer_new_and_alloc(len);
-	    memcpy(GST_BUFFER_DATA(buffer), buf, len);
-	    int ret = gst_app_src_push_buffer(gst_src, buffer);
-	    if(ret !=  GST_FLOW_OK){
-	        printf("push buffer returned %d for %d bytes \n", ret, len);
-	    }
-	}
-  	return 0;
-  }
-
-  virtual int MediaStart(int chan) override
-  {
-  	if (chan == AA_CH_MIC)
-  	{
-		printf("SHAI1 : Mic Started\n");
-		mic_change_state = true;
-		gst_element_set_state (mic_pipeline, GST_STATE_PLAYING);
-	}	
-  	return 0;
-  }
-
-  virtual int MediaStop(int chan) override
-  {
-  	if (chan == AA_CH_MIC)
-  	{
-		printf("SHAI1 : Mic Stopped\n");
-		mic_change_state = false;
-		gst_element_set_state (mic_pipeline, GST_STATE_READY);
-	}
-  	return 0;
-  }
-
-  virtual void DisconnectionOrError() override
-  {
-  	printf("DisconnectionOrError\n");
-  	g_main_loop_quit(gst_app.loop);
-  }
-};
-
-DesktopEventCallbacks g_callbacks;
-HUServer g_hu(g_callbacks);
 
 static void on_pad_added(GstElement *element, GstPad *pad)
 {
@@ -225,7 +163,7 @@ static int gst_pipeline_init(gst_app_t *app)
             G_CALLBACK(on_pad_added), app->decoder);
 
     
-    aud_pipeline = gst_parse_launch("appsrc name=audsrc block=false ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=48000, channels=2 ! volume volume=0.5 ! alsasink buffer-time=400000",&error);
+    aud_pipeline = gst_parse_launch("appsrc name=audsrc is-live=true block=false max-latency=100000 do-timestamp=true ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=48000, channels=2 ! volume volume=0.5 ! alsasink buffer-time=400000",&error);
 
     if (error != NULL) {
         printf("could not construct pipeline: %s\n", error->message);
@@ -238,7 +176,7 @@ static int gst_pipeline_init(gst_app_t *app)
     gst_app_src_set_stream_type(aud_src, GST_APP_STREAM_TYPE_STREAM);
 
 
-    au1_pipeline = gst_parse_launch("appsrc name=au1src block=false ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=16000, channels=1 ! volume volume=0.5 ! alsasink buffer-time=400000 ",&error);
+    au1_pipeline = gst_parse_launch("appsrc name=au1src is-live=true block=false max-latency=100000 do-timestamp=true ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=16000, channels=1 ! volume volume=0.5 ! alsasink buffer-time=400000 ",&error);
 
     if (error != NULL) {
         printf("could not construct pipeline: %s\n", error->message);
@@ -249,8 +187,7 @@ static int gst_pipeline_init(gst_app_t *app)
     au1_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (au1_pipeline), "au1src"));
     
     gst_app_src_set_stream_type(au1_src, GST_APP_STREAM_TYPE_STREAM);
-    
-    
+
     mic_pipeline = gst_parse_launch("alsasrc name=micsrc ! audioconvert ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, channels=1, rate=16000 ! queue !appsink name=micsink async=false emit-signals=true blocksize=8192",&error);
     
     if (error != NULL) {
@@ -276,13 +213,13 @@ uint64_t get_cur_timestamp()
     /* Fetch the time stamp */
     clock_gettime(CLOCK_REALTIME, &tp);
 
-    return tp.tv_sec * 1000000000 + tp.tv_nsec;    
+    return tp.tv_sec * 1000000 + tp.tv_nsec / 1000;    
 }
 
 
 static void aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, unsigned int y) {
 
-	g_hu.hu_queue_command([action, x, y](IHUConnectionThreadInterface& s)
+	g_hu->hu_queue_command([action, x, y](IHUConnectionThreadInterface& s)
 	{
  		HU::InputEvent inputEvent;
 	    inputEvent.set_timestamp(get_cur_timestamp());
@@ -313,18 +250,15 @@ static void read_mic_data (GstElement * sink)
     
     if (gstbuf) {
 
-        struct timespec tp;
-
         /* if mic is stopped, don't bother sending */    
-
-        if (!mic_change_state) {
+        GstState mic_state = GST_STATE_NULL;
+        if (gst_element_get_state (mic_pipeline, &mic_state, NULL, GST_CLOCK_TIME_NONE) != GST_STATE_CHANGE_SUCCESS
+            || mic_state != GST_STATE_PLAYING) {
             printf("Mic stopped.. dropping buffers \n");
             gst_buffer_unref(gstbuf);
             return;
         }
         
-        /* Fetch the time stamp */
-        clock_gettime(CLOCK_REALTIME, &tp);
         
         gint mic_buf_sz = GST_BUFFER_SIZE (gstbuf);
         
@@ -336,8 +270,9 @@ static void read_mic_data (GstElement * sink)
             return;
         }
         
-        uint64_t timestamp = get_cur_timestamp();
-        g_hu.hu_queue_command([timestamp, gstbuf, mic_buf_sz](IHUConnectionThreadInterface& s)
+        uint64_t bufTimestamp = GST_BUFFER_TIMESTAMP(gstbuf);
+        uint64_t timestamp = GST_CLOCK_TIME_IS_VALID(bufTimestamp) ? (bufTimestamp / 1000) : get_cur_timestamp();
+        g_hu->hu_queue_command([timestamp, gstbuf, mic_buf_sz](IHUConnectionThreadInterface& s)
 		{
 	        int ret = s.hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaDataWithTimestamp, timestamp, GST_BUFFER_DATA(gstbuf), mic_buf_sz);
 	       
@@ -457,7 +392,7 @@ gboolean sdl_poll_event(gpointer data)
                         rel->set_delta(key->keysym.sym == SDLK_LEFT ? -1 : 1);
                         rel->set_scan_code(HUIB_SCROLLWHEEL);
 
-				 		g_hu.hu_queue_command([inputEvent2](IHUConnectionThreadInterface& s)
+				 		g_hu->hu_queue_command([inputEvent2](IHUConnectionThreadInterface& s)
 						{
                         	s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent2);
                     	});
@@ -489,7 +424,7 @@ gboolean sdl_poll_event(gpointer data)
                 }
 
                 if (buttonInfo->has_scan_code()) {
-			 		ret = g_hu.hu_queue_command([inputEvent](IHUConnectionThreadInterface& s)
+			 		ret = g_hu->hu_queue_command([inputEvent](IHUConnectionThreadInterface& s)
 					{
                 		s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
                 	});
@@ -516,7 +451,7 @@ gboolean sdl_poll_event(gpointer data)
     if (g_nightmode != nightmodenow) {
         g_nightmode = nightmodenow;
 
-		g_hu.hu_queue_command([nightmodenow](IHUConnectionThreadInterface& s)
+		g_hu->hu_queue_command([nightmodenow](IHUConnectionThreadInterface& s)
 		{
 	        HU::SensorEvent sensorEvent;
 	        sensorEvent.add_night_mode()->set_is_night(nightmodenow);
@@ -575,6 +510,69 @@ static int gst_loop(gst_app_t *app)
     return ret;
 }
 
+
+class DesktopEventCallbacks : public IHUConnectionThreadEventCallbacks
+{
+public:
+  virtual int MediaPacket(int chan, uint64_t timestamp, const byte * buf, int len) override
+  {
+    GstAppSrc* gst_src = nullptr;
+    GstElement* gst_pipe = nullptr;
+    if (chan == AA_CH_VID)
+    {
+        gst_src = vid_src;
+        gst_pipe = vid_pipeline;
+    }
+    else if (chan == AA_CH_AUD)
+    {
+        gst_src  = aud_src;
+        gst_pipe = aud_pipeline;
+    }
+    else if (chan == AA_CH_AU1)
+    {
+        gst_src = au1_src;
+        gst_pipe = au1_pipeline;
+    }
+
+    if (gst_src)
+    {
+        GstBuffer * buffer = gst_buffer_new_and_alloc(len);
+        memcpy(GST_BUFFER_DATA(buffer), buf, len);
+        int ret = gst_app_src_push_buffer(gst_src, buffer);
+        if(ret !=  GST_FLOW_OK){
+            printf("push buffer returned %d for %d bytes \n", ret, len);
+        }
+    }
+    return 0;
+  }
+
+  virtual int MediaStart(int chan) override
+  {
+    if (chan == AA_CH_MIC)
+    {
+        printf("SHAI1 : Mic Started\n");
+        gst_element_set_state (mic_pipeline, GST_STATE_PLAYING);
+    }   
+    return 0;
+  }
+
+  virtual int MediaStop(int chan) override
+  {
+    if (chan == AA_CH_MIC)
+    {
+        printf("SHAI1 : Mic Stopped\n");
+        gst_element_set_state (mic_pipeline, GST_STATE_READY);
+    }
+    return 0;
+  }
+
+  virtual void DisconnectionOrError() override
+  {
+    printf("DisconnectionOrError\n");
+    g_main_loop_quit(gst_app.loop);
+  }
+};
+
 int main (int argc, char *argv[])
 {    
 
@@ -607,6 +605,8 @@ int main (int argc, char *argv[])
         return (ret);
     }
 
+    DesktopEventCallbacks callbacks;
+    HUServer headunit(callbacks);
 
     /* Overlay gst sink on the Qt window */
 //    WId xwinid = window->winId();
@@ -615,12 +615,12 @@ int main (int argc, char *argv[])
 
 
     /* Start AA processing */
-    ret = g_hu.hu_aap_start (ep_in_addr, ep_out_addr);
+    ret = headunit.hu_aap_start (ep_in_addr, ep_out_addr);
     if (ret == -1)
     {
         printf("Phone switched to accessory mode. Attempting once more.\n");
         sleep(1);
-        ret = g_hu.hu_aap_start (ep_in_addr, ep_out_addr);
+        ret = headunit.hu_aap_start (ep_in_addr, ep_out_addr);
     }    
     if (ret < 0) {
         if (ret == -2)
@@ -633,6 +633,8 @@ int main (int argc, char *argv[])
         return (ret);
     }
     
+    g_hu = &headunit.GetAnyThreadInterface();
+
     SDL_SysWMinfo info;
 
     SDL_Init(SDL_INIT_EVERYTHING);
@@ -662,12 +664,14 @@ int main (int argc, char *argv[])
     }
 
     /* Stop AA processing */
-    ret = g_hu.hu_aap_shutdown ();
+    ret = headunit.hu_aap_shutdown ();
     if (ret < 0) {
         printf("STATUS:hu_aap_stop() ret: %d\n", ret);
         SDL_Quit();
         return (ret);
     }
+
+    g_hu = nullptr;
 
     SDL_Quit();
     

@@ -4,6 +4,7 @@
 #include <vector>
 #include <mutex>
 #include <condition_variable>
+#include <poll.h>
 
 const char* iusb_error_get(int error);
 
@@ -27,6 +28,11 @@ class HUTransportStreamUSB : public HUTransportStream
     int pipe_write_fd = -1;
     int error_write_fd = -1;
 
+    int abort_usb_thread_pipe_read_fd = -1;
+    int abort_usb_thread_pipe_write_fd = -1;
+    std::mutex usb_thread_event_fds_lock;
+    std::vector<pollfd> usb_thread_event_fds;
+
     //usb recv thread state
     std::vector<byte> recv_temp_buffer;
     std::thread usb_recv_thread;
@@ -38,7 +44,11 @@ class HUTransportStreamUSB : public HUTransportStream
     void libusb_callback_send(libusb_transfer *transfer);
     static void libusb_callback_send_tramp(libusb_transfer *transfer);
 
-    bool abort_usbthread = false;
+    void libusb_callback_pollfd_added(int fd, short events);
+    static void libusb_callback_pollfd_added_tramp(int fd, short events, void* user_data);
+
+    void libusb_callback_pollfd_removed(int fd);
+    static void libusb_callback_pollfd_removed_tramp(int fd, void* user_data);
 
     int iusb_init (byte ep_in_addr, byte ep_out_addr);
     int iusb_deinit ();

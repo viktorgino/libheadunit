@@ -555,12 +555,23 @@ int HUTransportStreamUSB::Stop() {
   errorfd = -1;
   error_write_fd = -1;
 
-  int ret = iusb_deinit ();
+  if (abort_usb_thread_pipe_write_fd >= 0)
+  {
+    write(abort_usb_thread_pipe_write_fd, &abort_usb_thread_pipe_write_fd, 1);
+  }
 
   if (usb_recv_thread.joinable())
   {
     usb_recv_thread.join();
   }
+  close(abort_usb_thread_pipe_write_fd);
+  close(abort_usb_thread_pipe_read_fd);
+  abort_usb_thread_pipe_write_fd = -1;
+  abort_usb_thread_pipe_read_fd = -1;
+
+  int ret = iusb_deinit ();
+
+
 
   iusb_state = hu_STATE_STOPPED;
   logd ("  SET: iusb_state: %d (%s)", iusb_state, state_get (iusb_state));
@@ -571,33 +582,31 @@ int HUTransportStreamUSB::Stop() {
 void HUTransportStreamUSB::usb_recv_thread_main()
 {
   pthread_setname_np(pthread_self(), "usb_recv_thread_main");
-  while(!abort_usbthread)
+
+  timeval zero_tv;
+  memset(&zero_tv, 0, sizeof(zero_tv));
+
+  while(poll(usb_thread_event_fds.data(), usb_thread_event_fds.size(), -1) >= 0)
   {
-    int iusb_state = libusb_handle_events_completed(iusb_ctx, nullptr);
-    if (iusb_state || abort_usbthread)
+    //wakeup, something happened
+    if (usb_thread_event_fds[0].revents == usb_thread_event_fds[0].events)
+    {
+        logw("Requested to exit");
+        break;
+    }
+    int iusb_state = libusb_handle_events_timeout_completed(iusb_ctx, &zero_tv, nullptr);
+    if (iusb_state)
     {
       break;
     }
   }
   logw("libusb_handle_events_completed: %d (%s)", iusb_state, state_get (iusb_state));
 
-  if (abort_usbthread)
-  {
-    logw("USB thread exit");
-  }
-  else
-  {
-    loge("libusb_callback read failed");
-  }
+  logw("USB thread exit");
+
   //Wake up the reader if required
   int errData = -1;
-  if (write(error_write_fd, &errData, sizeof(errData)) < 0)
-  {
-    if (!abort_usbthread)
-    {
-      loge("Writing error data failed");
-    }
-  }
+  write(error_write_fd, &errData, sizeof(errData));
 
 }
 
@@ -632,7 +641,7 @@ void HUTransportStreamUSB::libusb_callback(libusb_transfer *transfer)
       if (ret < 0)
       {
         loge("libusb_callback: write failed");
-        abort_usbthread = true;
+        write(abort_usb_thread_pipe_write_fd, &abort_usb_thread_pipe_write_fd, 1);
       }
       else
       {
@@ -643,7 +652,7 @@ void HUTransportStreamUSB::libusb_callback(libusb_transfer *transfer)
   else
   {
     loge("libusb_callback: abort");
-    abort_usbthread = true;
+    write(abort_usb_thread_pipe_write_fd, &abort_usb_thread_pipe_write_fd, 1);
   }
   libusb_free_transfer(transfer);
 }
@@ -661,7 +670,7 @@ void HUTransportStreamUSB::libusb_callback_send(libusb_transfer *transfer)
   if (recv_last_status != LIBUSB_TRANSFER_COMPLETED)
   {
     loge("libusb_callback: abort");
-    abort_usbthread = true;
+    write(abort_usb_thread_pipe_write_fd, &abort_usb_thread_pipe_write_fd, 1);
   }
   free(transfer->buffer);
   libusb_free_transfer(transfer);
@@ -778,7 +787,38 @@ int HUTransportStreamUSB::Start(byte ep_in_addr, byte ep_out_addr) {
   errorfd = pipefd[0];
   error_write_fd = pipefd[1];
 
-  abort_usbthread = false;
+  if (pipe(pipefd) < 0)
+  {
+    loge("Error pipe create failed");
+    return -1;
+  }
+  abort_usb_thread_pipe_read_fd = pipefd[0];
+  abort_usb_thread_pipe_write_fd = pipefd[1];
+  //Add entry for our cancel fd
+  pollfd abort_poll;
+  abort_poll.fd = abort_usb_thread_pipe_read_fd;
+  abort_poll.events = POLLIN;
+  abort_poll.revents = 0;
+  usb_thread_event_fds.push_back(abort_poll);
+
+
+  const libusb_pollfd** existing_poll_fds = libusb_get_pollfds(iusb_ctx);
+  for (auto cur_poll_fd_ptr = existing_poll_fds; *cur_poll_fd_ptr; cur_poll_fd_ptr++)
+  {
+      auto cur_poll_fd = *cur_poll_fd_ptr;
+      pollfd new_poll;
+      new_poll.fd = cur_poll_fd->fd;
+      new_poll.events = cur_poll_fd->events;
+      new_poll.revents = 0;
+
+      usb_thread_event_fds.push_back(new_poll);
+  }
+#if LIBUSB_API_VERSION >= 0x01000104
+  libusb_free_pollfds(existing_poll_fds);
+#endif
+
+  libusb_set_pollfd_notifiers(iusb_ctx, &libusb_callback_pollfd_added_tramp, &libusb_callback_pollfd_removed_tramp, this);
+
   usb_recv_thread = std::thread([this]{ this->usb_recv_thread_main(); });
 
   recv_temp_buffer.resize(1024);
@@ -789,3 +829,30 @@ int HUTransportStreamUSB::Start(byte ep_in_addr, byte ep_out_addr) {
   return (0);
 }
 
+void HUTransportStreamUSB::libusb_callback_pollfd_added(int fd, short events)
+{
+    pollfd new_poll;
+    new_poll.fd = fd;
+    new_poll.events = events;
+    new_poll.revents = 0;
+
+    usb_thread_event_fds.push_back(new_poll);
+}
+
+void HUTransportStreamUSB::libusb_callback_pollfd_added_tramp(int fd, short events, void* user_data)
+{
+    reinterpret_cast<HUTransportStreamUSB*>(user_data)->libusb_callback_pollfd_added(fd, events);
+}
+
+void HUTransportStreamUSB::libusb_callback_pollfd_removed(int fd)
+{
+    usb_thread_event_fds.erase(std::remove_if(usb_thread_event_fds.begin(),
+                                              usb_thread_event_fds.end(),
+                                              [fd](pollfd& p) { return p.fd == fd; }),
+                                usb_thread_event_fds.end());
+}
+
+void HUTransportStreamUSB::libusb_callback_pollfd_removed_tramp(int fd, void* user_data)
+{
+    reinterpret_cast<HUTransportStreamUSB*>(user_data)->libusb_callback_pollfd_removed(fd);
+}
