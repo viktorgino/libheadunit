@@ -49,7 +49,7 @@ GstAppSrc *au1_src = nullptr;
 GstElement *vid_pipeline = nullptr;
 GstAppSrc *vid_src = nullptr;
 
-#define ASPECT_RATIO_FIX 0
+#define ASPECT_RATIO_FIX 1
 
 IHUAnyThreadInterface* g_hu = nullptr;
 
@@ -477,8 +477,6 @@ static gboolean delayedToggleShouldDisplay(gpointer data)
 
 static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *message, void *p)
 {
-	struct timespec tp;
-	gst_app_t *app = &gst_app;
 	DBusMessageIter iter;
 
 	if (strcmp("KeyEvent", dbus_message_get_member(message)) == 0)
@@ -564,7 +562,7 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 				printf("KEY_R\n");
 				if (isPressed)
 				{
-					g_main_context_invoke(g_main_loop_get_context(gst_app.loop), delayedToggleShouldDisplay, NULL);
+                    g_main_context_invoke(NULL, delayedToggleShouldDisplay, NULL);
 				}
 				break;
 			}
@@ -603,7 +601,7 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 			dbus_message_iter_get_basic(&iter, &displayMode);
 			if (displayMode)
 			{
-				g_main_context_invoke(g_main_loop_get_context(gst_app.loop), delayedShouldDisplayFalse, NULL);
+                g_main_context_invoke(NULL, delayedShouldDisplayFalse, NULL);
 			}
 			else
 			{
@@ -804,7 +802,9 @@ public:
         if (chan == AA_CH_VID)
         {
             auto videoConfig = streamChannel.mutable_video_configs(0);
-            videoConfig->set_margin_height(15);
+            //This adds a 15px border to the top and bottom of the stream, but makes the image 16:9. We chop off the borders and stretch
+            //vertically in gstreamer
+            videoConfig->set_margin_height(30);
         }
     #endif
   }
@@ -940,6 +940,9 @@ int main (int argc, char *argv[])
     gst_object_unref(aud_src);
     gst_object_unref(au1_src);
     gst_object_unref(mic_sink);
+
+    gst_object_unref(gst_app.sink);
+    gst_object_unref(gst_app.decoder);
 
 	g_hu = nullptr;
 

@@ -37,6 +37,9 @@ GstAppSrc *au1_src = nullptr;
 GstElement *vid_pipeline = nullptr;
 GstAppSrc *vid_src = nullptr;
 
+#ifndef ASPECT_RATIO_FIX
+#define ASPECT_RATIO_FIX 1
+#endif
 
 float g_dpi_scalefactor = 1.0f;
 
@@ -140,8 +143,12 @@ static int gst_pipeline_init(gst_app_t *app)
 
     gst_init(NULL, NULL);
 
-
-    vid_pipeline = gst_parse_launch("appsrc name=mysrc is-live=true block=false max-latency=100000 do-timestamp=true ! video/x-h264, width=800,height=480,framerate=30/1 ! decodebin2 name=mydecoder ! videoscale name=myconvert ! xvimagesink name=mysink", &error);
+    const char* vid_launch_str = "appsrc name=mysrc is-live=true block=false max-latency=100000 do-timestamp=true ! video/x-h264, width=800,height=480,framerate=30/1 ! decodebin2 name=mydecoder "
+    #if ASPECT_RATIO_FIX
+    " ! videocrop top=16 bottom=15 "
+    #endif
+    " ! videoscale name=myconvert ! xvimagesink name=mysink";
+    vid_pipeline = gst_parse_launch(vid_launch_str, &error);
 
     bus = gst_pipeline_get_bus(GST_PIPELINE(vid_pipeline));
     gst_bus_add_watch(bus, (GstBusFunc)bus_callback, app);
@@ -217,8 +224,18 @@ uint64_t get_cur_timestamp()
 }
 
 
-static void aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, unsigned int y) {
+static void aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, unsigned int y)
+{
+    float normx = float(x) / float(SDL_GetVideoInfo()->current_w);
+    float normy = float(y) / float(SDL_GetVideoInfo()->current_h);
 
+    x = (unsigned int)(normx * 800);
+#if ASPECT_RATIO_FIX
+    y = (unsigned int)(normy * 450) + 15;
+#else
+    y = (unsigned int)(normy * 480);
+#endif
+    
 	g_hu->hu_queue_command([action, x, y](IHUConnectionThreadInterface& s)
 	{
  		HU::InputEvent inputEvent;
@@ -336,19 +353,19 @@ gboolean sdl_poll_event(gpointer data)
             mmevent = &event.motion;
             if (mmevent->state & SDL_BUTTON_LMASK)
             {
-                aa_touch_event(HU::TouchInfo::TOUCH_ACTION_DRAG, (unsigned int)((float)mmevent->x/g_dpi_scalefactor ), (unsigned int)((float)mmevent->y/g_dpi_scalefactor));
+                aa_touch_event(HU::TouchInfo::TOUCH_ACTION_DRAG, (unsigned int)mmevent->x, (unsigned int)mmevent->y);
             }
             break;
         case SDL_MOUSEBUTTONDOWN:
             mbevent = &event.button;
             if (mbevent->button == SDL_BUTTON_LEFT) {
-                aa_touch_event(HU::TouchInfo::TOUCH_ACTION_PRESS, (unsigned int)((float)mbevent->x/g_dpi_scalefactor ), (unsigned int)((float)mbevent->y/g_dpi_scalefactor));
+                aa_touch_event(HU::TouchInfo::TOUCH_ACTION_PRESS, (unsigned int)mbevent->x, (unsigned int)mbevent->y);
             }
             break;
         case SDL_MOUSEBUTTONUP:
             mbevent = &event.button;
             if (mbevent->button == SDL_BUTTON_LEFT) {
-                aa_touch_event(HU::TouchInfo::TOUCH_ACTION_RELEASE, (unsigned int)((float)mbevent->x/g_dpi_scalefactor), (unsigned int)((float)mbevent->y/g_dpi_scalefactor));
+                aa_touch_event(HU::TouchInfo::TOUCH_ACTION_RELEASE, (unsigned int)mbevent->x, (unsigned int)mbevent->y);
             } else if (mbevent->button == SDL_BUTTON_RIGHT) {
                 printf("Quitting...\n");
                 g_main_loop_quit(app->loop);
@@ -500,6 +517,15 @@ static int gst_loop(gst_app_t *app)
     gst_object_unref(mic_pipeline);
     gst_object_unref(aud_pipeline);
     gst_object_unref(au1_pipeline);
+
+    gst_object_unref(vid_src);
+    gst_object_unref(mic_sink);
+    gst_object_unref(aud_src);
+    gst_object_unref(au1_src);
+
+    gst_object_unref(app->decoder);
+    gst_object_unref(app->convert);
+    gst_object_unref(app->sink);
     
     ms_sleep(100);
     
@@ -571,6 +597,17 @@ public:
     printf("DisconnectionOrError\n");
     g_main_loop_quit(gst_app.loop);
   }
+
+  virtual void CustomizeOutputChannel(int chan, HU::ChannelDescriptor::OutputStreamChannel& streamChannel) override
+  {
+    #if ASPECT_RATIO_FIX
+        if (chan == AA_CH_VID)
+        {
+            auto videoConfig = streamChannel.mutable_video_configs(0);
+            videoConfig->set_margin_height(30);
+        }
+    #endif
+  }
 };
 
 int main (int argc, char *argv[])
@@ -628,7 +665,12 @@ int main (int argc, char *argv[])
 
     SDL_Init(SDL_INIT_EVERYTHING);
     SDL_WM_SetCaption("Android Auto", NULL);
+    #if ASPECT_RATIO_FIX
+    //emulate the CMU stretching
+    SDL_Surface *screen = SDL_SetVideoMode((int)(853*g_dpi_scalefactor), (int)(480*g_dpi_scalefactor), 32, SDL_HWSURFACE);
+    #else
     SDL_Surface *screen = SDL_SetVideoMode((int)(800*g_dpi_scalefactor), (int)(480*g_dpi_scalefactor), 32, SDL_HWSURFACE);
+    #endif
 
     struct SDL_SysWMinfo wmInfo;
     SDL_VERSION(&wmInfo.version);
