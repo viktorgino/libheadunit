@@ -616,22 +616,11 @@ int main (int argc, char *argv[])
 
     /* Start AA processing */
     ret = headunit.hu_aap_start (ep_in_addr, ep_out_addr);
-    if (ret == -1)
-    {
-        printf("Phone switched to accessory mode. Attempting once more.\n");
-        sleep(1);
-        ret = headunit.hu_aap_start (ep_in_addr, ep_out_addr);
-    }    
     if (ret < 0) {
-        if (ret == -2)
-            printf("STATUS:Phone is not connected. Connect a supported phone and restart.\n");
-        else if (ret == -1)
-            printf("STATUS:Phone switched to accessory mode. Restart to enter AA mode.\n");
-        else
-            printf("STATUS:hu_app_start() ret: %d\n", ret);
-        
-        return (ret);
+        printf("Phone is not connected. Connect a supported phone and restart.\n");
+        return 0;
     }
+
     
     g_hu = &headunit.GetAnyThreadInterface();
 

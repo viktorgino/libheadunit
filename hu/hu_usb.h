@@ -14,16 +14,8 @@ class HUTransportStreamUSB : public HUTransportStream
 
     libusb_context* iusb_ctx = NULL;
     libusb_device_handle * iusb_dev_hndl      = NULL;
-    libusb_device *               iusb_best_device  = NULL;
     int   iusb_ep_in          = -1;
     int   iusb_ep_out         = -1;
-
-    int   iusb_best_vendor    = 0;
-    int   iusb_best_product   = 0;
-    char  iusb_curr_man [256] = {0};
-    char  iusb_best_man [256] = {0};
-    char  iusb_curr_pro [256] = {0};
-    char  iusb_best_pro [256] = {0};
 
     int pipe_write_fd = -1;
     int error_write_fd = -1;
@@ -50,9 +42,7 @@ class HUTransportStreamUSB : public HUTransportStream
     void libusb_callback_pollfd_removed(int fd);
     static void libusb_callback_pollfd_removed_tramp(int fd, void* user_data);
 
-    int iusb_init (byte ep_in_addr, byte ep_out_addr);
-    int iusb_deinit ();
-    int iusb_oap_start ();
+    libusb_device_handle* find_oap_device();
 public:
     ~HUTransportStreamUSB();
     HUTransportStreamUSB();

@@ -12,6 +12,7 @@
 #include <functional>
 #include <condition_variable>
 #include <sstream>
+#include <fstream>
 
 #include "hu_uti.h"
 #include "hu_aap.h"
@@ -47,9 +48,8 @@ GstAppSrc *au1_src = nullptr;
 
 GstElement *vid_pipeline = nullptr;
 GstAppSrc *vid_src = nullptr;
-GstElement *vid_sink = nullptr;
 
-#define ASPECT_RATIO_FIX 1
+#define ASPECT_RATIO_FIX 0
 
 IHUAnyThreadInterface* g_hu = nullptr;
 
@@ -135,10 +135,10 @@ static int gst_pipeline_init(gst_app_t *app)
 
 	gst_init(NULL, NULL);
 
-//	app->pipeline = (GstPipeline*)gst_parse_launch("appsrc name=mysrc is-live=true block=false max-latency=1000000 ! h264parse ! vpudec low-latency=true framedrop=true framedrop-level-mask=0x200 ! mfw_v4lsink max-lateness=1000000000 sync=false async=false", &error);
+	//if we have ASPECT_RATIO_FIX, cut off the bottom black bar
 	const char* vid_pipeline_launch = "appsrc name=mysrc is-live=true block=false max-latency=1000000 do-timestamp=true ! h264parse ! vpudec low-latency=true framedrop=true framedrop-level-mask=0x200 ! mfw_isink name=mysink "
 	#if ASPECT_RATIO_FIX
-	"axis-left=25 axis-top=0 disp-width=751 disp-height=480"
+    "axis-left=0 axis-top=-15 disp-width=800 disp-height=512"
 	#else
 	"axis-left=0 axis-top=0 disp-width=800 disp-height=480"
 	#endif
@@ -157,7 +157,6 @@ static int gst_pipeline_init(gst_app_t *app)
 	gst_object_unref(bus);
 
 	vid_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (vid_pipeline), "mysrc"));
-	vid_sink = gst_bin_get_by_name (GST_BIN (vid_pipeline), "mysink");
 	
 	gst_app_src_set_stream_type(vid_src, GST_APP_STREAM_TYPE_STREAM);
 
@@ -343,23 +342,14 @@ bool touch_poll_event(TouchScreenState& mTouch, int touchfd, int quitfd)
 			case EV_ABS:
 				switch (event[i].code) {
 					case ABS_MT_POSITION_X:
-						{
-							#if ASPECT_RATIO_FIX
-								//account for letterboxing
-								printf("input x %i\n", event[i].value);
-								float floatPixel = ((event[i].value - 100) / 4095.0f) * 800.0f;
-								const float floatBorder = 25.0f / 800.0f;
-								floatPixel = (floatPixel / 750.0f) - floatBorder;
-															
-								mTouch.x = (int)(floatPixel * 800.0f);
-								printf("touch x %i\n", mTouch.x);
-							#else
-								mTouch.x = event[i].value * 800/4095;
-							#endif
-						}
+						mTouch.x = event[i].value * 800/4095;
 						break;
 					case ABS_MT_POSITION_Y:
+						#if ASPECT_RATIO_FIX
+                        mTouch.y = event[i].value * 450/4095 + 15;
+						#else
 						mTouch.y = event[i].value * 480/4095;
+						#endif
 						break;
 				}
 				break;
@@ -622,18 +612,13 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 		}
 
 	}
-	else if (strcmp("Quit", dbus_message_get_member(message)) == 0)
-	{
-		int* quit_flag = (int*)p;
-		*quit_flag = 1;
-	}
 
 	dbus_message_unref(message);
 	return DBUS_HANDLER_RESULT_HANDLED;
 
 }
 
-static void dbus_listener_thread_func(const std::string& quit_interface) {
+static void dbus_listener_thread_func(volatile int* keep_going) {
 
 	DBusConnection *hmi_bus;
 	DBusError error;
@@ -653,10 +638,7 @@ static void dbus_listener_thread_func(const std::string& quit_interface) {
 	dbus_bus_add_match(hmi_bus, "type='signal',interface='us.insolit.mazda.connector',member='KeyEvent'", &error);
 	dbus_bus_add_match(hmi_bus, "type='signal',interface='com.jci.bucpsa',member='DisplayMode'", &error);
 	
-	std::string quit_match = "type='signal',interface='" + quit_interface + "',member='Quit'";
-	dbus_bus_add_match(hmi_bus, quit_match.c_str(), &error);
-
-	while (!quit_thread && dbus_connection_read_write_dispatch(hmi_bus, -1)) 
+	while (*keep_going && dbus_connection_read_write_dispatch(hmi_bus, 1000)) 
 	{
 		//loop
 	}
@@ -747,37 +729,6 @@ static void nightmode_thread_func(std::condition_variable& quitcv, std::mutex& q
 }
 
 
-
-
-static int gst_loop(gst_app_t *app)
-{
-	int ret;
-	GstStateChangeReturn state_ret;
-
-	state_ret = gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_PLAYING);
-	state_ret = gst_element_set_state((GstElement*)aud_pipeline, GST_STATE_PLAYING);
-	state_ret = gst_element_set_state((GstElement*)au1_pipeline, GST_STATE_PLAYING);
-
-	//	g_warning("set state returned %d\n", state_ret);
-
-	app->loop = g_main_loop_new (NULL, FALSE);
-	//	g_timeout_add_full(G_PRIORITY_HIGH, 1, myMainLoop, (gpointer)app, NULL);
-
-	printf("Starting Android Auto...\n");
-	g_main_loop_run (app->loop);
-
-	// TO-DO
-	state_ret = gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_NULL);
-	//	g_warning("set state null returned %d\n", state_ret);
-
-	gst_object_unref(vid_pipeline);
-	gst_object_unref(mic_pipeline);
-	gst_object_unref(aud_pipeline);
-	gst_object_unref(au1_pipeline);
-
-	return ret;
-}
-
 static void signals_handler (int signum)
 {
 	if (signum == SIGINT)
@@ -813,10 +764,6 @@ public:
 	{
 		GstBuffer * buffer = gst_buffer_new_and_alloc(len);
 	    memcpy(GST_BUFFER_DATA(buffer), buf, len);
-	    if (timestamp > 0)
-	    {
-	    	GST_BUFFER_TIMESTAMP(buffer) = timestamp;
-	    }
 	    int ret = gst_app_src_push_buffer(gst_src, buffer);
 	    if(ret !=  GST_FLOW_OK){
 	        printf("push buffer returned %d for %d bytes \n", ret, len);
@@ -850,14 +797,29 @@ public:
   	printf("DisconnectionOrError\n");
   	g_main_loop_quit(gst_app.loop);
   }
+
+  virtual void CustomizeOutputChannel(int chan, HU::ChannelDescriptor::OutputStreamChannel& streamChannel) override
+  {
+    #if ASPECT_RATIO_FIX
+        if (chan == AA_CH_VID)
+        {
+            auto videoConfig = streamChannel.mutable_video_configs(0);
+            videoConfig->set_margin_height(15);
+        }
+    #endif
+  }
 };
 
 int main (int argc, char *argv[])
 {	
+	setvbuf(stdout, NULL, _IONBF, 0);
+	setvbuf(stderr, NULL, _IONBF, 0);
 	GOOGLE_PROTOBUF_VERIFY_VERSION;
 
 	hu_log_library_versions();
 	hu_install_crash_handler();
+
+	dbus_threads_init_default();
 
 	signal (SIGTERM, signals_handler);
 
@@ -867,6 +829,14 @@ int main (int argc, char *argv[])
 	byte ep_in_addr  = -2;
 	byte ep_out_addr = -2;
 
+	/* Init gstreamer pipeline */
+	ret = gst_pipeline_init(app);
+	if (ret < 0) {
+		printf("gst_pipeline_init() ret: %d\n", ret);
+		return (-4);
+	}
+
+
 	MazdaEventCallbacks callbacks;
 	HUServer headunit(callbacks);
 
@@ -874,34 +844,12 @@ int main (int argc, char *argv[])
 
 	/* Start AA processing */
 	ret = headunit.hu_aap_start (ep_in_addr, ep_out_addr);
-	if (ret == -1)
-	{
-		printf("Phone switched to accessory mode. Attempting once more.\n");
-		sleep(1);
-		ret = headunit.hu_aap_start (ep_in_addr, ep_out_addr);
-	}
-
 	if (ret < 0) {
-		if (ret == -2)
-		{
-			printf("Phone is not connected. Connect a supported phone and restart.\n");
-			return 0;
-		}
-		else if (ret == -1)
-			printf("Phone switched to accessory mode. Restart to enter AA mode.\n");
-		else
-			printf("hu_app_start() ret: %d\n", ret);
-		return (ret);
+		printf("Phone is not connected. Connect a supported phone and restart.\n");
+		return 0;
 	}
 
 	printf("Starting Android Auto...\n");
-
-	/* Init gstreamer pipeline */
-	ret = gst_pipeline_init(app);
-	if (ret < 0) {
-		printf("gst_pipeline_init() ret: %d\n", ret);
-		return (-4);
-	}
 
 	/* Open Touchscreen Device */
 	int touchfd = open(EVENT_DEVICE_TS, O_RDONLY);
@@ -917,44 +865,41 @@ int main (int argc, char *argv[])
 		return -3;
 	}
 	int quitp_read = quitpiperw[0];
-	int quitp_write = quitpiperw[0];
+	int quitp_write = quitpiperw[1];
 
 	std::condition_variable quitcv;
 	std::mutex quitmutex;
 	
-	DBusConnection *hmi_bus;
-	DBusError error;
-
-	hmi_bus = dbus_connection_open(HMI_BUS_ADDRESS, &error);
-
-	if (!hmi_bus) {
-		printf("DBUS: failed to connect to HMI bus: %s: %s\n", error.name, error.message);
-	}
-
-	if (!dbus_bus_register(hmi_bus, &error)) {
-		printf("DBUS: failed to register with HMI bus: %s: %s\n", error.name, error.message);
-	}
-
 	std::thread input_thread([touchfd, quitp_read](){ input_thread_func(touchfd, quitp_read); } );
 	std::thread nm_thread([&quitcv, &quitmutex](){ nightmode_thread_func(quitcv, quitmutex); } );
 
-	std::stringstream tmp;
-	tmp << "headunit.pid." << getpid();
-	std::string dbus_quit_signal_interface = tmp.str();
+	//this is kind of ugly but it's only used to quit
+	volatile int keep_going = 1;
+	volatile int* keep_going_ptr = &keep_going;
 
-	tmp.str(std::string());
-	tmp << "/headunit/pid/" << getpid();
-	std::string dbus_quit_signal_path = tmp.str();
-
-	printf("dbus_quit_signal_interface %s\n", dbus_quit_signal_interface.c_str());
-	std::thread dbus_thread([dbus_quit_signal_interface](){ dbus_listener_thread_func(dbus_quit_signal_interface); } );
+	std::thread dbus_thread([keep_going_ptr](){ dbus_listener_thread_func(keep_going_ptr); } );
 
 	/* Start gstreamer pipeline and main loop */
-	ret = gst_loop(app);
-	if (ret < 0) {
-		printf("gst_loop() ret: %d\n", ret);
-		ret = -5;
-	}
+
+
+   gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_PLAYING);
+   gst_element_set_state((GstElement*)aud_pipeline, GST_STATE_PLAYING);
+   gst_element_set_state((GstElement*)au1_pipeline, GST_STATE_PLAYING);
+
+    //	g_warning("set state returned %d\n", state_ret);
+
+    gst_app.loop = g_main_loop_new (NULL, FALSE);
+    //	g_timeout_add_full(G_PRIORITY_HIGH, 1, myMainLoop, (gpointer)app, NULL);
+
+    printf("Starting Android Auto...\n");
+    g_main_loop_run (gst_app.loop);
+
+
+    gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_NULL);
+    gst_element_set_state((GstElement*)aud_pipeline, GST_STATE_NULL);
+    gst_element_set_state((GstElement*)au1_pipeline, GST_STATE_NULL);
+    gst_element_set_state((GstElement*)mic_pipeline, GST_STATE_NULL);
+
 
 	printf("quitting...\n");
 
@@ -964,25 +909,20 @@ int main (int argc, char *argv[])
 	//wake up night mode polling thread
 	quitcv.notify_all();
 
-	//make up dbus thread
-	DBusMessage* msg = dbus_message_new_signal(dbus_quit_signal_path.c_str(), dbus_quit_signal_interface.c_str(), "Quit");
+	keep_going = 0;
 
-	if (!msg) {
-		printf("DBUS: failed to create signal \n");
-	}
-
-	if (!dbus_connection_send(hmi_bus, msg, NULL)) {
-		printf("DBUS: failed to send message \n");
-	}
-	dbus_message_unref(msg);
-	dbus_connection_flush(hmi_bus);
-	dbus_connection_unref(hmi_bus);
-
+    printf("waiting for input_thread\n");
 	input_thread.join();
+    printf("waiting for nm_thread\n");
 	nm_thread.join();
+    printf("waiting for dbus_thread\n");
 	dbus_thread.join();
 
+    printf("shutting down\n");
+
 	close(touchfd);
+
+    g_main_loop_unref(gst_app.loop);
 
 		/* Stop AA processing */
 	ret = headunit.hu_aap_shutdown();
@@ -990,6 +930,16 @@ int main (int argc, char *argv[])
 		printf("hu_aap_shutdown() ret: %d\n", ret);
 		ret = -6;
 	}
+
+    gst_object_unref(vid_pipeline);
+    gst_object_unref(mic_pipeline);
+    gst_object_unref(aud_pipeline);
+    gst_object_unref(au1_pipeline);
+
+    gst_object_unref(vid_src);
+    gst_object_unref(aud_src);
+    gst_object_unref(au1_src);
+    gst_object_unref(mic_sink);
 
 	g_hu = nullptr;
 
@@ -999,3 +949,4 @@ int main (int argc, char *argv[])
 
 	return 0;
 }
+
