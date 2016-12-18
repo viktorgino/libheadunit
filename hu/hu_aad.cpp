@@ -85,7 +85,7 @@ Channel specified for each service:
 
 */
 
-  char * iaad_msg_type_str_get (int msg_type, unsigned char * src, int len) {   // Source:  HU = HU > AA   AA = AA > HU
+  const char * iaad_msg_type_str_get (int msg_type, char * src, int len) {   // Source:  HU = HU > AA   AA = AA > HU
 
     #define k3 32768+                                                   // Service specific message types start at 0x8000
 
@@ -187,7 +187,7 @@ Channel specified for each service:
       //logd ("n: %1.1d  num: %1.1d  vint: %20ld", n, num, vint);
       //logd ("%1.1d  %1.1d  %6ld", n, num, vint);
 
-      unsigned char str_buf [256] = {0};
+      char str_buf [256] = {0};
       //snprintf (str_buf, sizeof (str_buf), "%1.1d", num);
       int ctr = 0;
       for (ctr = 0; ctr < n - 1; ctr ++)
@@ -234,12 +234,12 @@ Channel specified for each service:
 
     if (log_dmp) {
       //logd ("iaad_dmp_arry n: %d  num: %d  alen: %ld", n, num, alen); // Dump raw array
-      unsigned char str_buf [256] = {0};
+      char str_buf [256] = {0};
       int ctr = 0;
       for (ctr = 0; ctr < n - 1; ctr ++)
         strncat (str_buf, "                    ", sizeof (str_buf));
 
-      unsigned char str_buf2 [256] = {0};
+      char str_buf2 [256] = {0};
       snprintf (str_buf2, sizeof (str_buf), "%s%1.1d", str_buf, num);   // Dump raw array
       hex_dump (str_buf2, 16, buf, alen);
     }
@@ -291,7 +291,7 @@ Channel specified for each service:
     return (rmv);
   }
 
-  char * msg_type_enc_get (int msg_type) {
+  const char * msg_type_enc_get (int msg_type) {
 
     switch (msg_type) {
       case 5123:  return ("SSL Change Cipher Spec");                    // 0x1403
@@ -306,11 +306,14 @@ Channel specified for each service:
 
       // Android Auto protocol dump:
 
-  unsigned int hu_aad_dmp (unsigned char * prefix, unsigned char * src, int chan, int flags, unsigned char * buf, int len) {   // Source:  HU = HU > AA   AA = AA > HU
+  unsigned int hu_aad_dmp (const char * prefix, const char * src, int chan, int flags, unsigned char * buf, int len) {   // Source:  HU = HU > AA   AA = AA > HU
 
     unsigned int rmv = 0;
     unsigned int adj = 0;
     unsigned int lft = len;
+
+    char src_write[256] = {0};
+    strncpy(src_write, src, sizeof(src_write));
 
     if (len < 2) {                                                      // If less than 2 bytes, needed for msg_type...
       loge ("hu_aad_dmp len: %d", len);
@@ -343,13 +346,13 @@ Channel specified for each service:
     adj = 2;                                                            // msg_type = 2 bytes
     iaad_adj (& rmv, & buf, & lft, adj);                                // Adjust past the msg_type to content
 
-    char * msg_type_str = iaad_msg_type_str_get (msg_type, src, lft);   // Get msg_type string
+    const char * msg_type_str = iaad_msg_type_str_get (msg_type, src_write, lft);   // Get msg_type string
     if (flags == 0x08)
-      logd ("%s src: %s  lft: %5d  Media Data Mid", prefix, src, lft);
+      logd ("%s src: %s  lft: %5d  Media Data Mid", prefix, src_write, lft);
     else if (flags == 0x0a)
-      logd ("%s src: %s  lft: %5d  Media Data End", prefix, src, lft);
+      logd ("%s src: %s  lft: %5d  Media Data End", prefix, src_write, lft);
     else
-      logd ("%s src: %s  lft: %5d  msg_type: %5d %s", prefix, src, lft, msg_type, msg_type_str);
+      logd ("%s src: %s  lft: %5d  msg_type: %5d %s", prefix, src_write, lft, msg_type, msg_type_str);
 
     if (ena_hd_hu_aad_dmp)                                              // If hex dump enabled...
       hex_dump (prefix, 16, buf, lft);                                  // Hexdump

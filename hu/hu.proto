@@ -484,3 +484,8 @@ message AudioFocusResponse
     }
     required AUDIO_FOCUS_STATE focus_type = 1;
 }
+
+message AuthCompleteResponse
+{
+    required STATUS status = 1;
+}

@@ -13,13 +13,11 @@
 #include "nmeaparse/NMEAParser.h"
 #include "nmeaparse/GPSService.h"
 
-static bool running = false;
+static volatile bool running = false;
 
 void* process_gps(void* arg) {
     auto callbackPtr = (void(*)(uint64_t, double, double, double, double, double, double))arg;
 
-    // Wait for the rest of HU to properly start
-    ms_sleep(500);
     printf("GPS thread started...");
 
     FILE* fp;
@@ -63,22 +61,23 @@ void* process_gps(void* arg) {
         try {
             parser.readLine(gps_line);
         } catch (nmea::NMEAParseError& e) {
-            loge("GPS parse error: %s.", e.message);
+            loge("GPS parse error: %s.", e.message.c_str());
         }
     }
 
     fclose(fp);
 }
 
+static pthread_t gps_thread;
 void mzd_gps_start(void(*callbackPtr)(uint64_t, double, double, double, double, double, double)) {
     running = true;
 
     // Using std::thread and/or passing std::function throws an exception on CMU for
     // some reason. Hence store it as a static.
-    pthread_t gps_thread;
     pthread_create(&gps_thread, NULL, &process_gps, (void*)callbackPtr);
 }
 
 void mzd_gps_stop() {
     running = false;
+    pthread_join(gps_thread, NULL);
 }

@@ -31,7 +31,7 @@ log_message()
 
 show_message()
 {
-	sleep 4
+	sleep 1
 	killall jci-dialog
 	log_message "= POPUP: $* "
 	/jci/tools/jci-dialog --info --title="MESSAGE" --text="$*" --no-cancel &
@@ -141,10 +141,11 @@ cp -a ${MYDIR}/config/androidauto/jci/sm/* /jci/sm/
 log_message "=== Copied Android Auto Headunit App files ==="
 chmod 755 /tmp/mnt/data_persist/dev/bin/websocketd
 chmod 755 /tmp/mnt/data_persist/dev/bin/headunit
+chmod 755 /tmp/mnt/data_persist/dev/bin/headunit-wrapper
 chmod 755 /tmp/mnt/data_persist/dev/bin/input_filter
 
 #once you are sure you are not in a boot loop, make this 2, putting it in data_persist doesn't work since it's not writable normally
-show_message "Setting /tmp/mnt/data/enable_input_filter to 1. If everything works reinstall with 2"
+show_message "Setting /tmp/mnt/data/enable_input_filter to 1"
 echo "1" > /tmp/mnt/data/enable_input_filter
 #echo "2" > /tmp/mnt/data/enable_input_filter
 chmod 755 /tmp/mnt/data/enable_input_filter
