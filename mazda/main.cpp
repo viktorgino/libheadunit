@@ -31,8 +31,6 @@ __asm__(".symver realpath1,realpath1@GLIBC_2.11.1");
 
 typedef struct {
 	GMainLoop *loop;
-	GstElement *sink;
-	GstElement *decoder;
 } gst_app_t;
 
 static gst_app_t gst_app;
@@ -48,6 +46,7 @@ GstAppSrc *au1_src = nullptr;
 
 GstElement *vid_pipeline = nullptr;
 GstAppSrc *vid_src = nullptr;
+GstElement *vid_sink = nullptr;
 
 #define ASPECT_RATIO_FIX 1
 
@@ -56,9 +55,25 @@ IHUAnyThreadInterface* g_hu = nullptr;
 bool display_status = true;
 static void set_display_status(bool st)
 {
+	printf("set_display_status %s\n", st ? "true" : "false");
 	if (st != display_status)
 	{
-		g_object_set(G_OBJECT(gst_app.sink), "should-display", st ? TRUE : FALSE, NULL);
+        if (vid_sink)
+        {
+            g_object_set(G_OBJECT(vid_sink), "should-display", st ? TRUE : FALSE, NULL);
+            #if ASPECT_RATIO_FIX
+            if (st)
+            {
+            	//This gets forgotten for some reason
+            	g_object_set(G_OBJECT(vid_sink), 
+            		"axis-left", 0,
+            		"axis-top", -20,
+            		"disp-width", 800,
+            		"disp-height", 520,
+            		NULL);
+    		}
+			#endif
+        }
 		display_status = st;
 
  		g_hu->hu_queue_command([st](IHUConnectionThreadInterface& s)
@@ -138,7 +153,7 @@ static int gst_pipeline_init(gst_app_t *app)
 	//if we have ASPECT_RATIO_FIX, cut off the bottom black bar
 	const char* vid_pipeline_launch = "appsrc name=mysrc is-live=true block=false max-latency=1000000 do-timestamp=true ! h264parse ! vpudec low-latency=true framedrop=true framedrop-level-mask=0x200 ! mfw_isink name=mysink "
 	#if ASPECT_RATIO_FIX
-    "axis-left=0 axis-top=-15 disp-width=800 disp-height=512"
+    "axis-left=0 axis-top=-20 disp-width=800 disp-height=520"
 	#else
 	"axis-left=0 axis-top=0 disp-width=800 disp-height=480"
 	#endif
@@ -151,12 +166,13 @@ static int gst_pipeline_init(gst_app_t *app)
 		g_clear_error (&error);	
 		return -1;
 	}
-	
+	    
 	bus = gst_pipeline_get_bus(GST_PIPELINE(vid_pipeline));
 	gst_bus_add_watch(bus, (GstBusFunc)bus_callback, app);
 	gst_object_unref(bus);
 
 	vid_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (vid_pipeline), "mysrc"));
+    vid_sink = GST_ELEMENT(gst_bin_get_by_name (GST_BIN (vid_pipeline), "mysink"));
 	
 	gst_app_src_set_stream_type(vid_src, GST_APP_STREAM_TYPE_STREAM);
 
@@ -562,7 +578,7 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 				printf("KEY_R\n");
 				if (isPressed)
 				{
-                    g_main_context_invoke(NULL, delayedToggleShouldDisplay, NULL);
+                    g_timeout_add(1, delayedToggleShouldDisplay, NULL);
 				}
 				break;
 			}
@@ -601,7 +617,7 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 			dbus_message_iter_get_basic(&iter, &displayMode);
 			if (displayMode)
 			{
-                g_main_context_invoke(NULL, delayedShouldDisplayFalse, NULL);
+                g_timeout_add(1, delayedShouldDisplayFalse, NULL);
 			}
 			else
 			{
@@ -894,7 +910,6 @@ int main (int argc, char *argv[])
     printf("Starting Android Auto...\n");
     g_main_loop_run (gst_app.loop);
 
-
     gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_NULL);
     gst_element_set_state((GstElement*)aud_pipeline, GST_STATE_NULL);
     gst_element_set_state((GstElement*)au1_pipeline, GST_STATE_NULL);
@@ -937,12 +952,10 @@ int main (int argc, char *argv[])
     gst_object_unref(au1_pipeline);
 
     gst_object_unref(vid_src);
+    gst_object_unref(vid_sink);
     gst_object_unref(aud_src);
     gst_object_unref(au1_src);
     gst_object_unref(mic_sink);
-
-    gst_object_unref(gst_app.sink);
-    gst_object_unref(gst_app.decoder);
 
 	g_hu = nullptr;
 
