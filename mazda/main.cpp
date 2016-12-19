@@ -12,7 +12,9 @@
 #include <inttypes.h>
 #include <cmath>
 #include <functional>
-
+#include <condition_variable>
+#include <sstream>
+#include <fstream>
 
 #include "hu_uti.h"
 #include "hu_aap.h"
@@ -22,9 +24,9 @@
 
 #define EVENT_DEVICE_TS	"/dev/input/filtered-touchscreen0"
 #define EVENT_DEVICE_CMD   "/dev/input/event1"
-#define EVENT_TYPE      EV_ABS
-#define EVENT_CODE_X    ABS_X
-#define EVENT_CODE_Y    ABS_Y
+#define EVENT_TYPE	  EV_ABS
+#define EVENT_CODE_X	ABS_X
+#define EVENT_CODE_Y	ABS_Y
 
 #define HMI_BUS_ADDRESS "unix:path=/tmp/dbus_hmi_socket"
 #define SERVICE_BUS_ADDRESS "unix:path=/tmp/dbus_service_socket"
@@ -34,125 +36,64 @@ __asm__(".symver realpath1,realpath1@GLIBC_2.11.1");
 
 typedef struct {
 	GMainLoop *loop;
-	GstPipeline *pipeline;
-	GstAppSrc *src;
-	GstElement *sink;
-	GstElement *decoder;
-	GstElement *queue;
-	guint sourceid;
 } gst_app_t;
-
 
 static gst_app_t gst_app;
 
-GstElement *mic_pipeline, *mic_sink;
-GstElement *aud_pipeline, *aud_src;
-GstElement *au1_pipeline, *au1_src;
+GstElement *mic_pipeline = nullptr;
+GstElement *mic_sink = nullptr;
 
-GAsyncQueue *sendqueue;
-typedef std::function<void()> SendQueueFunc;
+GstElement *aud_pipeline = nullptr;
+GstAppSrc *aud_src = nullptr;
 
-typedef struct {
-	int fd;
-	int x;
-	int y;
-	HU::TouchInfo::TOUCH_ACTION action;
-	int action_recvd;
-} mytouchscreen;
+GstElement *au1_pipeline = nullptr;
+GstAppSrc *au1_src = nullptr;
 
-mytouchscreen mTouch = (mytouchscreen){0,0,0,(HU::TouchInfo::TOUCH_ACTION)0,0};
+GstElement *vid_pipeline = nullptr;
+GstAppSrc *vid_src = nullptr;
+GstElement *vid_sink = nullptr;
 
-typedef struct {
-	int fd;
-	uint8_t action;
-} mycommander;
+#define ASPECT_RATIO_FIX 1
 
-mycommander mCommander = (mycommander){0,0};
+IHUAnyThreadInterface* g_hu = nullptr;
 
-
-
-static inline void queueSend(SendQueueFunc&& sendFunc)
+bool display_status = true;
+static void set_display_status(bool st)
 {
-	g_async_queue_push(sendqueue, new SendQueueFunc(sendFunc));
+	printf("set_display_status %s\n", st ? "true" : "false");
+	if (st != display_status)
+	{
+        if (vid_sink)
+        {
+            g_object_set(G_OBJECT(vid_sink), "should-display", st ? TRUE : FALSE, NULL);
+            #if ASPECT_RATIO_FIX
+            if (st)
+            {
+            	//This gets forgotten for some reason
+            	g_object_set(G_OBJECT(vid_sink), 
+            		"axis-left", 0,
+            		"axis-top", -20,
+            		"disp-width", 800,
+            		"disp-height", 520,
+            		NULL);
+    		}
+			#endif
+        }
+		display_status = st;
+
+ 		g_hu->hu_queue_command([st](IHUConnectionThreadInterface& s)
+		{
+		    HU::VideoFocus videoFocusGained;
+		    videoFocusGained.set_mode(st ? HU::VIDEO_FOCUS_MODE_FOCUSED : HU::VIDEO_FOCUS_MODE_UNFOCUSED);
+		    videoFocusGained.set_unrequested(true);
+		    s.hu_aap_enc_send_message(0, AA_CH_VID, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
+		});
+
+	}
 }
 
-
-int mic_change_state = 0;
 
 static void read_mic_data (GstElement * sink);
-
-static gboolean read_data(gst_app_t *app)
-{
-	GstBuffer *buffer;
-	guint8 *ptr;
-	GstFlowReturn ret;
-	int iret;
-	char *vbuf;
-	char *abuf;
-	int res_len = 0;
-
-	iret = hu_aap_recv_process ();                       
-
-	if (iret != 0) {
-		printf("hu_aap_recv_process() iret: %d\n", iret);
-		g_main_loop_quit(app->loop);		
-		return FALSE;
-	}
-
-	/* Is there a video buffer queued? */
-	vbuf = vid_read_head_buf_get (&res_len);
-
-	if (vbuf != NULL) {
-
-		//buffer = gst_buffer_new();
-		//gst_buffer_set_data(buffer, vbuf, res_len);
-		buffer = gst_buffer_new_and_alloc(res_len);
-		memcpy(GST_BUFFER_DATA(buffer),vbuf,res_len);
-
-		ret = gst_app_src_push_buffer(app->src, buffer);
-
-		if(ret !=  GST_FLOW_OK){
-			printf("push buffer returned %d for %d bytes \n", ret, res_len);
-			return FALSE;
-		}
-	}
-	
-	/* Is there an audio buffer queued? */
-	abuf = aud_read_head_buf_get (&res_len);
-	if (abuf != NULL) {
-
-		//buffer = gst_buffer_new();
-		//gst_buffer_set_data(buffer, abuf, res_len);
-		
-		buffer = gst_buffer_new_and_alloc(res_len);
-		memcpy(GST_BUFFER_DATA(buffer),abuf,res_len);
-
-		if (res_len <= 2048 + 96)
-			ret = gst_app_src_push_buffer((GstAppSrc *)au1_src, buffer);
-		else
-			ret = gst_app_src_push_buffer((GstAppSrc *)aud_src, buffer);
-
-		if(ret !=  GST_FLOW_OK){
-			printf("push buffer returned %d for %d bytes \n", ret, res_len);
-			return FALSE;
-		}
-	}	
-
-	return TRUE;
-}
-
-static int shouldRead = FALSE;
-
-static void start_feed (GstElement * pipeline, guint size, void *app)
-{
-	shouldRead = TRUE;
-}
-
-static void stop_feed (GstElement * pipeline, void *app)
-{
-	shouldRead = FALSE;
-}
-
 
 static gboolean bus_callback(GstBus *bus, GstMessage *message, gpointer *ptr)
 {
@@ -161,16 +102,16 @@ static gboolean bus_callback(GstBus *bus, GstMessage *message, gpointer *ptr)
 	switch(GST_MESSAGE_TYPE(message)){
 
 		case GST_MESSAGE_ERROR:{
-					       gchar *debug;
-					       GError *err;
+						   gchar *debug;
+						   GError *err;
 
-					       gst_message_parse_error(message, &err, &debug);
-					       g_print("Error %s\n", err->message);
-					       g_error_free(err);
-					       g_free(debug);
-					       g_main_loop_quit(app->loop);
-				       }
-				       break;
+						   gst_message_parse_error(message, &err, &debug);
+						   g_print("Error %s\n", err->message);
+						   g_error_free(err);
+						   g_free(debug);
+						   g_main_loop_quit(app->loop);
+					   }
+					   break;
 
 		case GST_MESSAGE_WARNING:{
 						 gchar *debug;
@@ -212,28 +153,34 @@ static int gst_pipeline_init(gst_app_t *app)
 	
 	GError *error = NULL;
 	gst_init(NULL, NULL);
-	app->pipeline = (GstPipeline*)gst_parse_launch("appsrc name=mysrc is-live=true block=false max-latency=1000000 ! h264parse ! vpudec low-latency=true framedrop=true framedrop-level-mask=0x200 ! mfw_isink name=mysink axis-left=0 axis-top=0 disp-width=800 disp-height=480 max-lateness=1000000000 sync=false async=false", &error);
+
+	//if we have ASPECT_RATIO_FIX, cut off the bottom black bar
+	const char* vid_pipeline_launch = "appsrc name=mysrc is-live=true block=false max-latency=1000000 do-timestamp=true ! h264parse ! vpudec low-latency=true framedrop=true framedrop-level-mask=0x200 ! mfw_isink name=mysink "
+	#if ASPECT_RATIO_FIX
+    "axis-left=0 axis-top=-20 disp-width=800 disp-height=520"
+	#else
+	"axis-left=0 axis-top=0 disp-width=800 disp-height=480"
+	#endif
+	" max-lateness=1000000000 sync=false async=false";
+
+	vid_pipeline = gst_parse_launch(vid_pipeline_launch, &error);
 		
 	if (error != NULL) {
 		printf("could not construct pipeline: %s\n", error->message);
 		g_clear_error (&error);	
 		return -1;
 	}
-	
-	bus = gst_pipeline_get_bus(app->pipeline);
+	    
+	bus = gst_pipeline_get_bus(GST_PIPELINE(vid_pipeline));
 	gst_bus_add_watch(bus, (GstBusFunc)bus_callback, app);
 	gst_object_unref(bus);
 
-	app->src = (GstAppSrc*)gst_bin_get_by_name (GST_BIN (app->pipeline), "mysrc");
-	app->sink = (GstElement*)gst_bin_get_by_name (GST_BIN (app->pipeline), "mysink");
+	vid_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (vid_pipeline), "mysrc"));
+    vid_sink = GST_ELEMENT(gst_bin_get_by_name (GST_BIN (vid_pipeline), "mysink"));
 	
-	gst_app_src_set_stream_type(app->src, GST_APP_STREAM_TYPE_STREAM);
+	gst_app_src_set_stream_type(vid_src, GST_APP_STREAM_TYPE_STREAM);
 
-	g_signal_connect(app->src, "need-data", G_CALLBACK(start_feed), app);
-		
-	g_signal_connect(app->src, "enough-data", G_CALLBACK(stop_feed), app);
-
-	aud_pipeline = gst_parse_launch("appsrc name=audsrc is-live=true block=false max-latency=1000000 ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=48000, channels=2 ! volume volume=0.4 ! alsasink ",&error);
+	aud_pipeline = gst_parse_launch("appsrc name=audsrc is-live=true block=false max-latency=1000000 do-timestamp=true ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=48000, channels=2 ! volume volume=0.4 ! alsasink ",&error);
 
 	if (error != NULL) {
 		printf("could not construct pipeline: %s\n", error->message);
@@ -241,12 +188,12 @@ static int gst_pipeline_init(gst_app_t *app)
 		return -1;
 	}	
 
-	aud_src = gst_bin_get_by_name (GST_BIN (aud_pipeline), "audsrc");
+	aud_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (aud_pipeline), "audsrc"));
 	
 	gst_app_src_set_stream_type((GstAppSrc *)aud_src, GST_APP_STREAM_TYPE_STREAM);
 
 
-	au1_pipeline = gst_parse_launch("appsrc name=au1src is-live=true block=false max-latency=1000000 ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=16000, channels=1 ! volume volume=0.4 ! alsasink ",&error);
+	au1_pipeline = gst_parse_launch("appsrc name=au1src is-live=true block=false max-latency=1000000 do-timestamp=true ! audio/x-raw-int, signed=true, endianness=1234, depth=16, width=16, rate=16000, channels=1 ! volume volume=0.4 ! alsasink ",&error);
 
 	if (error != NULL) {
 		printf("could not construct pipeline: %s\n", error->message);
@@ -254,7 +201,7 @@ static int gst_pipeline_init(gst_app_t *app)
 		return -1;
 	}	
 
-	au1_src = gst_bin_get_by_name (GST_BIN (au1_pipeline), "au1src");
+	au1_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (au1_pipeline), "au1src"));
 	
 	gst_app_src_set_stream_type((GstAppSrc *)au1_src, GST_APP_STREAM_TYPE_STREAM);
 
@@ -283,21 +230,20 @@ static int gst_pipeline_init(gst_app_t *app)
 
 uint64_t get_cur_timestamp()
 {
-    struct timespec tp;
-    /* Fetch the time stamp */
-    clock_gettime(CLOCK_REALTIME, &tp);
+	struct timespec tp;
+	/* Fetch the time stamp */
+	clock_gettime(CLOCK_REALTIME, &tp);
 
-	return tp.tv_sec * 1000000000 + tp.tv_nsec;	
+	return tp.tv_sec * 1000000 + tp.tv_nsec / 1000;	
 }
 
 
-static void aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, unsigned int y) 
-{
-	uint64_t timeStamp = get_cur_timestamp();
-	queueSend([action, x, y, timeStamp]()
+static void aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, unsigned int y) {
+
+	g_hu->hu_queue_command([action, x, y](IHUConnectionThreadInterface& s)
 	{
-	    HU::InputEvent inputEvent;
-	    inputEvent.set_timestamp(timeStamp);
+ 		HU::InputEvent inputEvent;
+	    inputEvent.set_timestamp(get_cur_timestamp());
 	    HU::TouchInfo* touchEvent = inputEvent.mutable_touch();
 	    touchEvent->set_action(action);
 	    HU::TouchInfo::Location* touchLocation = touchEvent->add_location();
@@ -307,102 +253,104 @@ static void aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, u
 
 	    /* Send touch event */
 	    
-	    hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
-    });
+	    int ret = s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
+	    if (ret < 0) {
+	        printf("aa_touch_event(): hu_aap_enc_send() failed with (%d)\n", ret);
+	    }
+	});
 }
 
-static const int max_size = 8192;
 
 
 static void read_mic_data (GstElement * sink)
-{		
-	GstBuffer *gstbuf;
-	int ret;
-	
-	g_signal_emit_by_name (sink, "pull-buffer", &gstbuf,NULL);
-	
-	if (gstbuf) {
-
-		/* if mic is stopped, don't bother sending */	
-
-		if (mic_change_state == 0) {
-			printf("Mic stopped.. dropping buffers \n");
-			gst_buffer_unref(gstbuf);
-			return;
-		}
-		
-		gint mic_buf_sz;
-		mic_buf_sz = GST_BUFFER_SIZE (gstbuf);
-		
-		int idx;
-		
-		if (mic_buf_sz <= 64) {
-			printf("Mic data < 64 \n");
-			gst_buffer_unref(gstbuf);
-			return;
-		}
-
-		uint64_t timeStamp = get_cur_timestamp();
-		queueSend([gstbuf, timeStamp, mic_buf_sz]()
-		{
-			hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaData0, timeStamp , GST_BUFFER_DATA(gstbuf), mic_buf_sz);
-			gst_buffer_unref(gstbuf);
-		});
-	}
-} 
-
-gboolean touch_poll_event(gpointer data)
 {
-	int mic_ret = hu_aap_mic_get ();
-	
-	if (mic_change_state == 0 && mic_ret == 2) {
-		printf("SHAI1 : Mic Started\n");
-		mic_change_state = 2;
-		gst_element_set_state (mic_pipeline, GST_STATE_PLAYING);
-	}
-		
-	if (mic_change_state == 2 && mic_ret == 1) {
-		printf("SHAI1 : Mic Stopped\n");
-		mic_change_state = 0;
-		gst_element_set_state (mic_pipeline, GST_STATE_READY);
-	}	
-	
+        
+    GstBuffer *gstbuf;
+    int ret;
+    
+    g_signal_emit_by_name (sink, "pull-buffer", &gstbuf,NULL);
+    
+    if (gstbuf) {
+
+        /* if mic is stopped, don't bother sending */    
+        GstState mic_state = GST_STATE_NULL;
+        if (gst_element_get_state (mic_pipeline, &mic_state, NULL, GST_CLOCK_TIME_NONE) != GST_STATE_CHANGE_SUCCESS
+        	|| mic_state != GST_STATE_PLAYING) {
+            printf("Mic stopped.. dropping buffers \n");
+            gst_buffer_unref(gstbuf);
+            return;
+        }
+        
+           
+        gint mic_buf_sz = GST_BUFFER_SIZE (gstbuf);
+        
+        int idx;
+        
+        if (mic_buf_sz <= 64) {
+            printf("Mic data < 64 \n");
+            gst_buffer_unref(gstbuf);
+            return;
+        }
+        
+        uint64_t bufTimestamp = GST_BUFFER_TIMESTAMP(gstbuf);
+        uint64_t timestamp = GST_CLOCK_TIME_IS_VALID(bufTimestamp) ? bufTimestamp : get_cur_timestamp();
+        g_hu->hu_queue_command([timestamp, gstbuf, mic_buf_sz](IHUConnectionThreadInterface& s)
+		{
+	        int ret = s.hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaDataWithTimestamp, timestamp, GST_BUFFER_DATA(gstbuf), mic_buf_sz);
+	       
+	        if (ret < 0) {
+	            printf("read_mic_data(): hu_aap_enc_send() failed with (%d)\n", ret);
+	        }
+	        
+	        gst_buffer_unref(gstbuf);
+	    });
+    }
+}
+
+
+struct TouchScreenState {
+	int x;
+	int y;
+	HU::TouchInfo::TOUCH_ACTION action;
+	int action_recvd;
+};
+
+bool touch_poll_event(TouchScreenState& mTouch, int touchfd, int quitfd)
+{
+
 	struct input_event event[64];
 	const size_t ev_size = sizeof(struct input_event);
 	const size_t buffer_size = ev_size * 64;
-    ssize_t size;
-    gst_app_t *app = (gst_app_t *)data;
+	ssize_t size;
+	gst_app_t *app = &gst_app;
 	
 	fd_set set;
-	struct timeval timeout;
 	int unblocked;
 
 	FD_ZERO(&set);
-	FD_SET(mTouch.fd, &set);
-
-	timeout.tv_sec = 0;
-	timeout.tv_usec = 10000;
+	FD_SET(touchfd, &set);
+	FD_SET(quitfd, &set);
 	
-	unblocked = select(mTouch.fd + 1, &set, NULL, NULL, &timeout);
+	unblocked = select(std::max(touchfd, quitfd) + 1, &set, NULL, NULL, NULL);
 
 	if (unblocked == -1) {
 		printf("Error in read...\n");
 		g_main_loop_quit(app->loop);
-		return FALSE;
+		return false;
 	}
-	else if (unblocked == 0) {
-			return TRUE;
+	else if (unblocked > 0 && FD_ISSET(quitfd, &set)) {
+		return false;
 	}
 	
-	size = read(mTouch.fd, &event, buffer_size);
+	size = read(touchfd, &event, buffer_size);
 	
 	if (size == 0 || size == -1)
-		return FALSE;
+		return false;
 	
 	if (size < ev_size) {
 		printf("Error size when reading\n");
 		g_main_loop_quit(app->loop);
-		return FALSE;
+		return false;
 	}
 	
 	int num_chars = size / ev_size;
@@ -416,7 +364,11 @@ gboolean touch_poll_event(gpointer data)
 						mTouch.x = event[i].value * 800 /4095;
 						break;
 					case ABS_MT_POSITION_Y:
+						#if ASPECT_RATIO_FIX
+                        mTouch.y = event[i].value * 450/4095 + 15;
+						#else
 						mTouch.y = event[i].value * 480/4095;
+						#endif
 						break;
 				}
 				break;
@@ -444,12 +396,18 @@ gboolean touch_poll_event(gpointer data)
 	} 
 
 	
-	return TRUE;
+	return true;
 }
 
-GMainLoop *mainloop;
+static void input_thread_func(int touchfd, int quitfd) 
+{
 
-int displayStatus = 1;
+	TouchScreenState mTouch {0,0,(HU::TouchInfo::TOUCH_ACTION)0,0};
+	while (touch_poll_event(mTouch, touchfd, quitfd)) {
+
+	}
+}
+
 
 inline int dbus_message_decode_timeval(DBusMessageIter *iter, struct timeval *time)
 {
@@ -519,18 +477,25 @@ inline int dbus_message_decode_input_event(DBusMessageIter *iter, struct input_e
 
 static gboolean delayedShouldDisplayTrue(gpointer data)
 {
-	gst_app_t *app = &gst_app;
-	g_object_set(G_OBJECT(app->sink), "should-display", TRUE, NULL);
-	displayStatus = TRUE;
+	set_display_status(true);
+	return FALSE;
+}
 
+static gboolean delayedShouldDisplayFalse(gpointer data)
+{
+	set_display_status(false);
+	return FALSE;
+}
+
+static gboolean delayedToggleShouldDisplay(gpointer data)
+{
+	set_display_status(!display_status);
 	return FALSE;
 }
 
 
 static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *message, void *p)
 {
-	struct timespec tp;
-	gst_app_t *app = &gst_app;
 	DBusMessageIter iter;
 
 	if (strcmp("KeyEvent", dbus_message_get_member(message)) == 0)
@@ -609,48 +574,39 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 				printf("KEY_HOME\n");
 				if (isPressed)
 				{
-					g_main_loop_quit (mainloop);
+					g_main_loop_quit (gst_app.loop);
 				}
 				break;
 			case KEY_R:
 				printf("KEY_R\n");
 				if (isPressed)
 				{
-					if (displayStatus)
-					{
-						g_object_set(G_OBJECT(app->sink), "should-display", FALSE, NULL);
-						displayStatus = FALSE;
-					}
-					else
-					{
-						g_object_set(G_OBJECT(app->sink), "should-display", TRUE, NULL);
-						displayStatus = TRUE;
-					}
+                    g_timeout_add(1, delayedToggleShouldDisplay, NULL);
 				}
 				break;
 			}
 			if (scanCode != 0 || scrollAmount != 0) {
-             	queueSend([timeStamp, scanCode, scrollAmount, isPressed]()
-             	{
-             		HU::InputEvent inputEvent;
-		            inputEvent.set_timestamp(timeStamp);
-		            if (scanCode != 0)
-		            {
-			            HU::ButtonInfo* buttonInfo = inputEvent.mutable_button()->add_button();
-			            buttonInfo->set_is_pressed(isPressed);
-			            buttonInfo->set_meta(0);
-			            buttonInfo->set_long_press(false);
-			            buttonInfo->set_scan_code(scanCode);
-		        	}
-		        	if (scrollAmount != 0)
-		        	{
+			 	g_hu->hu_queue_command([timeStamp, scanCode, scrollAmount, isPressed](IHUConnectionThreadInterface& s)
+			 	{
+			 		HU::InputEvent inputEvent;
+					inputEvent.set_timestamp(timeStamp);
+					if (scanCode != 0)
+					{
+						HU::ButtonInfo* buttonInfo = inputEvent.mutable_button()->add_button();
+						buttonInfo->set_is_pressed(isPressed);
+						buttonInfo->set_meta(0);
+						buttonInfo->set_long_press(false);
+						buttonInfo->set_scan_code(scanCode);
+					}
+					if (scrollAmount != 0)
+					{
 						HU::RelativeInputEvent* rel = inputEvent.mutable_rel_event()->mutable_event();
-		                rel->set_delta(scrollAmount);
-		                rel->set_scan_code(HUIB_SCROLLWHEEL);
-		        	}
-                	hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
-            	});
-            }
+						rel->set_delta(scrollAmount);
+						rel->set_scan_code(HUIB_SCROLLWHEEL);
+					}
+					s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
+				});
+			}
 		}
 		//key release
 		//else if (event.type == EV_KEY && event.value == 1)
@@ -664,8 +620,7 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 			dbus_message_iter_get_basic(&iter, &displayMode);
 			if (displayMode)
 			{
-				g_object_set(G_OBJECT(app->sink), "should-display", FALSE, NULL);
-				displayStatus = FALSE;
+                g_timeout_add(1, delayedShouldDisplayFalse, NULL);
 			}
 			else
 			{
@@ -680,7 +635,7 @@ static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *mes
 
 }
 
-static void * input_thread(void *app) {
+static void dbus_listener_thread_func(volatile int* keep_going) {
 
 	DBusConnection *hmi_bus;
 	DBusError error;
@@ -695,25 +650,26 @@ static void * input_thread(void *app) {
 		printf("DBUS: failed to register with HMI bus: %s: %s\n", error.name, error.message);
 	}
 
-	dbus_connection_add_filter(hmi_bus, handle_dbus_message, NULL, NULL);
+	int quit_thread = 0;
+	dbus_connection_add_filter(hmi_bus, handle_dbus_message, &quit_thread, NULL);
 	dbus_bus_add_match(hmi_bus, "type='signal',interface='us.insolit.mazda.connector',member='KeyEvent'", &error);
 	dbus_bus_add_match(hmi_bus, "type='signal',interface='com.jci.bucpsa',member='DisplayMode'", &error);
-
-	while (touch_poll_event(app)) {
-		//commander_poll_event(app);		
-		dbus_connection_read_write_dispatch(hmi_bus, 100);
-		//ms_sleep(100);
+	
+	while (*keep_going && dbus_connection_read_write_dispatch(hmi_bus, 1000)) 
+	{
+		//loop
 	}
+
+	dbus_connection_unref(hmi_bus);
 }
 
 
-static int nightmode = NM_NO_VALUE;
-static void * nightmode_thread(void *app) 
+static void nightmode_thread_func(std::condition_variable& quitcv, std::mutex& quitmutex) 
 {
-	// Wait for proper startup.
-	ms_sleep(500);
+	int nightmode = NM_NO_VALUE;
 	mzd_nightmode_start();
-	while (g_main_loop_is_running (mainloop)) {		
+    while (true)
+	{		
 		int nightmodenow = mzd_is_night_mode_set();
 
 		// We send nightmode status periodically, otherwise Google Maps
@@ -721,157 +677,164 @@ static void * nightmode_thread(void *app)
 		// other AA UI is already in nightmode.
 		if (nightmodenow != NM_NO_VALUE) {
 			nightmode = nightmodenow;
-			queueSend([nightmodenow]()
-			{
-		        HU::SensorEvent sensorEvent;
-		        sensorEvent.add_night_mode()->set_is_night(nightmodenow);
 
-		        hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
+			g_hu->hu_queue_command([nightmodenow](IHUConnectionThreadInterface& s)
+			{
+				HU::SensorEvent sensorEvent;
+				sensorEvent.add_night_mode()->set_is_night(nightmodenow);
+
+				s.hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
 			});
 		}
 		
-		ms_sleep(1000);
+		{
+			std::unique_lock<std::mutex> lk(quitmutex);
+    		if (quitcv.wait_for(lk, std::chrono::milliseconds(1000)) == std::cv_status::no_timeout)
+    		{
+    			break;
+    		}
+		}
 	}
 
 	mzd_nightmode_stop();
 }
 
 
-
-gboolean myMainLoop(gpointer app)
-{
-	if (shouldRead)
-	{
-		read_data((gst_app_t*)app);
-	}
-
-	SendQueueFunc* cmd;
-
-	while (cmd = (SendQueueFunc*)g_async_queue_try_pop(sendqueue))
-	{
-		(*cmd)();
-		delete cmd;
-	}
-
-	return TRUE; 
-}
-
-static void * main_thread(void *app) {
-
-	ms_sleep(100);
-
-	while (mainloop && g_main_loop_is_running (mainloop)) {
-		myMainLoop(app);
-	}
-}
-
-
-static int gst_loop(gst_app_t *app)
-{
-	int ret;
-	GstStateChangeReturn state_ret;
-
-	state_ret = gst_element_set_state((GstElement*)app->pipeline, GST_STATE_PLAYING);
-	state_ret = gst_element_set_state((GstElement*)aud_pipeline, GST_STATE_PLAYING);
-	state_ret = gst_element_set_state((GstElement*)au1_pipeline, GST_STATE_PLAYING);
-
-	//	g_warning("set state returned %d\n", state_ret);
-
-	app->loop = g_main_loop_new (NULL, FALSE);
-
-	mainloop = app->loop;
-
-	//	g_timeout_add_full(G_PRIORITY_HIGH, 1, myMainLoop, (gpointer)app, NULL);
-
-	printf("Starting Android Auto...\n");
-	g_main_loop_run (app->loop);
-
-	// TO-DO
-	state_ret = gst_element_set_state((GstElement*)app->pipeline, GST_STATE_NULL);
-	//	g_warning("set state null returned %d\n", state_ret);
-
-	gst_object_unref(app->pipeline);
-	gst_object_unref(mic_pipeline);
-	gst_object_unref(aud_pipeline);
-	gst_object_unref(au1_pipeline);
-
-	return ret;
-}
-
 static void signals_handler (int signum)
 {
 	if (signum == SIGINT)
 	{
-		if (mainloop && g_main_loop_is_running (mainloop))
+		if (gst_app.loop && g_main_loop_is_running (gst_app.loop))
 		{
-			g_main_loop_quit (mainloop);
+			g_main_loop_quit (gst_app.loop);
 		}
 	}
 }
+
+
+class MazdaEventCallbacks : public IHUConnectionThreadEventCallbacks
+{
+public:
+  virtual int MediaPacket(int chan, uint64_t timestamp, const byte * buf, int len) override
+  {
+  	GstAppSrc* gst_src = nullptr;
+  	if (chan == AA_CH_VID)
+  	{
+  		gst_src = vid_src;
+  	}
+  	else if (chan == AA_CH_AUD)
+  	{
+  		gst_src  = aud_src;
+  	}
+  	else if (chan == AA_CH_AU1)
+	{
+		gst_src = au1_src;
+	}
+
+	if (gst_src)
+	{
+		GstBuffer * buffer = gst_buffer_new_and_alloc(len);
+	    memcpy(GST_BUFFER_DATA(buffer), buf, len);
+	    int ret = gst_app_src_push_buffer(gst_src, buffer);
+	    if(ret !=  GST_FLOW_OK){
+	        printf("push buffer returned %d for %d bytes \n", ret, len);
+	    }
+	}
+  	return 0;
+  }
+
+  virtual int MediaStart(int chan) override
+  {
+  	if (chan == AA_CH_MIC)
+  	{
+		printf("SHAI1 : Mic Started\n");
+		gst_element_set_state (mic_pipeline, GST_STATE_PLAYING);
+	}	
+  	return 0;
+  }
+
+  virtual int MediaStop(int chan) override
+  {
+  	if (chan == AA_CH_MIC)
+  	{
+		printf("SHAI1 : Mic Stopped\n");
+		gst_element_set_state (mic_pipeline, GST_STATE_READY);
+	}
+  	return 0;
+  }
+
+  virtual void DisconnectionOrError() override
+  {
+  	printf("DisconnectionOrError\n");
+  	if (gst_app.loop && g_main_loop_is_running (gst_app.loop))
+	{
+  		g_main_loop_quit(gst_app.loop);
+  	}
+  }
+
+  virtual void CustomizeOutputChannel(int chan, HU::ChannelDescriptor::OutputStreamChannel& streamChannel) override
+  {
+    #if ASPECT_RATIO_FIX
+        if (chan == AA_CH_VID)
+        {
+            auto videoConfig = streamChannel.mutable_video_configs(0);
+            //This adds a 15px border to the top and bottom of the stream, but makes the image 16:9. We chop off the borders and stretch
+            //vertically in gstreamer
+            videoConfig->set_margin_height(30);
+        }
+    #endif
+  }
+};
 
 void gps_location_handler(uint64_t timestamp, double lat, double lng, double bearing, double speed, double alt, double accuracy) {
 	logd("[LOC][%" PRIu64 "] - Lat: %f Lng: %f Brng: %f Spd: %f Alt: %f Acc: %f \n", 
 			timestamp, lat, lng, bearing, speed, alt, accuracy);
 
-	HU::SensorEvent sensorEvent;
-	HU::SensorEvent::LocationData* location = sensorEvent.add_location_data();
-	location->set_timestamp(timestamp);
-	location->set_latitude(static_cast<int32_t>(lat * 1E7));
-	location->set_longitude(static_cast<int32_t>(lng * 1E7));
+	g_hu->hu_queue_command([timestamp, lat, lng, bearing, speed, alt, accuracy](IHUConnectionThreadInterface& s)
+	{
+		HU::SensorEvent sensorEvent;
+		HU::SensorEvent::LocationData* location = sensorEvent.add_location_data();
+		location->set_timestamp(timestamp);
+		location->set_latitude(static_cast<int32_t>(lat * 1E7));
+		location->set_longitude(static_cast<int32_t>(lng * 1E7));
 
-	if (bearing != 0) {
-		location->set_bearing(static_cast<int32_t>(bearing * 1E6));
-	}
+		if (bearing != 0) {
+			location->set_bearing(static_cast<int32_t>(bearing * 1E6));
+		}
 
-	// AA expects speed in knots, so convert back
-	location->set_speed(static_cast<int32_t>((speed / 1.852) * 1E3));
+		// AA expects speed in knots, so convert back
+		location->set_speed(static_cast<int32_t>((speed / 1.852) * 1E3));
 
-	if (alt != 0) {
-		location->set_altitude(static_cast<int32_t>(alt * 1E2));
-	}
+		if (alt != 0) {
+			location->set_altitude(static_cast<int32_t>(alt * 1E2));
+		}
 
-	location->set_accuracy(static_cast<int32_t>(accuracy * 1E3));
+		location->set_accuracy(static_cast<int32_t>(accuracy * 1E3));
 
-	hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
+		s.hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
+	});
 }
 
 int main (int argc, char *argv[])
 {	
+	//Force line-only buffering so we can see the output during hangs
+	setvbuf(stdout, NULL, _IOLBF, 0);
+	setvbuf(stderr, NULL, _IOLBF, 0);
+
 	GOOGLE_PROTOBUF_VERIFY_VERSION;
 
-	printf("libprotoversion: %s\n",google::protobuf::internal::VersionString(GOOGLE_PROTOBUF_VERSION).c_str());
+	hu_log_library_versions();
+	hu_install_crash_handler();
 
-	signal (SIGTERM, signals_handler);
+	dbus_threads_init_default();
+
+	//signal (SIGTERM, signals_handler);
 
 	gst_app_t *app = &gst_app;
 	int ret = 0;
 	errno = 0;
 	byte ep_in_addr  = -2;
 	byte ep_out_addr = -2;
-
-	/* Start AA processing */
-	ret = hu_aap_start (ep_in_addr, ep_out_addr);
-	if (ret == -1)
-	{
-		printf("Phone switched to accessory mode. Attempting once more.\n");
-		sleep(1);
-		ret = hu_aap_start (ep_in_addr, ep_out_addr);
-	}
-
-	if (ret < 0) {
-		if (ret == -2)
-		{
-			printf("Phone is not connected. Connect a supported phone and restart.\n");
-			return 0;
-		}
-		else if (ret == -1)
-			printf("Phone switched to accessory mode. Restart to enter AA mode.\n");
-		else
-			printf("hu_app_start() ret: %d\n", ret);
-		return (ret);
-	}
-
-	printf("Starting Android Auto...\n");
 
 	/* Init gstreamer pipeline */
 	ret = gst_pipeline_init(app);
@@ -880,53 +843,121 @@ int main (int argc, char *argv[])
 		return (-4);
 	}
 
-	/* Open Touchscreen Device */
-	mTouch.fd = open(EVENT_DEVICE_TS, O_RDONLY);
 
-	if (mTouch.fd == -1) {
+	MazdaEventCallbacks callbacks;
+	HUServer headunit(callbacks);
+
+	g_hu = &headunit.GetAnyThreadInterface();
+
+	/* Start AA processing */
+	ret = headunit.hu_aap_start (ep_in_addr, ep_out_addr);
+	if (ret < 0) {
+		printf("Phone is not connected. Connect a supported phone and restart.\n");
+		return 0;
+	}
+
+	printf("Starting Android Auto...\n");
+
+	/* Open Touchscreen Device */
+	int touchfd = open(EVENT_DEVICE_TS, O_RDONLY);
+
+	if (touchfd < 0) {
 		fprintf(stderr, "%s is not a vaild device\n", EVENT_DEVICE_TS);
 		return -3;
 	}
 
-	sendqueue = g_async_queue_new();
+	int quitpiperw[2];
+	if (pipe(quitpiperw) < 0) {
+		fprintf(stderr, "Pipe failed");
+		return -3;
+	}
+	int quitp_read = quitpiperw[0];
+	int quitp_write = quitpiperw[1];
 
-	// Input processing
-	pthread_t iput_thread;
-	pthread_create(&iput_thread, NULL, &input_thread, (void *)app);
+	std::condition_variable quitcv;
+	std::mutex quitmutex;
+	
+	std::thread input_thread([touchfd, quitp_read](){ input_thread_func(touchfd, quitp_read); } );
+	std::thread nm_thread([&quitcv, &quitmutex](){ nightmode_thread_func(quitcv, quitmutex); } );
 
-	// Nightmode sensor processing
-	pthread_t nm_thread;
-	pthread_create(&nm_thread, NULL, &nightmode_thread, (void *)app);
+	//this is kind of ugly but it's only used to quit
+	volatile int keep_going = 1;
+	volatile int* keep_going_ptr = &keep_going;
+
+	std::thread dbus_thread([keep_going_ptr](){ dbus_listener_thread_func(keep_going_ptr); } );
+
+	/* Start gstreamer pipeline and main loop */
 
 	// GPS processing
 	mzd_gps_start(&gps_location_handler);
 
-	pthread_t mn_thread;
-	pthread_create(&mn_thread, NULL, &main_thread, (void *)app);
+   gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_PLAYING);
+   gst_element_set_state((GstElement*)aud_pipeline, GST_STATE_PLAYING);
+   gst_element_set_state((GstElement*)au1_pipeline, GST_STATE_PLAYING);
 
-	/* Start gstreamer pipeline and main loop */
-	ret = gst_loop(app);
-	if (ret < 0) {
-		printf("gst_loop() ret: %d\n", ret);
-		ret = -5;
-	}
+    gst_app.loop = g_main_loop_new (NULL, FALSE);
+    //	g_timeout_add_full(G_PRIORITY_HIGH, 1, myMainLoop, (gpointer)app, NULL);
 
-	/* Stop AA processing */
-	ret = hu_aap_stop ();
+    printf("Starting Android Auto...\n");
+    g_main_loop_run (gst_app.loop);
+
+    gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_NULL);
+    gst_element_set_state((GstElement*)aud_pipeline, GST_STATE_NULL);
+    gst_element_set_state((GstElement*)au1_pipeline, GST_STATE_NULL);
+    gst_element_set_state((GstElement*)mic_pipeline, GST_STATE_NULL);
+
+
+	printf("quitting...\n");
+
+	//data we write doesn't matter, wake up touch polling thread
+	write(quitp_write, &quitp_write, sizeof(quitp_write));
+
+	//wake up night mode polling thread
+	quitcv.notify_all();
+
+	keep_going = 0;
+
+    printf("waiting for input_thread\n");
+	input_thread.join();
+    printf("waiting for nm_thread\n");
+	nm_thread.join();
+    printf("waiting for dbus_thread\n");
+	dbus_thread.join();
+
+	printf("waiting for gps_thread\n");
+	mzd_gps_stop();
+
+    printf("shutting down\n");
+
+	close(touchfd);
+
+    g_main_loop_unref(gst_app.loop);
+    gst_app.loop = nullptr;
+
+		/* Stop AA processing */
+	ret = headunit.hu_aap_shutdown();
 	if (ret < 0) {
-		printf("hu_aap_stop() ret: %d\n", ret);
+		printf("hu_aap_shutdown() ret: %d\n", ret);
 		ret = -6;
 	}
 
-	close(mTouch.fd);
+    gst_object_unref(vid_pipeline);
+    gst_object_unref(mic_pipeline);
+    gst_object_unref(aud_pipeline);
+    gst_object_unref(au1_pipeline);
 
-	mzd_gps_stop();
-	pthread_cancel(nm_thread);
-	pthread_cancel(mn_thread);
-	pthread_cancel(iput_thread);
+    gst_object_unref(vid_src);
+    gst_object_unref(vid_sink);
+    gst_object_unref(aud_src);
+    gst_object_unref(au1_src);
+    gst_object_unref(mic_sink);
+
+	g_hu = nullptr;
+
 	system("kill -SIGUSR2 $(pgrep input_filter)");
 
 	printf("END \n");
 
 	return 0;
 }
+

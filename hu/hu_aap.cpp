@@ -4,13 +4,26 @@
 #include "hu_uti.h"
 #include "hu_ssl.h"
 #include "hu_aap.h"
-#ifndef NDEBUG
-  #include "hu_aad.h"
-#endif
+#include "hu_aad.h"
 #include <fstream>
+#include <memory>
 #include <endian.h>
 
-  int iaap_state = 0; // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
+  const char * state_get (int state) {
+    switch (state) {
+      case hu_STATE_INITIAL:                                           // 0
+        return ("hu_STATE_INITIAL");
+      case hu_STATE_STARTIN:                                           // 1
+        return ("hu_STATE_STARTIN");
+      case hu_STATE_STARTED:                                           // 2
+        return ("hu_STATE_STARTED");
+      case hu_STATE_STOPPIN:                                           // 3
+        return ("hu_STATE_STOPPIN");
+      case hu_STATE_STOPPED:                                           // 4
+        return ("hu_STATE_STOPPED");
+    }
+    return ("hu_STATE Unknown error");
+  }
 
   const char * chan_get (int chan) {
     switch (chan) {
@@ -28,106 +41,83 @@
 #include "hu_usb.h"
 #include "hu_tcp.h"
 
-//dummy functions
-  // int hu_tcp_recv  (byte * buf, int len, int tmo) {}                     // Used by hu_aap:hu_aap_tcp_recv ()
-  // int hu_tcp_send  (byte * buf, int len, int tmo)  {}                    // Used by hu_aap:hu_aap_tcp_send ()
-  // int hu_tcp_stop  () {}                                                 // Used by hu_aap:hu_aap_stop     ()
-  // int hu_tcp_start (byte ep_in_addr, byte ep_out_addr) {}                // Used by hu_aap:hu_aap_start    ()
+  HUServer::HUServer(IHUConnectionThreadEventCallbacks& callbacks)
+  : callbacks(callbacks)
+  {
 
-
-  int transport_type = 1; // 1=USB 2=WiFi
-  int ihu_tra_recv  (byte * buf, int len, int tmo) {
-    if (transport_type == 1)
-      return (hu_usb_recv  (buf, len, tmo));
-    else if (transport_type == 2)
-      return (hu_tcp_recv  (buf, len, tmo));
-    else
-      return (-1);
-  }
-  int ihu_tra_send  (byte * buf, int len, int tmo) {
-    if (transport_type == 1)
-      return (hu_usb_send  (buf, len, tmo));
-    else if (transport_type == 2)
-      return (hu_tcp_send  (buf, len, tmo));
-    else
-      return (-1);
-  }
-  int ihu_tra_stop  () {
-    if (transport_type == 1)
-      return (hu_usb_stop  ());
-    else if (transport_type == 2)
-      return (hu_tcp_stop  ());
-    else
-      return (-1);
   }
 
 
-  int iaap_tra_recv_tmo = 150;//100;//1;//10;//100;//250;//100;//250;//100;//25; // 10 doesn't work ? 100 does
-  int iaap_tra_send_tmo = 500;//2;//25;//250;//500;//100;//500;//250;
-
-  int ihu_tra_start (byte ep_in_addr, byte ep_out_addr) {
+  int HUServer::ihu_tra_start (byte ep_in_addr, byte ep_out_addr) {
     if (ep_in_addr == 255 && ep_out_addr == 255) {
       logd ("AA over Wifi");
-      transport_type = 2;       // WiFi
-      iaap_tra_recv_tmo = 1;
-      iaap_tra_send_tmo = 2;
+      transport = std::unique_ptr<HUTransportStream>(new HUTransportStreamTCP());
+      iaap_tra_recv_tmo = 1000;
+      iaap_tra_send_tmo = 2000;
     }
     else { 
-      transport_type = 1;       // USB
+      transport = std::unique_ptr<HUTransportStream>(new HUTransportStreamUSB());
       logd ("AA over USB");
-      iaap_tra_recv_tmo = 150;//100;
-      iaap_tra_send_tmo = 250;
+      iaap_tra_recv_tmo = 0;//100;
+      iaap_tra_send_tmo = 2500;
     }
-    if (transport_type == 1)
-      return (hu_usb_start  (ep_in_addr, ep_out_addr));
-    else if (transport_type == 2)
-      return (hu_tcp_start  (ep_in_addr, ep_out_addr));
-    else
-      return (-1);
+    return transport->Start(ep_in_addr, ep_out_addr);
   }
 
-
-
-
-  byte enc_buf [DEFBUF] = {0};                                          // Global encrypted transmit data buffer
-
-  byte assy [65536 * 16] = {0};                                         // Global assembly buffer for video fragments: Up to 1 megabyte   ; 128K is fine for now at 800*640
-  int assy_size = 0;                                                    // Current size
-  int max_assy_size = 0;                                                // Max observed size needed:  151,000
-
-  int vid_rec_ena = 0;                                                // Video recording to file
-  int vid_rec_fd  = -1;
-
-  byte vid_ack [] = {0x80, 0x04, 0x08, 0, 0x10,  1};                    // Global Ack: 0, 1
-
-  byte  rx_buf [DEFBUF] = {0};                                          // Global Transport Rx buf
-//	byte  *rx_buf;
-  //byte dec_buf [DEFBUF] = {0};                                          // Global decrypted receive buffer
-  #define dec_buf rx_buf                          // Use same buffer !!!
-
-
-
-  int hu_aap_tra_set (int chan, int flags, int type, byte * buf, int len) {  // Convenience function sets up 6 byte Transport header: chan, flags, len, type
-
-    buf [0] = (byte) chan;                                              // Encode channel and flags
-    buf [1] = (byte) flags;
-    buf [2] = (len -4) / 256;                                            // Encode length of following data:
-    buf [3] = (len -4) % 256;
-    if (type >= 0) {                                                    // If type not negative, which indicates encrypted type should not be touched...
-      buf [4] = type / 256;
-      buf [5] = type % 256;                                             // Encode msg_type
+  int HUServer::ihu_tra_stop() {
+    int ret = 0;
+    if (transport)
+    {
+      ret = transport->Stop();
+      transport.reset();
     }
-
-    return (len);
+    return ret;
   }
 
-  int hu_aap_tra_recv (byte * buf, int len, int tmo) {
+  int HUServer::hu_aap_tra_recv (byte * buf, int len, int tmo) {
     int ret = 0;
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {   // Need to recv when starting
       loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       return (-1);
     }
-    ret = ihu_tra_recv (buf, len, tmo);
+
+    int readfd = transport->GetReadFD();
+    int errorfd = transport->GetErrorFD();
+    if (tmo > 0 || errorfd >= 0)
+    {
+      fd_set sock_set;
+      FD_ZERO(&sock_set);
+      FD_SET(readfd, &sock_set);
+      int maxfd = readfd;
+      if (errorfd >= 0)
+      {
+        maxfd = std::max(maxfd, errorfd);
+        FD_SET(errorfd, &sock_set);
+      }
+
+      timeval tv_timeout;
+      tv_timeout.tv_sec = tmo / 1000;
+      tv_timeout.tv_usec = tmo * 1000;
+
+      int ret = select(maxfd+1, &sock_set, NULL, NULL, (tmo > 0) ? &tv_timeout : NULL);
+      if (ret < 0)
+      {
+        return ret;
+      }
+      else if (errorfd >= 0 && FD_ISSET(errorfd, &sock_set))
+      {
+        //got an error
+        loge("errorf was signaled");
+        return -1;
+      }
+      else if (ret == 0)
+      {
+        loge("hu_aap_tra_recv Timeout");
+        return -1;
+      }
+    }
+
+    ret = read(readfd, buf, len);
     if (ret < 0) {
       loge ("ihu_tra_recv() error so stop Transport & AAP  ret: %d", ret);
       hu_aap_stop (); 
@@ -137,7 +127,7 @@
 
   int log_packet_info = 1;
 
-  int hu_aap_tra_send (int retry, byte * buf, int len, int tmo) {                  // Send Transport data: chan,flags,len,type,...
+  int HUServer::hu_aap_tra_send (int retry, byte * buf, int len, int tmo) {                  // Send Transport data: chan,flags,len,type,...
                                                                         // Need to send when starting
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
       loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
@@ -145,12 +135,13 @@
     }
 
 	
-    int ret = ihu_tra_send (buf, len, tmo);
+    int ret = transport->Write(buf, len, tmo);
     if (ret < 0 || ret != len) {
       if (retry == 0) {
-		hu_aap_stop ();
-		loge ("Error ihu_tra_send() error so stop Transport & AAP  ret: %d  len: %d", ret, len);
-	  } 
+        loge ("Error ihu_tra_send() error so stop Transport & AAP  ret: %d  len: %d", ret, len);
+		    hu_aap_stop ();
+
+	     }   
       return (-1);
     }  
 
@@ -159,18 +150,17 @@
     return (ret);
   }
 
-  std::vector<uint8_t> tempEncodingBuffer;
-
-  int hu_aap_enc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message)
+  
+  int HUServer::hu_aap_enc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout)
   {
     const int messageSize = message.ByteSize();
     const int requiredSize = messageSize + 2;
-    if (tempEncodingBuffer.size() < requiredSize)
+    if (temp_assembly_buffer.size() < requiredSize)
     {
-      tempEncodingBuffer.resize(requiredSize);
+      temp_assembly_buffer.resize(requiredSize);
     }
 
-    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(tempEncodingBuffer.data());
+    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(temp_assembly_buffer.data());
     *destMessageCode++ = htobe16(messageCode);
 
     if (!message.SerializeToArray(destMessageCode, messageSize))
@@ -180,20 +170,20 @@
     }
 
     logd ("Send %s on channel %i %s", message.GetTypeName().c_str(), chan, chan_get(chan));
-    //hex_dump("PB:", 80, tempEncodingBuffer.data(), requiredSize);
-    return hu_aap_enc_send(retry, chan, tempEncodingBuffer.data(), requiredSize);
+    //hex_dump("PB:", 80, temp_assembly_buffer.data(), requiredSize);
+    return hu_aap_enc_send(retry, chan, temp_assembly_buffer.data(), requiredSize, overrideTimeout);
 
   }
 
-  int hu_aap_enc_send_media_packet(int retry, int chan, uint16_t messageCode, uint64_t timeStamp, const byte* buffer, int bufferLen)
+  int HUServer::hu_aap_enc_send_media_packet(int retry, int chan, uint16_t messageCode, uint64_t timeStamp, const byte* buffer, int bufferLen, int overrideTimeout)
   {
     const int requiredSize = bufferLen + 2 + 8;
-    if (tempEncodingBuffer.size() < requiredSize)
+    if (temp_assembly_buffer.size() < requiredSize)
     {
-      tempEncodingBuffer.resize(requiredSize);
+      temp_assembly_buffer.resize(requiredSize);
     }
 
-    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(tempEncodingBuffer.data());
+    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(temp_assembly_buffer.data());
     *destMessageCode++ = htobe16(messageCode);
 
     uint64_t* destTimestamp = reinterpret_cast<uint64_t*>(destMessageCode);
@@ -202,70 +192,214 @@
     memcpy(destTimestamp, buffer, bufferLen);
 
     //logd ("Send %s on channel %i %s", message.GetTypeName().c_str(), chan, chan_get(chan));
-    //hex_dump("PB:", 80, tempEncodingBuffer.data(), requiredSize);
-    return hu_aap_enc_send(retry, chan, tempEncodingBuffer.data(), requiredSize);
+    //hex_dump("PB:", 80, temp_assembly_buffer.data(), requiredSize);
+    return hu_aap_enc_send(retry, chan, temp_assembly_buffer.data(), requiredSize, overrideTimeout);
   }
 
-  int hu_aap_enc_send (int retry,int chan, byte * buf, int len) {                 // Encrypt data and send: type,...
+  int HUServer::hu_aap_enc_send (int retry,int chan, byte * buf, int len, int overrideTimeout) {                 // Encrypt data and send: type,...
     if (iaap_state != hu_STATE_STARTED) {
       logw ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       //logw ("chan: %d  len: %d  buf: %p", chan, len, buf);
       //hex_dump (" W/    hu_aap_enc_send: ", 16, buf, len);    // Byebye: hu_aap_enc_send:  00000000 00 0f 08 00
       return (-1);
     }
-    int flags = 0x0b;                                                   // Flags = First + Last + Encrypted
-    if (chan != AA_CH_CTR && buf [0] == 0) {                            // If not control channel and msg_type = 0 - 255 = control type message
-      flags = 0x0f;                                                     // Set Control Flag (On non-control channels, indicates generic/"control type" messages
-      //logd ("Setting control");
-    }
-    if (chan == AA_CH_MIC && buf [0] == 0 && buf [1] == 0) {            // If Mic PCM Data
-      flags = 0x0b;                                                     // Flags = First + Last + Encrypted
+
+    byte base_flags = HU_FRAME_ENCRYPTED;
+    uint16_t message_type = be16toh(*((uint16_t*)buf));
+    if (chan != AA_CH_CTR && message_type >= 2 && message_type < 0x8000) {                            // If not control channel and msg_type = 0 - 255 = control type message
+        base_flags |= HU_FRAME_CONTROL_MESSAGE;                                                     // Set Control Flag (On non-control channels, indicates generic/"control type" messages
+        //logd ("Setting control");
     }
 
-#ifndef NDEBUG
-//    if (ena_log_verbo && ena_log_aap_send) {
-    if (log_packet_info) { // && ena_log_aap_send)
-      char prefix [DEF_BUF] = {0};
-      snprintf (prefix, sizeof (prefix), "S %d %s %1.1x", chan, chan_get (chan), flags);  // "S 1 VID B"
-      int rmv = hu_aad_dmp (prefix, "HU", chan, flags, buf, len);
-    }
-#endif
-	
+    for (int frag_start = 0; frag_start < len; frag_start += MAX_FRAME_PAYLOAD_SIZE)
+    {
+      byte flags = base_flags;
 
-    int bytes_written = SSL_write (hu_ssl_ssl, buf, len);               // Write plaintext to SSL
-    if (bytes_written <= 0) {
-      loge ("SSL_write() bytes_written: %d", bytes_written);
-      hu_ssl_ret_log (bytes_written);
-      hu_ssl_inf_log ();
-      hu_aap_stop ();
-      return (-1);
-    }
-    if (bytes_written != len)
-      loge ("SSL_write() len: %d  bytes_written: %d  chan: %d %s", len, bytes_written, chan, chan_get (chan));
-    else if (ena_log_verbo && ena_log_aap_send)
-      logd ("SSL_write() len: %d  bytes_written: %d  chan: %d %s", len, bytes_written, chan, chan_get (chan));
+      if (frag_start == 0)
+      {
+        flags |= HU_FRAME_FIRST_FRAME;
+      }
+      int cur_len = MAX_FRAME_PAYLOAD_SIZE;
+      if ((frag_start + MAX_FRAME_PAYLOAD_SIZE) >= len)
+      {
+        flags |= HU_FRAME_LAST_FRAME;
+        cur_len = len - frag_start;
+      }
+  #ifndef NDEBUG
+  //    if (ena_log_verbo && ena_log_aap_send) {
+      if (log_packet_info) { // && ena_log_aap_send)
+        char prefix [MAX_FRAME_SIZE] = {0};
+        snprintf (prefix, sizeof (prefix), "S %d %s %1.1x", chan, chan_get (chan), flags);  // "S 1 VID B"
+        int rmv = hu_aad_dmp (prefix, "HU", chan, flags, &buf[frag_start], cur_len);
+      }
+  #endif
+  	
 
-    int bytes_read = BIO_read (hu_ssl_wm_bio, & enc_buf [4], sizeof (enc_buf) - 4); // Read encrypted from SSL BIO to enc_buf + 
-        
-    if (bytes_read <= 0) {
-      loge ("BIO_read() bytes_read: %d", bytes_read);
-      hu_aap_stop ();
-      return (-1);
-    }
-    if (ena_log_verbo && ena_log_aap_send)
-      logd ("BIO_read() bytes_read: %d", bytes_read);
+      int bytes_written = SSL_write (hu_ssl_ssl, &buf[frag_start], cur_len);               // Write plaintext to SSL
+      if (bytes_written <= 0) {
+        loge ("SSL_write() bytes_written: %d", bytes_written);
+        hu_ssl_ret_log (bytes_written);
+        hu_ssl_inf_log ();
+        hu_aap_stop ();
+        return (-1);
+      }
+      if (bytes_written != cur_len)
+        loge ("SSL_write() cur_len: %d  bytes_written: %d  chan: %d %s", cur_len, bytes_written, chan, chan_get (chan));
+      else if (ena_log_verbo && ena_log_aap_send)
+        logd ("SSL_write() cur_len: %d  bytes_written: %d  chan: %d %s", cur_len, bytes_written, chan, chan_get (chan));
 
-    hu_aap_tra_set (chan, flags, -1, enc_buf, bytes_read + 4);          // -1 for type so encrypted type position is not overwritten !!
-    int ret = 0;
-    ret = hu_aap_tra_send (retry, enc_buf, bytes_read + 4, iaap_tra_send_tmo);           // Send encrypted data to AA Server
-    if (retry)
-		  return (ret);
+      enc_buf [0] = (byte) chan;                                              // Encode channel and flags
+      enc_buf [1] = flags;
+
+      int header_size = 4;
+      if ((flags & HU_FRAME_FIRST_FRAME) & !(flags & HU_FRAME_LAST_FRAME))
+      {
+        //write total len
+        *((uint32_t*)&enc_buf[header_size]) = htobe32(len);
+        header_size += 4;
+      }
+      
+      int bytes_read = BIO_read (hu_ssl_wm_bio, & enc_buf [header_size], sizeof (enc_buf) - header_size); // Read encrypted from SSL BIO to enc_buf + 
+          
+      if (bytes_read <= 0) {
+        loge ("BIO_read() bytes_read: %d", bytes_read);
+        hu_aap_stop ();
+        return (-1);
+      }
+      if (ena_log_verbo && ena_log_aap_send)
+        logd ("BIO_read() bytes_read: %d", bytes_read);
+
+      
+
+      *((uint16_t*)&enc_buf[2]) = htobe16(bytes_read);
+
+      int ret = 0;
+      ret = hu_aap_tra_send (retry, enc_buf, bytes_read + header_size, overrideTimeout < 0 ? iaap_tra_send_tmo : overrideTimeout);           // Send encrypted data to AA Server
+      if (retry)
+  		  return (ret);
+    }
 
     return (0);
   }
 
+ int HUServer::hu_aap_unenc_send (int retry,int chan, byte * buf, int len, int overrideTimeout) {                 // Encrypt data and send: type,...
+    if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
+      logw ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
+      //logw ("chan: %d  len: %d  buf: %p", chan, len, buf);
+      //hex_dump (" W/    hu_aap_enc_send: ", 16, buf, len);    // Byebye: hu_aap_enc_send:  00000000 00 0f 08 00
+      return (-1);
+    }
+
+    byte base_flags = 0;
+    uint16_t message_type = be16toh(*((uint16_t*)buf));
+    if (chan != AA_CH_CTR && message_type >= 2 && message_type < 0x8000) {                            // If not control channel and msg_type = 0 - 255 = control type message
+        base_flags |= HU_FRAME_CONTROL_MESSAGE;                                                     // Set Control Flag (On non-control channels, indicates generic/"control type" messages
+        //logd ("Setting control");
+    }
+
+    logd("Sending hu_aap_unenc_send %i bytes", len);
+
+    for (int frag_start = 0; frag_start < len; frag_start += MAX_FRAME_PAYLOAD_SIZE)
+    {
+      byte flags = base_flags;
+
+      if (frag_start == 0)
+      {
+        flags |= HU_FRAME_FIRST_FRAME;
+      }
+      int cur_len = MAX_FRAME_PAYLOAD_SIZE;
+      if ((frag_start + MAX_FRAME_PAYLOAD_SIZE) >= len)
+      {
+        flags |= HU_FRAME_LAST_FRAME;
+        cur_len = len - frag_start;
+      }
+
+      logd("Frame %i : %i bytes",(int)flags, cur_len);
+  #ifndef NDEBUG
+  //    if (ena_log_verbo && ena_log_aap_send) {
+      if (log_packet_info) { // && ena_log_aap_send)
+        char prefix [MAX_FRAME_SIZE] = {0};
+        snprintf (prefix, sizeof (prefix), "S %d %s %1.1x", chan, chan_get (chan), flags);  // "S 1 VID B"
+        int rmv = hu_aad_dmp (prefix, "HU", chan, flags, &buf[frag_start], cur_len);
+      }
+  #endif
+    
+      enc_buf [0] = (byte) chan;                                              // Encode channel and flags
+      enc_buf [1] = flags;
+      *((uint16_t*)&enc_buf[2]) = htobe16(cur_len);
+      int header_size = 4;
+      if ((flags & HU_FRAME_FIRST_FRAME) & !(flags & HU_FRAME_LAST_FRAME))
+      {
+        //write total len
+        *((uint32_t*)&enc_buf[header_size]) = htobe32(len);
+        header_size += 4;
+      }
+
+      memcpy(&enc_buf[header_size], &buf[frag_start], cur_len);
+
+      int ret = 0;
+      return hu_aap_tra_send (retry, enc_buf, cur_len + header_size, overrideTimeout < 0 ? iaap_tra_send_tmo : overrideTimeout);           // Send encrypted data to AA Server
+    }
+
+    return (0);
+  }
+
+  int HUServer::hu_aap_unenc_send_blob(int retry, int chan, uint16_t messageCode, const byte* buffer, int bufferLen, int overrideTimeout)
+  {
+    const int requiredSize = bufferLen + 2;
+    if (temp_assembly_buffer.size() < requiredSize)
+    {
+      temp_assembly_buffer.resize(requiredSize);
+    }
+
+    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(temp_assembly_buffer.data());
+    *destMessageCode++ = htobe16(messageCode);
+
+     memcpy(destMessageCode, buffer, bufferLen);
+
+    //logd ("Send %s on channel %i %s", message.GetTypeName().c_str(), chan, chan_get(chan));
+    //hex_dump("PB:", 80, temp_assembly_buffer.data(), requiredSize);
+    return hu_aap_unenc_send(retry, chan, temp_assembly_buffer.data(), requiredSize, overrideTimeout);
+  }
+
+  int HUServer::hu_aap_unenc_send_message(int retry, int chan, uint16_t messageCode, const google::protobuf::MessageLite& message, int overrideTimeout)
+  {
+    const int messageSize = message.ByteSize();
+    const int requiredSize = messageSize + 2;
+    if (temp_assembly_buffer.size() < requiredSize)
+    {
+      temp_assembly_buffer.resize(requiredSize);
+    }
+
+    uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(temp_assembly_buffer.data());
+    *destMessageCode++ = htobe16(messageCode);
+
+    if (!message.SerializeToArray(destMessageCode, messageSize))
+    {
+      loge("AppendToString failed for %s", message.GetTypeName().c_str());
+      return -1; 
+    }
+
+    logd ("Send %s on channel %i %s", message.GetTypeName().c_str(), chan, chan_get(chan));
+    //hex_dump("PB:", 80, temp_assembly_buffer.data(), requiredSize);
+    return hu_aap_unenc_send(retry, chan, temp_assembly_buffer.data(), requiredSize, overrideTimeout);
+  }
+
+
+  int HUServer::hu_handle_VersionResponse (int chan, byte * buf, int len) {         
+
+    logd ("Version response recv len: %d", len);
+    hex_dump("version", 40, buf, len);
+
+    int ret = hu_ssl_begin_handshake ();                                          // Do SSL Client Handshake with AA SSL server
+    if (ret) {
+      hu_aap_stop ();
+    }
+    return (ret);
+  }
+
 //  extern int wifi_direct;// = 0;//1;//0;
-  int hu_handle_ServiceDiscoveryRequest (int chan, byte * buf, int len) {                  // Service Discovery Request
+  int HUServer::hu_handle_ServiceDiscoveryRequest (int chan, byte * buf, int len) {                  // Service Discovery Request
 
     HU::ServiceDiscoveryRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -313,6 +447,8 @@
       inner->add_keycodes_supported(HUIB_PREV);
       inner->add_keycodes_supported(HUIB_PHONE);
       inner->add_keycodes_supported(HUIB_SCROLLWHEEL);
+
+      callbacks.CustomizeInputConfig(*inner);
       
     }
 
@@ -324,6 +460,8 @@
       inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_NIGHT_DATA);
       inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_LOCATION);
       inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_UNKNOWN_SHOW_KEYBOARD);
+
+      callbacks.CustomizeSensorConfig(*inner);
     }
 
     HU::ChannelDescriptor* videoChannel = carInfo.add_channels();
@@ -338,6 +476,8 @@
       videoConfig->set_margin_height(0);
       videoConfig->set_dpi(140);
       inner->set_available_while_in_call(false);
+
+      callbacks.CustomizeOutputChannel(AA_CH_VID, *inner);
     }
 
     HU::ChannelDescriptor* audioChannel0 = carInfo.add_channels();
@@ -350,6 +490,8 @@
       audioConfig->set_sample_rate(48000);
       audioConfig->set_bit_depth(16);
       audioConfig->set_channel_count(2);
+
+      callbacks.CustomizeOutputChannel(AA_CH_AUD, *inner);
     }
 
     HU::ChannelDescriptor* audioChannel1 = carInfo.add_channels();
@@ -362,8 +504,11 @@
       audioConfig->set_sample_rate(16000);
       audioConfig->set_bit_depth(16);
       audioConfig->set_channel_count(1);
+
+      callbacks.CustomizeOutputChannel(AA_CH_AU1, *inner);
     }
 
+#ifdef PLAY_GUIDANCE_FROM_PHONE_SPEAKER
     HU::ChannelDescriptor* audioChannel2 = carInfo.add_channels();
     audioChannel2->set_channel_id(AA_CH_AU2);
     {
@@ -374,7 +519,10 @@
       audioConfig->set_sample_rate(16000);
       audioConfig->set_bit_depth(16);
       audioConfig->set_channel_count(1);
+
+      callbacks.CustomizeOutputChannel(AA_CH_AU2, *inner);
     }
+#endif
 
     HU::ChannelDescriptor* micChannel = carInfo.add_channels();
     micChannel->set_channel_id(AA_CH_MIC);
@@ -385,13 +533,16 @@
       audioConfig->set_sample_rate(16000);
       audioConfig->set_bit_depth(16);
       audioConfig->set_channel_count(1);
+      callbacks.CustomizeInputChannel(AA_CH_MIC, *inner);
     }
+
+    callbacks.CustomizeCarInfo(carInfo);
 
     return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::ServiceDiscoveryResponse, carInfo);
   }
 
   
-  int hu_handle_PingRequest (int chan, byte * buf, int len) {                  // Ping Request
+  int HUServer::hu_handle_PingRequest (int chan, byte * buf, int len) {                  // Ping Request
     HU::PingRequest request;
     if (!request.ParseFromArray(buf, len))
       loge ("Ping Request");
@@ -403,7 +554,7 @@
     return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::PingResponse, response);
   }
 
-  int hu_handle_NavigationFocusRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
+  int HUServer::hu_handle_NavigationFocusRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
     HU::NavigationFocusRequest request;
     if (!request.ParseFromArray(buf, len))
       loge ("Navigation Focus Request");
@@ -415,7 +566,7 @@
     return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::NavigationFocusResponse, response);
   }
 
-  int hu_handle_ShutdownRequest (int chan, byte * buf, int len) {                  // Byebye Request
+  int HUServer::hu_handle_ShutdownRequest (int chan, byte * buf, int len) {                  // Byebye Request
 
     HU::ShutdownRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -435,7 +586,7 @@
     return (-1);
   }
   
-  int hu_handle_VoiceSessionRequest (int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
+  int HUServer::hu_handle_VoiceSessionRequest (int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
     
     HU::VoiceSessionRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -450,12 +601,12 @@
   }
 
 
-  int hu_handle_AudioFocusRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
+  int HUServer::hu_handle_AudioFocusRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
     HU::AudioFocusRequest request;
     if (!request.ParseFromArray(buf, len))
       loge ("AudioFocusRequest Focus Request");
     else
-      logd ("AudioFocusRequest Focus Request: %d", request.focus_type());
+      logw ("AudioFocusRequest Focus Request %s: %d", chan_get(chan), request.focus_type());
 
     HU::AudioFocusResponse response;
     if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_RELEASE)
@@ -468,7 +619,7 @@
     return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::AudioFocusResponse, response);
   }
 
-  int hu_handle_ChannelOpenRequest(int chan, byte * buf, int len) {                  // Channel Open Request
+  int HUServer::hu_handle_ChannelOpenRequest(int chan, byte * buf, int len) {                  // Channel Open Request
 
     HU::ChannelOpenRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -489,11 +640,11 @@
       HU::SensorEvent sensorEvent;
       sensorEvent.add_driving_status()->set_is_driving(0);
       return hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
-    }
+    } 
     return (ret);
   }
 
-  int hu_handle_MediaSetupRequest(int chan, byte * buf, int len) {  
+  int HUServer::hu_handle_MediaSetupRequest(int chan, byte * buf, int len) {  
 
     HU::MediaSetupRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -520,7 +671,7 @@
   }
 
 
-  int hu_handle_VideoFocusRequest(int chan, byte * buf, int len) {  
+  int HUServer::hu_handle_VideoFocusRequest(int chan, byte * buf, int len) {  
 
     HU::VideoFocusRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -548,14 +699,12 @@
       hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::ShutdownRequest, request);
 
       hu_aap_stop ();
+      return 0;
     }
   }
 
-  int32_t channel_session_id[AA_CH_MAX+1] = {0,0,0,0,0,0,0};
-  int out_state_channel[AA_CH_MAX+1] = {-1,-1,-1,-1,-1,-1,-1};
 
-
-  int hu_handle_MediaStartRequest(int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
+  int HUServer::hu_handle_MediaStartRequest(int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
     
     HU::MediaStartRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -564,17 +713,11 @@
       logd ("MediaStartRequest: %d", request.session());
 
     channel_session_id[chan] = request.session();
-    return (0);
-  }
+    return callbacks.MediaStart(chan);
+   }
 
-  int hu_aap_out_get (int chan) {
-    int state = out_state_channel[chan]; // Get current audio output state change
-    out_state_channel[chan] = -1; // Reset audio output state change indication
 
-    return (state);                                                     // Return what the new state was before reset
-  }
-
-  int hu_handle_MediaStopRequest(int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
+  int HUServer::hu_handle_MediaStopRequest(int chan, byte * buf, int len) {                  // sr:  00000000 00 11 08 01      Microphone voice search usage     sr:  00000000 00 11 08 02
     
     HU::MediaStopRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -582,12 +725,12 @@
     else
       logd ("MediaStopRequest");
 
-    out_state_channel[chan] = 1;
-    return (0);
+    channel_session_id[chan] = 0;
+    return callbacks.MediaStop(chan);
   }
 
 
-  int hu_handle_SensorStartRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
+  int HUServer::hu_handle_SensorStartRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
     HU::SensorStartRequest request;
     if (!request.ParseFromArray(buf, len))
       loge ("SensorStartRequest Focus Request");
@@ -601,7 +744,7 @@
   }
   
   
-  int hu_handle_BindingRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
+  int HUServer::hu_handle_BindingRequest (int chan, byte * buf, int len) {                  // Navigation Focus Request
     HU::BindingRequest request;
     if (!request.ParseFromArray(buf, len))
       loge ("BindingRequest Focus Request");
@@ -614,16 +757,7 @@
     return hu_aap_enc_send_message(0, chan, HU_INPUT_CHANNEL_MESSAGE::BindingResponse, response);
   }
 
-  int mic_change_status = 0;
-  int hu_aap_mic_get () {
-    int ret_status = mic_change_status;                                 // Get current mic change status
-    if (mic_change_status == 2 || mic_change_status == 1) {             // If start or stop...
-      mic_change_status = 0;                                            // Reset mic change status to "No Change"
-    }
-    return (ret_status);                                                // Return original mic change status
-  }
-
-  int hu_handle_MediaAck (int chan, byte * buf, int len) {
+  int HUServer::hu_handle_MediaAck (int chan, byte * buf, int len) {
 
     HU::MediaAck request;
     if (!request.ParseFromArray(buf, len))
@@ -633,7 +767,7 @@
     return (0);
   }
 
-  int hu_handle_MicRequest (int chan, byte * buf, int len) {
+  int HUServer::hu_handle_MicRequest (int chan, byte * buf, int len) {
 
     HU::MicRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -643,219 +777,152 @@
 
     if (!request.open()) {
       logd ("Mic Start/Stop Request: 0 STOP");
-      mic_change_status = 1;                                            // Stop Mic
+      return callbacks.MediaStop(chan);
     }
     else {
       logd ("Mic Start/Stop Request: 1 START");
-      mic_change_status = 2;                                            // Start Mic
+      return callbacks.MediaStart(chan);
     }
     return (0);
   }
 
+  int HUServer::hu_handle_MediaDataWithTimestamp (int chan, byte * buf, int len) {
 
+    uint64_t timestamp = be64toh(*((uint64_t*)buf));
+    logd("Media timestamp %s %llu", chan_get(chan), timestamp);
 
-  void iaap_video_decode (byte * buf, int len) {
-
-    byte * q_buf = (byte*)vid_write_tail_buf_get (len);                         // Get queue buffer tail to write to     !!! Need to lock until buffer written to !!!!
-    if (ena_log_verbo)
-      logd ("video q_buf: %p  buf: %p  len: %d", q_buf, buf, len);
-    if (q_buf == NULL) {
-      loge ("Error video no q_buf: %p  buf: %p  len: %d", q_buf, buf, len);
-      //return;                                                         // Continue in order to write to record file
+    int ret  = callbacks.MediaPacket(chan, timestamp, &buf [8], len - 8);
+    if (ret < 0)
+    {
+      return ret;
     }
-    else
-      memcpy (q_buf, buf, len);                                         // Copy video to queue buffer
+
+
+    HU::MediaAck mediaAck;
+    mediaAck.set_session(channel_session_id[chan]);
+    mediaAck.set_value(1);
+
+    return hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::MediaAck, mediaAck);
   }
 
-/* 8,192 bytes per packet at stereo 48K 16 bit = 42.667 ms per packet                            Timestamp = uptime in microseconds:
-ms: 337, 314                                                                                  0x71fd616538  0x71fd620560   0x71fd62a970 (489,582,406,000)
-                                                                                           diff:  0xA028 (41000)    0xA410  (42000)
-07-01 18:54:11.067 W/                        hex_dump(28628): AUDIO:  00000000 00 00 00 00 00 71 fd 61 65 38 00 00 00 00 00 00 
-07-01 18:54:11.404 W/                        hex_dump(28628): AUDIO:  00000000 00 00 00 00 00 71 fd 62 05 60 00 00 00 00 00 00 
-07-01 18:54:11.718 W/                        hex_dump(28628): AUDIO:  00000000 00 00 00 00 00 71 fd 62 a9 70 00 00 00 00 00 00 
-
-*/
-
-  int aud_rec_ena = 0;                                                // Audio recording to file
-  int aud_rec_fd  = -1;
-
-  void iaap_audio_decode (int chan, byte * buf, int len) {
-//*
-
-    //hu_uti.c:  #define aud_buf_BUFS_SIZE    65536 * 4      // Up to 256 Kbytes
-#define aud_buf_BUFS_SIZE    65536 * 4      // Up to 256 Kbytes
-    if (len > aud_buf_BUFS_SIZE) {
-      loge ("Error audio len: %d  aud_buf_BUFS_SIZE: %d", len, aud_buf_BUFS_SIZE);
-      len = aud_buf_BUFS_SIZE;
+  int HUServer::hu_handle_MediaData(int chan, byte * buf, int len) {
+    
+    int ret  = callbacks.MediaPacket(chan, 0, buf, len);
+    if (ret < 0)
+    {
+      return ret;
     }
 
 
-    byte * q_buf = (byte*)aud_write_tail_buf_get (len);                         // Get queue buffer tail to write to     !!! Need to lock until buffer written to !!!!
-    if (ena_log_verbo)
-      logd ("audio q_buf: %p  buf: %p  len: %d", q_buf, buf, len);
-    if (q_buf == NULL) {
-      loge ("Error audio no q_buf: %p  buf: %p  len: %d", q_buf, buf, len);
-      //return;                                                         // Continue in order to write to record file
-    }
-    else {
-      memcpy (q_buf, buf, len);                                         // Copy audio to queue buffer
-    }
+    HU::MediaAck mediaAck;
+    mediaAck.set_session(channel_session_id[chan]);
+    mediaAck.set_value(1);
+
+    return hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::MediaAck, mediaAck);
   }
 
 
-
-  byte aud_ack [] = {0x80, 0x04, 0x08, 0, 0x10,  1};                    // Global Ack: 0, 1     Same as video ack ?
-
-  //int aud_ack_ctr = 0;
-  int iaap_audio_process (int chan, int msg_type, int flags, byte * buf, int len) { // 300 ms @ 48000/sec   samples = 14400     stereo 16 bit results in bytes = 57600
-    //loge ("????????????????????? !!!!!!!!!!!!!!!!!!!!!!!!!   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   aud_ack_ctr: %d  len: %d", aud_ack_ctr ++, len);
-
-    //logd ("iaap_audio_process chan: %d  msg_type: %d  flags: 0x%x  buf: %p  len: %d", chan, msg_type, flags, buf, len); // iaap_audio_process msg_type: 0  flags: 0xb  buf: 0xe08cbfb8  len: 8202
-
-    HU::MediaAck audioAck;
-    audioAck.set_session(channel_session_id[chan]);
-    audioAck.set_value(1);
-
-    hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::MediaAck, audioAck);
-    if (len >= 10) {
-/*
-07-02 03:33:26.486 W/                        hex_dump( 1549): AUDIO:  00000000 00 00 00 00 00 79 3e 5c bd 60 45 ef 6c 1a 79 f6 
-07-02 03:33:26.486 W/                        hex_dump( 1549): AUDIO:      0010 a8 15 15 fe b3 14 8c fc e8 0c 34 f8 bf 02 ec 00 
-07-02 03:33:26.486 W/                        hex_dump( 1549): AUDIO:      0020 ab 0a 9a 0d a1 1d 88 0a ae 1e e5 03 a9 16 8d 10 
-07-02 03:33:26.486 W/                        hex_dump( 1549): AUDIO:      0030 d9 1f 3c 28 af 34 9b 35 e2 3e e2 36 fd 3c b4 34 
-07-02 03:33:26.487 D/              iaap_audio_process( 1549): iaap_audio_process ts: 31038 0x793e  t2: 31038 0x793e
-07-02 03:33:26.487 D/              iaap_audio_process( 1549): iaap_audio_process ts: 1046265184 0x3e5cbd60  t2: 1046265184 0x3e5cbd60
-*/
-      iaap_audio_decode (chan, & buf [10], len - 10);//assy, assy_size);                                                                                    // Decode PCM audio fully re-assembled
-    }
-
-    return (0);
-  }
-
-  //int vid_ack_ctr = 0;
-  int iaap_video_process (int msg_type, int flags, byte * buf, int len) {    // Process video packet
-// MaxUnack
-//loge ("????????????????????? !!!!!!!!!!!!!!!!!!!!!!!!!   !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!   vid_ack_ctr: %d  len: %d", vid_ack_ctr ++, len);
-
-
-    HU::MediaAck videoAck;
-    videoAck.set_session(channel_session_id[AA_CH_VID]);
-    videoAck.set_value(1);
-
-    hu_aap_enc_send_message(0, AA_CH_VID, HU_MEDIA_CHANNEL_MESSAGE::MediaAck, videoAck);
-
-    if (0) {
-    }
-    else if (flags == 11 && (msg_type == 0 || msg_type == 1) && (buf [10] == 0 && buf [11] == 0 && buf [12] == 0 && buf [13] == 1)) {  // If Not fragmented Video
-      iaap_video_decode (& buf [10], len - 10);                                                                               // Decode H264 video
-    }
-    else if (flags == 9 && (msg_type == 0 || msg_type == 1) && (buf [10] == 0 && buf [11] == 0 && buf [12] == 0 && buf [13] == 1)) {   // If First fragment Video
-      memcpy (assy, & buf [10], len - 10);                                                                                    // Len in bytes 2,3 doesn't include total len 4 bytes at 4,5,6,7
-      assy_size = len - 10;                                                                                                   // Add to re-assembly in progress
-    }
-    else if (flags == 11 && msg_type == 1 && (buf [2] == 0 && buf [3] == 0 && buf [4] == 0 && buf [5] == 1)) {                     // If Not fragmented First video config packet
-      iaap_video_decode (& buf [2], len - 2);                                                                                 // Decode H264 video
-    }
-    else if (flags == 8) {                                                                                                     // If Middle fragment Video
-      memcpy (& assy [assy_size], buf, len);
-      assy_size += len;                                                                                                       // Add to re-assembly in progress
-    }
-    else if (flags == 10) {                                                                                                    // If Last fragment Video
-      memcpy (& assy [assy_size], buf, len);
-      assy_size += len;                                                                                                       // Add to re-assembly in progress
-      iaap_video_decode (assy, assy_size);                                                                                    // Decode H264 video fully re-assembled
-    }
-    else
-      loge ("Video error msg_type: %d  flags: 0x%x  buf: %p  len: %d", msg_type, flags, buf, len);
-
-    return (0);
-  }
-
-  int iaap_msg_process (int chan, int flags, byte * buf, int len) {
-
-    uint16_t msg_type = be16toh(*reinterpret_cast<uint16_t*>(buf));
+  int HUServer::iaap_msg_process (int chan, uint16_t msg_type, byte * buf, int len) {
 
     if (ena_log_verbo)
       logd ("iaap_msg_process msg_type: %d  len: %d  buf: %p", msg_type, len, buf);
 
-    int run = 0;
-    if ((chan == AA_CH_AUD || chan == AA_CH_AU1 || chan == AA_CH_AU2) && ((HU_PROTOCOL_MESSAGE)msg_type == HU_PROTOCOL_MESSAGE::MediaData0 || (HU_PROTOCOL_MESSAGE)msg_type == HU_PROTOCOL_MESSAGE::MediaData1)) {// || flags == 8 || flags == 9 || flags == 10 ) {         // If Audio Output...
-      return (iaap_audio_process (chan, msg_type, flags, buf, len)); // 300 ms @ 48000/sec   samples = 14400     stereo 16 bit results in bytes = 57600
+    int filter_ret = callbacks.MessageFilter(*this, iaap_state, chan, msg_type, buf, len);
+    if (filter_ret < 0)
+    {
+      return filter_ret;
     }
-    else if (chan == AA_CH_VID && ((HU_PROTOCOL_MESSAGE)msg_type == HU_PROTOCOL_MESSAGE::MediaData0 || (HU_PROTOCOL_MESSAGE)msg_type == HU_PROTOCOL_MESSAGE::MediaData1 || flags == 8 || flags == 9 || flags == 10)) {    // If Video...
-      return (iaap_video_process (msg_type, flags, buf, len));
+    else if (filter_ret > 0)
+    {
+      return 0; //handled
     }
 
-    //remove the message type
-    buf += 2;
-    len -= 2;
+    if (iaap_state == hu_STATE_STARTIN)
+    {
+        switch((HU_INIT_MESSAGE)msg_type)
+        {
+          case HU_INIT_MESSAGE::VersionResponse:
+            return hu_handle_VersionResponse(chan, buf, len);
+          case HU_INIT_MESSAGE::SSLHandshake:
+            return hu_handle_SSLHandshake(chan, buf, len);
+          default:
+            loge ("Unknown msg_type: %d", msg_type);
+            return (0);
+        }
+    }
+    else
+    {
+      const bool isControlMessage = msg_type < 0x8000;
 
-    const bool isControlMessage = msg_type < 0x8000;
-
-    if (isControlMessage)
-    {
-      switch((HU_PROTOCOL_MESSAGE)msg_type)
+      if (isControlMessage)
       {
-        case HU_PROTOCOL_MESSAGE::ServiceDiscoveryRequest:
-          return hu_handle_ServiceDiscoveryRequest(chan, buf, len);
-        case HU_PROTOCOL_MESSAGE::ChannelOpenRequest:
-          return hu_handle_ChannelOpenRequest(chan, buf, len);
-        case HU_PROTOCOL_MESSAGE::PingRequest:
-          return hu_handle_PingRequest(chan, buf, len);
-        case HU_PROTOCOL_MESSAGE::NavigationFocusRequest:
-          return hu_handle_NavigationFocusRequest(chan, buf, len);
-        case HU_PROTOCOL_MESSAGE::ShutdownRequest:
-          return hu_handle_ShutdownRequest(chan, buf, len);
-        case HU_PROTOCOL_MESSAGE::VoiceSessionRequest:
-          return hu_handle_VoiceSessionRequest(chan, buf, len);
-        case HU_PROTOCOL_MESSAGE::AudioFocusRequest:
-          return hu_handle_AudioFocusRequest(chan, buf, len);
-        default:
-          loge ("Unknown msg_type: %d", msg_type);
-          return (0);
+        switch((HU_PROTOCOL_MESSAGE)msg_type)
+        {
+          case HU_PROTOCOL_MESSAGE::MediaDataWithTimestamp:
+            return hu_handle_MediaDataWithTimestamp(chan, buf, len);
+          case HU_PROTOCOL_MESSAGE::MediaData:
+            return hu_handle_MediaData(chan, buf, len);
+          case HU_PROTOCOL_MESSAGE::ServiceDiscoveryRequest:
+            return hu_handle_ServiceDiscoveryRequest(chan, buf, len);
+          case HU_PROTOCOL_MESSAGE::ChannelOpenRequest:
+            return hu_handle_ChannelOpenRequest(chan, buf, len);
+          case HU_PROTOCOL_MESSAGE::PingRequest:
+            return hu_handle_PingRequest(chan, buf, len);
+          case HU_PROTOCOL_MESSAGE::NavigationFocusRequest:
+            return hu_handle_NavigationFocusRequest(chan, buf, len);
+          case HU_PROTOCOL_MESSAGE::ShutdownRequest:
+            return hu_handle_ShutdownRequest(chan, buf, len);
+          case HU_PROTOCOL_MESSAGE::VoiceSessionRequest:
+            return hu_handle_VoiceSessionRequest(chan, buf, len);
+          case HU_PROTOCOL_MESSAGE::AudioFocusRequest:
+            return hu_handle_AudioFocusRequest(chan, buf, len);
+          default:
+            loge ("Unknown msg_type: %d", msg_type);
+            return (0);
+        }
       }
-    }
-    else if (chan == AA_CH_SEN)
-    {
-      switch((HU_SENSOR_CHANNEL_MESSAGE)msg_type)
+      else if (chan == AA_CH_SEN)
       {
-        case HU_SENSOR_CHANNEL_MESSAGE::SensorStartRequest:
-          return hu_handle_SensorStartRequest(chan, buf, len);
-        default:
-          loge ("Unknown msg_type: %d", msg_type);
-          return (0);
+        switch((HU_SENSOR_CHANNEL_MESSAGE)msg_type)
+        {
+          case HU_SENSOR_CHANNEL_MESSAGE::SensorStartRequest:
+            return hu_handle_SensorStartRequest(chan, buf, len);
+          default:
+            loge ("Unknown msg_type: %d", msg_type);
+            return (0);
+        }
       }
-    }
-    else if (chan == AA_CH_TOU)
-    {
-      switch((HU_INPUT_CHANNEL_MESSAGE)msg_type)
+      else if (chan == AA_CH_TOU)
       {
-        case HU_INPUT_CHANNEL_MESSAGE::BindingRequest:
-          return hu_handle_BindingRequest(chan, buf, len);
-        default:
-          loge ("Unknown msg_type: %d", msg_type);
-          return (0);
+        switch((HU_INPUT_CHANNEL_MESSAGE)msg_type)
+        {
+          case HU_INPUT_CHANNEL_MESSAGE::BindingRequest:
+            return hu_handle_BindingRequest(chan, buf, len);
+          default:
+            loge ("Unknown msg_type: %d", msg_type);
+            return (0);
+        }
       }
-    }
-    else if (chan == AA_CH_AUD || chan == AA_CH_AU1 || chan == AA_CH_AU2 || chan == AA_CH_VID || chan == AA_CH_MIC)
-    {
-      switch((HU_MEDIA_CHANNEL_MESSAGE)msg_type)
+      else if (chan == AA_CH_AUD || chan == AA_CH_AU1 || chan == AA_CH_AU2 || chan == AA_CH_VID || chan == AA_CH_MIC)
       {
-        case HU_MEDIA_CHANNEL_MESSAGE::MediaSetupRequest:
-          return hu_handle_MediaSetupRequest(chan, buf, len);
-        case HU_MEDIA_CHANNEL_MESSAGE::MediaStartRequest:
-          return hu_handle_MediaStartRequest(chan, buf, len);
-        case HU_MEDIA_CHANNEL_MESSAGE::MediaStopRequest:
-          return hu_handle_MediaStopRequest(chan, buf, len);
-        case HU_MEDIA_CHANNEL_MESSAGE::MediaAck:
-          return hu_handle_MediaAck(chan, buf, len);
-        case HU_MEDIA_CHANNEL_MESSAGE::MicRequest:
-          return hu_handle_MicRequest(chan, buf, len);
-        case HU_MEDIA_CHANNEL_MESSAGE::VideoFocusRequest:
-          return hu_handle_VideoFocusRequest(chan, buf, len);
-        default:
-          loge ("Unknown msg_type: %d", msg_type);
-          return (0);
+        switch((HU_MEDIA_CHANNEL_MESSAGE)msg_type)
+        {
+          case HU_MEDIA_CHANNEL_MESSAGE::MediaSetupRequest:
+            return hu_handle_MediaSetupRequest(chan, buf, len);
+          case HU_MEDIA_CHANNEL_MESSAGE::MediaStartRequest:
+            return hu_handle_MediaStartRequest(chan, buf, len);
+          case HU_MEDIA_CHANNEL_MESSAGE::MediaStopRequest:
+            return hu_handle_MediaStopRequest(chan, buf, len);
+          case HU_MEDIA_CHANNEL_MESSAGE::MediaAck:
+            return hu_handle_MediaAck(chan, buf, len);
+          case HU_MEDIA_CHANNEL_MESSAGE::MicRequest:
+            return hu_handle_MicRequest(chan, buf, len);
+          case HU_MEDIA_CHANNEL_MESSAGE::VideoFocusRequest:
+            return hu_handle_VideoFocusRequest(chan, buf, len);
+          default:
+            loge ("Unknown msg_type: %d", msg_type);
+            return (0);
+        }
       }
     }
 
@@ -863,11 +930,49 @@ ms: 337, 314                                                                    
     return (0);
   }
 
-  int hu_aap_stop () {                                                  // Sends Byebye, then stops Transport/USBACC/OAP
+  int HUServer::hu_queue_command(IHUAnyThreadInterface::HUThreadCommand&& command)
+  {
+    IHUAnyThreadInterface::HUThreadCommand* ptr = new IHUAnyThreadInterface::HUThreadCommand(command);
+    int ret = write(command_write_fd, &ptr, sizeof(ptr));
+    if (ret < 0)
+    {
+      delete ptr;
+      loge("hu_queue_command error %d", ret);
+    }
+  }
 
-                                                                        // Continue only if started or starting...
-    if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN)
-      return (0);
+  int HUServer::hu_aap_shutdown()
+  {
+
+    if (hu_thread.joinable())
+    {
+      int ret = hu_queue_command([this](IHUConnectionThreadInterface& s)
+      {
+        if (iaap_state == hu_STATE_STARTED)
+        {
+          logw("Sending ShutdownRequest");
+          HU::ShutdownRequest byebye;
+          byebye.set_reason(HU::ShutdownRequest::REASON_QUIT);
+          s.hu_aap_enc_send_message(0, AA_CH_CTR, HU_PROTOCOL_MESSAGE::ShutdownRequest, byebye);
+          ms_sleep(500);
+        }
+        s.hu_aap_stop();
+      });
+
+      if (ret < 0)
+      {
+        loge("write end command error %d", ret);
+      }
+      hu_thread.join();
+    }
+   
+    if (command_write_fd >= 0)
+      close(command_write_fd);
+    command_write_fd = -1;
+
+    if (command_read_fd >= 0)
+      close(command_read_fd);
+    command_read_fd = -1;
 
     // Send Byebye
     iaap_state = hu_STATE_STOPPIN;
@@ -877,19 +982,111 @@ ms: 337, 314                                                                    
     iaap_state = hu_STATE_STOPPED;
     logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
     
-//    g_free(rx_buf);
-//	thread_cleanup();
     return (ret);
   }
 
-  int hu_aap_start (byte ep_in_addr, byte ep_out_addr) {                // Starts Transport/USBACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
+  int HUServer::hu_aap_stop () {                                                  // Sends Byebye, then stops Transport/USBACC/OAP
+    //assumes HU thread
+    if (iaap_state == hu_STATE_STARTIN)
+    {
+      //hu_thread not ready yet
+      return hu_aap_shutdown();
+    }
+                                                                        // Continue only if started or starting...
+    if (iaap_state != hu_STATE_STARTED)
+      return (0);
 
-//	rx_buf = (byte *)g_malloc(DEFBUF);
-	
-    if (iaap_state == hu_STATE_STARTED) {
+    hu_thread_quit_flag = true;
+    callbacks.DisconnectionOrError();
+
+    return (0);
+  }
+
+  IHUAnyThreadInterface::HUThreadCommand* HUServer::hu_pop_command()
+  {
+    IHUAnyThreadInterface::HUThreadCommand* ptr = nullptr;
+    int ret = read(command_read_fd, &ptr, sizeof(ptr));
+    if (ret < 0)
+    {
+      loge("hu_pop_command error %d", ret);
+    }
+    else if (ret == sizeof(ptr))
+    {
+      return ptr;
+    }
+    return nullptr;
+  }
+
+  void HUServer::hu_thread_main()
+  {
+    pthread_setname_np(pthread_self(), "hu_thread_main");
+
+    int transportFD = transport->GetReadFD();
+    int errorfd = transport->GetErrorFD();
+    while(!hu_thread_quit_flag)
+    {
+      fd_set sock_set;
+      FD_ZERO(&sock_set);
+      FD_SET(command_read_fd, &sock_set);
+      FD_SET(transportFD, &sock_set);
+      int maxfd = std::max(command_read_fd, transportFD);
+      if (errorfd >= 0)
+      {
+        maxfd = std::max(maxfd, errorfd);
+        FD_SET(errorfd, &sock_set);
+      }
+
+      int ret = select(maxfd+1, &sock_set, NULL, NULL, NULL);
+      if (ret <= 0)
+      {
+        loge("Select failed %d", ret);
+        return;
+      }
+      if (errorfd >= 0 && FD_ISSET(errorfd, &sock_set))
+      {
+        logd("Got errorfd");
+        hu_thread_quit_flag = true;
+        callbacks.DisconnectionOrError();
+      }
+      else
+      {
+        if (FD_ISSET(command_read_fd, &sock_set))
+        {
+          logd("Got command_read_fd");
+          IHUAnyThreadInterface::HUThreadCommand* ptr = nullptr;
+          if(ptr = hu_pop_command())
+          {
+            logd("Running %p", ptr);
+            (*ptr)(*this);
+            delete ptr;
+          }
+        }
+        if (FD_ISSET(transportFD, &sock_set))
+        {
+          //data ready
+          logd("Got transportFD");
+          ret = hu_aap_recv_process(iaap_tra_recv_tmo);
+          if (ret < 0)
+          {
+            loge("hu_aap_recv_process failed %d", ret);
+            hu_aap_stop();
+          }
+        }
+      }
+    }
+    logd("hu_thread_main exit");
+  }
+
+  static_assert(PIPE_BUF >= sizeof(IHUAnyThreadInterface::HUThreadCommand*), "PIPE_BUF is tool small for a pointer?");
+
+  int HUServer::hu_aap_start (byte ep_in_addr, byte ep_out_addr) {                // Starts Transport/USBACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
+
+    if (iaap_state == hu_STATE_STARTED || iaap_state == hu_STATE_STARTIN) {
       loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       return (0);
     }
+    
+    pthread_setname_np(pthread_self(), "main_thread");
 
     iaap_state = hu_STATE_STARTIN;
     logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
@@ -901,246 +1098,179 @@ ms: 337, 314                                                                    
       return (ret);                                                     // Done if error
     }
 
-    byte vr_buf [] = {0, 3, 0, 6, 0, 1, 0, 1, 0, 1};                    // Version Request
-    ret = hu_aap_tra_set (0, 3, 1, vr_buf, sizeof (vr_buf));
-    ret = hu_aap_tra_send (0, vr_buf, sizeof (vr_buf), 1000);              // Send Version Request
+    byte vr_buf [] = { 0, 1, 0, 1};                    // Version Request
+    ret = hu_aap_unenc_send_blob(0, AA_CH_CTR, HU_INIT_MESSAGE::VersionRequest, vr_buf, sizeof (vr_buf), 2000);
     if (ret < 0) {
       loge ("Version request send ret: %d", ret);
-      hu_aap_stop ();
       return (-1);
     }  
 
-//    byte buf [DEFBUF] = {0};
-	byte *buf = (byte *)malloc(DEFBUF);
-    errno = 0;
-    ret = hu_aap_tra_recv (buf, DEFBUF, 1000);                    // Get Rx packet from Transport:    Wait for Version Response
-    if (ret <= 0) {
-      loge ("Version response recv ret: %d", ret);
-      free(buf);
-      hu_aap_stop ();
-      return (-1);
-    }  
-    logd ("Version response recv ret: %d", ret);
-
-
-	free(buf);
-//*
-    ret = hu_ssl_handshake ();                                          // Do SSL Client Handshake with AA SSL server
-    if (ret) {
-      hu_aap_stop ();
-      return (ret);
+    while(iaap_state == hu_STATE_STARTIN)
+    {
+      ret = hu_aap_recv_process(2000);
+      if (ret < 0) {
+        hu_aap_shutdown();
+        return (ret);
+      }
     }
 
-    byte ac_buf [] = {0, 3, 0, 4, 0, 4, 8, 0};                          // Status = OK
-    ret = hu_aap_tra_set (0, 3, 4, ac_buf, sizeof (ac_buf));
-    ret = hu_aap_tra_send (0, ac_buf, sizeof (ac_buf), 1000);              // Auth Complete, must be sent in plaintext
-    if (ret < 0) {
-      loge ("hu_aap_tra_send() ret: %d", ret);
-      hu_aap_stop ();
+    
+    int pipefd[2];
+    ret = pipe2(pipefd, O_DIRECT);
+    if (ret < 0)
+    {
+      loge ("pipe2 failed ret: %d %i", ret, errno);
+      hu_aap_shutdown ();
       return (-1);
-    }  
-    hu_ssl_inf_log ();
+    }
 
-    iaap_state = hu_STATE_STARTED;
-    logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
-//*/
+    logw("Starting HU thread");
+    command_read_fd = pipefd[0];
+    command_write_fd = pipefd[1];
+    hu_thread_quit_flag = false;
+    hu_thread = std::thread([this] { this->hu_thread_main(); });
+
+
     return (0);
   }
 
-
-
-/*
-http://stackoverflow.com/questions/22753221/openssl-read-write-handshake-data-with-memory-bio
-http://www.roxlu.com/2014/042/using-openssl-with-memory-bios
-https://www.openssl.org/docs/ssl/SSL_read.html
-http://blog.davidwolinsky.com/2009/10/memory-bios-and-openssl.html
-http://www.cisco.com/c/en/us/support/docs/security-vpn/secure-socket-layer-ssl/116181-technote-product-00.html
-*/
-
-
-  int iaap_recv_dec_process (int chan, int flags, byte * buf, int len) {// Decrypt & Process 1 received encrypted message
-	
-    int bytes_written = BIO_write (hu_ssl_rm_bio, buf, len);           // Write encrypted to SSL input BIO
-    
-    
-    if (bytes_written <= 0) {
-      loge ("BIO_write() bytes_written: %d", bytes_written);
-      return (-1);
-    }
-    if (bytes_written != len)
-      loge ("BIO_write() len: %d  bytes_written: %d  chan: %d %s", len, bytes_written, chan, chan_get (chan));
-    else if (ena_log_verbo)
-      logd ("BIO_write() len: %d  bytes_written: %d  chan: %d %s", len, bytes_written, chan, chan_get (chan));
-
-    errno = 0;
-    int ctr = 0;
-    int max_tries = 2;  // Higher never works
-    int bytes_read = -1;
-    while (bytes_read <= 0 && ctr ++ < max_tries) {
-      bytes_read = SSL_read (hu_ssl_ssl, dec_buf, sizeof (dec_buf));   // Read decrypted to decrypted rx buf
-      if (bytes_read <= 0) {
-        loge ("ctr: %d  SSL_read() bytes_read: %d  errno: %d", ctr, bytes_read, errno);
-        hu_ssl_ret_log (bytes_read);
-        ms_sleep (1);
-      }
-      //logd ("ctr: %d  SSL_read() bytes_read: %d  errno: %d", ctr, bytes_read, errno);
-    }
-
-    if (bytes_read <= 0) {
-      loge ("ctr: %d  SSL_read() bytes_read: %d  errno: %d", ctr, bytes_read, errno);
-      hu_ssl_ret_log (bytes_read);
-      return (-1);                                                      // Fatal so return error and de-initialize; Should we be able to recover, if Transport data got corrupted ??
-    }
-    if (ena_log_verbo)
-      logd ("ctr: %d  SSL_read() bytes_read: %d", ctr, bytes_read);
-
-#ifndef NDEBUG
-////    if (chan != AA_CH_VID)                                          // If not video...
-      if (log_packet_info) {
-        char prefix [DEF_BUF] = {0};
-        snprintf (prefix, sizeof (prefix), "R %d %s %1.1x", chan, chan_get (chan), flags);  // "R 1 VID B"
-        int rmv = hu_aad_dmp (prefix, "AA", chan, flags, dec_buf, bytes_read);           // Dump decrypted AA
-      }
-#endif
-
-    int prot_func_ret = iaap_msg_process (chan, flags, dec_buf, bytes_read);      // Process decrypted AA protocol message
-    return (0);//prot_func_ret);
-  }
-
-
-    //  Process 1 encrypted "receive message set":
-      // - Read encrypted message from Transport
-      // - Process/react to decrypted message by sending responses etc.
-/*
-        Tricky issues:
-
-          - Read() may return less than a full packet.
-              USB is somewhat "packet oriented" once I raised DEFBUF/sizeof(rx_buf) from 16K to 64K (Maximum video fragment size)
-              But TCP is more stream oriented.
-
-          - Read() may contain multiple packets, returning all or the end of one packet, plus all or the beginning of the next packet.
-              So far I have only seen 2 complete packets in one read().
-
-          - Read() may return all or part of video stream data fragments. Multiple fragments need to be re-assembled before H.264 video processing.
-            Fragments may be up to 64K - 256 in size. Maximum re-assembled video packet seen is around 150K; using 256K re-assembly buffer at present.
-            
-
-*/
-
-  int hu_aap_recv_process () {                                          // 
+  int HUServer::hu_aap_recv_process (int tmo) {                                          // 
                                                                         // Terminate unless started or starting (we need to process when starting)
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
       loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
       return (-1);
     }
 
-    byte * buf = rx_buf;
     int ret = 0;
     errno = 0;
-    int min_size_hdr = 6;
-    int rx_len = sizeof (rx_buf);
-    if (transport_type == 2)                                            // If wifi...
-      rx_len = min_size_hdr;                                            // Just get the header
-
+    int min_size_hdr = 4;
     int have_len = 0;                                                   // Length remaining to process for all sub-packets plus 4/8 byte headers
 
-    have_len = hu_aap_tra_recv (rx_buf, rx_len, iaap_tra_recv_tmo);     // Get Rx packet from Transport
+  
+    temp_assembly_buffer.clear();
 
-    if (have_len == 0) {                                                // If no data, then done w/ no data
-      return (0);
-    }
-    if (have_len < min_size_hdr) {                                      // If we don't have a full 6 byte header at least...
-      loge ("Recv have_len: %d", have_len);
-      hu_aap_stop ();
-      return (-1);
-    }  
+    bool has_last = false;
+    bool has_first = false;
+    int chan = -1;
+    while (!has_last) 
+    {                                              // While length remaining to process,... Process Rx packet:
+      have_len = hu_aap_tra_recv (enc_buf, min_size_hdr, tmo);
+      if (have_len == 0 && !has_first)
+      {
+        return 0;
+      }
+      
+      if (have_len < min_size_hdr) {                                      // If we don't have a full 6 byte header at least...
+        loge ("Recv have_len: %d", have_len);
+        return (-1);
+      }  
 
-    while (have_len > 0) {                                              // While length remaining to process,... Process Rx packet:
       if (ena_log_verbo) {
         logd ("Recv while (have_len > 0): %d", have_len);
-        hex_dump ("LR: ", 16, buf, have_len);
+        hex_dump ("LR: ", 16, enc_buf, have_len);
       }
-      int chan = (int) buf [0];                                         // Channel
-      int flags = buf [1];                                              // Flags
-
-      int enc_len = (int) buf [3];                                      // Encoded length of bytes to be decrypted (minus 4/8 byte headers)
-      enc_len += ((int) buf [2] * 256);
-
-      int msg_type = (int) buf [5];                                     // Message Type (or post handshake, mostly indicator of SSL encrypted data)
-      msg_type += ((int) buf [4] * 256);
-
-      have_len -= 4;                                                    // Length starting at byte 4: Unencrypted Message Type or Encrypted data start
-      buf += 4;                                                         // buf points to data to be decrypted
-      if (flags & 0x08 != 0x08) {
-        loge ("NOT ENCRYPTED !!!!!!!!! have_len: %d  enc_len: %d  buf: %p  chan: %d %s  flags: 0x%x  msg_type: %d", have_len, enc_len, buf, chan, chan_get (chan), flags, msg_type);
-        hu_aap_stop ();
-        return (-1);
-      }
-      if (chan == AA_CH_VID && flags == 9) {                            // If First fragment Video... (Packet is encrypted so we can't get the real msg_type or check for 0, 0, 0, 1)
-        int total_size = (int) buf [3];
-        total_size += ((int) buf [2] * 256);
-        total_size += ((int) buf [1] * 256 * 256);
-        total_size += ((int) buf [0] * 256 * 256 * 256);
-
-        if (total_size > max_assy_size)                                 // If new  max_assy_size... (total_size seen as big as 151 Kbytes)
-          max_assy_size = total_size;                                   // Set new max_assy_size      See: jni/hu_aap.c:  byte assy [65536 * 16] = {0}; // up to 1 megabyte
-                                                                         //                               & jni/hu_uti.c:  #define vid_buf_BUFS_SIZE    65536 * 4
-                                                                        // Up to 256 Kbytes// & src/ca/yyx/hu/hu_tro.java:    byte [] assy = new byte [65536 * 16];
-                                                                        // & src/ca/yyx/hu/hu_tra.java:      res_buf = new byte [65536 * 4];
-        if (total_size > 160 * 1024)
-          logw ("First fragment total_size: %d  max_assy_size: %d", total_size, max_assy_size);
-        else
-          logv ("First fragment total_size: %d  max_assy_size: %d", total_size, max_assy_size);
-        have_len -= 4;                                                  // Remove 4 length bytes inserted into first video fragment
-        buf += 4;
-      }
-      if (have_len < enc_len) {                                         // If we need more data for the full packet...
-        int need_len = enc_len - have_len;
-        if (transport_type != 2 || rx_len != min_size_hdr)              // If NOT wifi...
-          logd ("have_len: %d < enc_len: %d  need_len: %d", have_len, enc_len, need_len);
-
-        // Move the buffer back to the start
-        memmove(rx_buf, buf, have_len);
-        buf = rx_buf;
-
-        int need_ret = hu_aap_tra_recv (& buf [have_len], need_len, -1);// Get Rx packet from Transport. Use -1 instead of iaap_tra_recv_tmo to indicate need to get need_len bytes
-                                                                        // Length remaining for all sub-packets plus 4/8 byte headers
-        if (need_ret != need_len) {                                     // If we didn't get precisely the number of bytes we need...
-          loge ("Recv need_ret: %d", need_ret);
-          hu_aap_stop ();
+      int cur_chan = (int) enc_buf [0];                                         // Channel
+      if (cur_chan != chan && chan >= 0)
+      {
+          loge ("Interleaved channels");
           return (-1);
-        }
-        have_len = enc_len;                                             // Length to process now = encoded length for 1 packet
+      }
+      chan = cur_chan;
+      int flags = enc_buf [1];                                              // Flags
+      int frame_len = be16toh(*((uint16_t*)&enc_buf[2]));
+
+      logd("Frame flags %i len %i", flags, frame_len);
+
+      if (frame_len > MAX_FRAME_PAYLOAD_SIZE)
+      {
+          loge ("Too big");
+          return (-1);
       }
 
-      /*logd ("Calling iaap_recv_dec_process() with have_len: %d  enc_len: %d  buf: %p  chan: %d %s  flags: 0x%x  msg_type: %d", have_len, enc_len, buf, chan, chan_get (chan), flags, msg_type);
-      byte sum = 0;
-      int ctr = 0;     
-      for (ctr = 0; ctr < enc_len; ctr ++)
-        sum += buf [ctr];
-      logd ("iaap_recv_dec_process() sum: %d", sum);*/
-      ret = iaap_recv_dec_process (chan, flags, buf, enc_len);          // Decrypt & Process 1 received encrypted message
-      if (ret < 0) {                                                    // If error...
-        loge ("Error iaap_recv_dec_process() ret: %d  have_len: %d  enc_len: %d  buf: %p  chan: %d %s  flags: 0x%x  msg_type: %d", ret, have_len, enc_len, buf, chan, chan_get (chan), flags, msg_type);
-        hu_aap_stop ();
+      int header_size = 4;
+      bool has_total_size_header = false;
+      if ((flags & HU_FRAME_FIRST_FRAME) & !(flags & HU_FRAME_LAST_FRAME))
+      {
+        //if first but not last, next 4 is total size
+        has_total_size_header = true;
+        header_size += 4;
+      }
+
+      int remaining_bytes_in_frame = (frame_len + header_size) - have_len;
+      while(remaining_bytes_in_frame > 0)
+      {
+        logd("Getting more %i", remaining_bytes_in_frame);
+        int got_bytes = hu_aap_tra_recv (&enc_buf[have_len], remaining_bytes_in_frame, tmo);     // Get Rx packet from Transport
+        if (got_bytes < 0) {                                      // If we don't have a full 6 byte header at least...
+          loge ("Recv got_bytes: %d", got_bytes);
+          return (-1);
+        }  
+        have_len += got_bytes;
+        remaining_bytes_in_frame -= got_bytes;
+      }
+
+      if (!has_first && !(flags & HU_FRAME_FIRST_FRAME))
+      {
+          loge ("No HU_FRAME_FIRST_FRAME");
+          return (-1);
+      }
+      has_first = true;
+      has_last = (flags & HU_FRAME_LAST_FRAME) != 0;
+
+      if (has_total_size_header)
+      {
+        uint32_t total_size = be32toh(*((uint32_t*)&enc_buf[4]));
+        logd("First only, total len %u", total_size);
+        temp_assembly_buffer.reserve(total_size);
+      }
+      else
+      {
+        temp_assembly_buffer.reserve(frame_len); 
+      }
+
+
+      if (flags & HU_FRAME_ENCRYPTED)
+      {
+          size_t cur_vec = temp_assembly_buffer.size();
+          temp_assembly_buffer.resize(cur_vec + frame_len); //just incase
+
+          int bytes_written = BIO_write (hu_ssl_rm_bio, &enc_buf[header_size], frame_len);           // Write encrypted to SSL input BIO
+          if (bytes_written <= 0) {
+            loge ("BIO_write() bytes_written: %d", bytes_written);
+            return (-1);
+          }
+          if (bytes_written != frame_len)
+            loge ("BIO_write() len: %d  bytes_written: %d  chan: %d %s", frame_len, bytes_written, chan, chan_get (chan));
+          else if (ena_log_verbo)
+            logd ("BIO_write() len: %d  bytes_written: %d  chan: %d %s", frame_len, bytes_written, chan, chan_get (chan));
+
+          int bytes_read = SSL_read (hu_ssl_ssl, &temp_assembly_buffer[cur_vec], frame_len);   // Read decrypted to decrypted rx buf
+          if (bytes_read <= 0 || bytes_read > frame_len) {
+            loge ("SSL_read() bytes_read: %d  errno: %d", bytes_read, errno);
+            hu_ssl_ret_log (bytes_read);
+            return (-1);                                                      // Fatal so return error and de-initialize; Should we be able to recover, if Transport data got corrupted ??
+          }
+          if (ena_log_verbo)
+            logd ("SSL_read() bytes_read: %d", bytes_read);
+
+          temp_assembly_buffer.resize(cur_vec + bytes_read);
+      }
+      else
+      {
+          temp_assembly_buffer.insert(temp_assembly_buffer.end(), &enc_buf[header_size], &enc_buf[frame_len+header_size]);
+      }
+    }
+
+    const int buf_len = temp_assembly_buffer.size();
+    if (buf_len >= 2)
+    {
+      uint16_t msg_type = be16toh(*reinterpret_cast<uint16_t*>(temp_assembly_buffer.data()));
+
+      ret = iaap_msg_process (chan, msg_type, &temp_assembly_buffer[2], buf_len - 2);          // Decrypt & Process 1 received encrypted message
+      if (ret < 0 && iaap_state != hu_STATE_STOPPED) {                                                    // If error...
+        loge ("Error iaap_msg_process() ret: %d  ", ret);
         return (ret);  
       }
-/*
-      if (log_packet_info) {
-        if (chan == AA_CH_VID && (flags == 8 || flags == 0x0a || msg_type == 0)) // || msg_type ==1))
-          ;
-        //else if (chan == AA_CH_VID && msg_type == 32768 + 4)
-        //  ;
-        else {
-          logd ("        OK iaap_recv_dec_process() ret: %d  have_len: %d  enc_len: %d  buf: %p  chan: %d %s  flags: 0x%x  msg_type: %d", ret, have_len, enc_len, buf, chan, chan_get (chan), flags, msg_type);
-          //logd ("--------------------------------------------------------");  // Empty line / 56 characters
-        }
-      }
-*/
-      have_len -= enc_len;                                              // Consume processed sub-packet and advance to next, if any
-      buf += enc_len;
-      if (have_len != 0)
-        logd ("iaap_recv_dec_process() more than one message   have_len: %d  enc_len: %d", have_len, enc_len);
     }
 
     return (ret);                                                       // Return value from the last iaap_recv_dec_process() call; should be 0

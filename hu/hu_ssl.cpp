@@ -1,4 +1,5 @@
 
+  #define MR_SSL_INTERNAL   // For certificate and private key only
   #define LOGTAG "hu_ssl"
   #include "hu_uti.h"
   #include "hu_aap.h"
@@ -11,101 +12,10 @@
   #include <openssl/x509_vfy.h>
   #include <openssl/rand.h>
   #include <pthread.h>
-
-  SSL_METHOD  * hu_ssl_method  = NULL;
-  SSL_CTX     * hu_ssl_ctx     = NULL;
-  SSL         * hu_ssl_ssl     = NULL;
-  BIO         * hu_ssl_rm_bio  = NULL;
-  BIO         * hu_ssl_wm_bio  = NULL;
-
-  #define MR_SSL_INTERNAL   // For certificate and private key only
   #include "hu_ssl.h"
 
-    // Code:
 
-// START THREAD SAFE
-#define MAX_THREAD_NUMBER	100
-
-
-static pthread_mutex_t *lock_cs;
-static long *lock_count;
-
-
-void pthreads_locking_callback(int mode,int type,const char *file,int line);
-
-unsigned long pthreads_thread_id(void );
-
-
-void thread_setup(void)
-	{
-	int i;
-
-	lock_cs= (pthread_mutex_t*)OPENSSL_malloc(CRYPTO_num_locks() * sizeof(pthread_mutex_t));
-	lock_count= (long*)OPENSSL_malloc(CRYPTO_num_locks() * sizeof(long));
-	for (i=0; i<CRYPTO_num_locks(); i++)
-		{
-		lock_count[i]=0;
-		pthread_mutex_init(&(lock_cs[i]),NULL);
-		}
-
-	CRYPTO_set_id_callback((unsigned long (*)())pthreads_thread_id);
-	CRYPTO_set_locking_callback(&pthreads_locking_callback);
-	}
-
-void thread_cleanup(void)
-	{
-	int i;
-
-	CRYPTO_set_locking_callback(NULL);
-	fprintf(stderr,"cleanup\n");
-	for (i=0; i<CRYPTO_num_locks(); i++)
-		{
-		pthread_mutex_destroy(&(lock_cs[i]));
-		fprintf(stderr,"%8ld:%s\n",lock_count[i],
-			CRYPTO_get_lock_name(i));
-		}
-	SSL_shutdown(hu_ssl_ssl);
-	OPENSSL_free(lock_cs);
-	OPENSSL_free(lock_count);
-
-	fprintf(stderr,"done cleanup\n");
-	}
-
-void pthreads_locking_callback(int mode, int type, const char *file,
-	     int line)
-      {
-//	fprintf(stderr,"thread=%4d mode=%s lock=%s %s:%d\n",
-//		CRYPTO_thread_id(),
-//		(mode&CRYPTO_LOCK)?"l":"u",
-//		(type&CRYPTO_READ)?"r":"w",file,line);
-/*
-	if (CRYPTO_LOCK_SSL_CERT == type)
-		fprintf(stderr,"(t,m,f,l) %ld %d %s %d\n",
-		CRYPTO_thread_id(),
-		mode,file,line);
-*/
-	if (mode & CRYPTO_LOCK)
-		{
-		pthread_mutex_lock(&(lock_cs[type]));
-		lock_count[type]++;
-		}
-	else
-		{
-		pthread_mutex_unlock(&(lock_cs[type]));
-		}
-	}
-
-unsigned long pthreads_thread_id(void)
-	{
-	unsigned long ret;
-
-	ret=(unsigned long)pthread_self();
-	return(ret);
-	}
-
-// END THREAD SAFE
-
-  void hu_ssl_inf_log () {
+  void HUServer::hu_ssl_inf_log () {
     //logd ("SSL_is_init_finished(): %d", SSL_is_init_finished (hu_ssl_ssl));
 
     const char * ssl_state_string_long = SSL_state_string_long (hu_ssl_ssl);   // "SSLv3 write client hello B"
@@ -119,7 +29,7 @@ unsigned long pthreads_thread_id(void)
     logd ("ssl_cipher_name: %s", ssl_cipher_name);
   }
 
-  void hu_ssl_ret_log (int ret) {
+  void HUServer::hu_ssl_ret_log (int ret) {
     int ssl_err = SSL_get_error (hu_ssl_ssl, ret);
     const char * err_str = "";
 
@@ -144,25 +54,32 @@ unsigned long pthreads_thread_id(void)
       loge ("ret: %d  ssl_err: %d (%s)", ret, ssl_err, err_str);
   }
 
-#define HU_USB_ERROR
-//#ifdef __i386__
-//#ifdef __arm__
+  int HUServer::send_ssl_handshake_packet()
+  {
+    byte hs_buf [MAX_FRAME_SIZE] = {0}; 
 
-  int hu_ssl_handshake () {
+    int len = BIO_read (hu_ssl_wm_bio, hs_buf, sizeof (hs_buf));         // Read from the BIO Client request: Hello/Key Exchange
+    if (len <= 0) {
+      loge ("BIO_read() HS client req ret: %d", len);
+      return (-1);
+    }
+    logw ("BIO_read() HS client req ret: %d", len);
+
+    int ret = hu_aap_unenc_send_blob(0, AA_CH_CTR, HU_INIT_MESSAGE::SSLHandshake, hs_buf, len, 5000);
+    if (ret < 0) {
+      loge ("hu_aap_tra_send() HS client req ret: %d  len: %d", ret, len);
+      return -1;
+    }      
+
+    return (0);
+  }
+
+
+  int HUServer::hu_ssl_begin_handshake () {
 
     int                 ret;
     BIO               * cert_bio = NULL;
     BIO               * pkey_bio = NULL;
-/*#ifdef HU_USB_ERROR
-    SSL_load_error_strings ();                                          // Before or after init ?
-    ERR_load_BIO_strings ();
-    ERR_load_crypto_strings ();
-  #ifdef __arm__
-    ERR_load_SSL_strings ();
-  #endif
-#endif */
-
-
 
     ret = SSL_library_init ();                                          // Init
     logd ("SSL_library_init ret: %d", ret);
@@ -173,18 +90,12 @@ unsigned long pthreads_thread_id(void)
     
 
     
-#ifdef HU_USB_ERROR
     SSL_load_error_strings ();                                          // Before or after init ?
     ERR_load_BIO_strings ();
     ERR_load_crypto_strings ();
-  #ifdef __arm__
     ERR_load_SSL_strings ();
-  #endif
-#endif
 
-  #ifdef __arm__
     OPENSSL_add_all_algorithms_noconf ();                               // Add all algorithms, without using config file
-  #endif
 
     ret = RAND_status ();                                               // 1 if the PRNG has been seeded with enough data, 0 otherwise.
     logd ("RAND_status ret: %d", ret);
@@ -193,7 +104,6 @@ unsigned long pthreads_thread_id(void)
       return (-1);
     }
 
-//    CRYPTO_set_locking_callback (locking_function);
 
     cert_bio = BIO_new_mem_buf (cert_buf, sizeof (cert_buf));           // Read only memory BIO for certificate
     pem_password_cb * ppcb1 = NULL;
@@ -254,21 +164,6 @@ unsigned long pthreads_thread_id(void)
       loge ("SSL_CTX_use_PrivateKey() ret: %d", ret);
     else
       logd ("SSL_CTX_use_PrivateKey() ret: %d", ret);
-/*
-    int cmd1 = 0;
-    long larg1 = 0;
-    void * parg1 = NULL;
-    ret = SSL_CTX_ctrl (hu_ssl_ctx, cmd1, larg1, parg1);
-    if (ret != 1) {
-      loge ("SSL_CTX_ctrl() ret: %d", ret);
-      //return (-1);
-    }
-    else
-      logd ("SSL_CTX_ctrl() ret: %d", ret);
-*/
-
-
-//    SSL_CTX_set_options (hu_ssl_ctx,SSL_OP_NO_TLSv1|SSL_OP_NO_TLSv1_1 |SSL_OP_NO_SSLv2|SSL_OP_NO_SSLv3);
 
     // Must do all CTX setup before SSL_new() !!
     hu_ssl_ssl = SSL_new (hu_ssl_ctx);
@@ -304,257 +199,68 @@ unsigned long pthreads_thread_id(void)
 
     SSL_set_bio (hu_ssl_ssl, hu_ssl_rm_bio, hu_ssl_wm_bio);                                  // Read from memory, write to memory
 
-BIO_set_write_buf_size (hu_ssl_rm_bio, DEFBUF);                             // BIO_ctrl() API to increase the buffer size.
-BIO_set_write_buf_size (hu_ssl_wm_bio, DEFBUF);
+    BIO_set_write_buf_size (hu_ssl_rm_bio, MAX_FRAME_PAYLOAD_SIZE);                             // BIO_ctrl() API to increase the buffer size.
+    BIO_set_write_buf_size (hu_ssl_wm_bio, MAX_FRAME_PAYLOAD_SIZE);
 
     SSL_set_connect_state (hu_ssl_ssl);                                        // Set ssl to work in client mode
 
     SSL_set_verify (hu_ssl_ssl, SSL_VERIFY_NONE, NULL);
     
-    // START THREAD SAFE
-//	thread_setup();
-	// END THREAD SAFE
+    ret = SSL_do_handshake (hu_ssl_ssl);                             // Do current handshake step processing
+    logw ("SSL_do_handshake() ret: %d", ret);
 
-/*
-    X509_STORE * x509_store = X509_STORE_new ();
-    if (x509_store == NULL) {
-      loge ("X509_STORE_new() x509_store: %p", x509_store);
-      return (-1);
+    //We should need input data
+    if ((SSL_get_error (hu_ssl_ssl, ret) == SSL_ERROR_WANT_READ))
+    {
+      //keep going
+      return send_ssl_handshake_packet();
     }
-    logd ("X509_STORE_new() x509_store: %p", x509_store);
 
-    ret = X509_STORE_add_cert (x509_store, x509_cert);
-    if (ret != 1) {
-      loge ("X509_STORE_add_cert() ret: %d", ret);
-      return (-1);
-    }
-    logd ("X509_STORE_add_cert() ret: %d", ret);
+    return (-1);
 
-    int store_flags = 0;
-    ret = X509_STORE_set_flags (x509_store, store_flags);
-    if (ret != 1) {
-      loge ("X509_STORE_set_flags() ret: %d", ret);
-//      return (-1);
-    }
-    logd ("X509_STORE_set_flags() ret: %d", ret);
+  }
 
-    //int have_error_or_done = 1;//0;
-//*/
-
-    byte hs_buf [DEFBUF] = {0}; 
-//	byte *hs_buf = (byte *)g_malloc(DEFBUF);
-    int hs_ctr  = 0;
-
-    int hs_finished = 0;//SSL_is_init_finished (hu_ssl_ssl)
-
-    while (! hs_finished && hs_ctr ++ < 2) {
-
-      ret = SSL_do_handshake (hu_ssl_ssl);                             // Do current handshake step processing
-      logd ("SSL_do_handshake() ret: %d  hs_ctr: %d", ret, hs_ctr);
-
-      if (ena_log_verbo || (SSL_get_error (hu_ssl_ssl, ret) != SSL_ERROR_WANT_READ)) {
-        hu_ssl_ret_log (ret);
-        hu_ssl_inf_log ();
-      }
-
-      hu_ssl_inf_log ();
-
-      ret = BIO_read (hu_ssl_wm_bio, & hs_buf [6], sizeof (hs_buf) - 6);         // Read from the BIO Client request: Hello/Key Exchange
-      if (ret <= 0) {
-        loge ("BIO_read() HS client req ret: %d", ret);
-//        g_free(hs_buf);
-        return (-1);
-      }
-      logd ("BIO_read() HS client req ret: %d", ret);
-      int len = ret + 6;
-      ret = hu_aap_tra_set (AA_CH_CTR, 3, 3, hs_buf, len);              // chan:0/AA_CH_CTR   flags:first+last    msg_type:SSL
-      ret = hu_aap_tra_send (0, hs_buf, len, 2000);                       // Send Client request to AA Server
-      if (ret <= 0 || ret != len) {
-        loge ("hu_aap_tra_send() HS client req ret: %d  len: %d", ret, len);
-      }      
-
-      ret = hu_aap_tra_recv (hs_buf, sizeof (hs_buf), 2000);           // Get Rx packet from Transport: Receive Server response: Hello/Change Cipher
-      if (ret <= 0) {                                                   // If error, then done w/ error
-        loge ("HS server rsp ret: %d", ret);
-//        g_free(hs_buf);
-        return (-1);
-      }  
-      logd ("HS server rsp ret: %d", ret);
-
-      ret = BIO_write (hu_ssl_rm_bio, & hs_buf [6], ret - 6);          // Write to the BIO Server response
+    int HUServer::hu_handle_SSLHandshake(int chan, byte * buf, int len)
+  {
+      int ret = BIO_write (hu_ssl_rm_bio, buf, len);          // Write to the BIO Server response
       if (ret <= 0) {
         loge ("BIO_write() server rsp ret: %d", ret);
+        hu_ssl_ret_log (ret);
+        hu_ssl_inf_log ();
 //        g_free(hs_buf);
         return (-1);
       }
-      logd ("BIO_write() server rsp ret: %d", ret);
-      //hs_finished = SSL_is_init_finished (hu_ssl_ssl);
-      //logd ("hs_finished: %d", hs_finished);
-    }
+      logw ("BIO_write() server rsp ret: %d", ret);
 
-//	g_free(hs_buf);
-	
-    hs_finished = 1;    // !!!! SSL_is_init_finished() does not work for some reason !!!
+      ret = SSL_do_handshake (hu_ssl_ssl);                             // Do current handshake step processing
+      logw ("SSL_do_handshake() ret: %d", ret);
 
-    if (! hs_finished) {
-      loge ("Handshake did not finish !!!!");
-      return (-1);
-    }
 
-    return (0);
+      if ((SSL_get_error (hu_ssl_ssl, ret) == SSL_ERROR_WANT_READ))
+      {
+        //keep going
+        return send_ssl_handshake_packet();
+      }
 
+      if ((SSL_get_error (hu_ssl_ssl, ret) != SSL_ERROR_NONE) || !SSL_is_init_finished (hu_ssl_ssl)) {
+        hu_ssl_ret_log (ret);
+        hu_ssl_inf_log ();
+        return (-1);
+      }
+
+      HU::AuthCompleteResponse response;
+      response.set_status(HU::STATUS_OK);
+      ret = hu_aap_unenc_send_message(0, AA_CH_CTR, HU_INIT_MESSAGE::AuthComplete, response, 2000);
+      if (ret < 0) {
+        loge ("hu_aap_unenc_send_message() ret: %d", ret);
+        hu_aap_stop ();
+        return (-1);
+      }  
+      hu_ssl_inf_log ();
+
+      iaap_state = hu_STATE_STARTED;
+      logw ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
+
+      return  0;
   }
-
-/*
-    X509_STORE_CTX * x509_store_ctx = X509_STORE_CTX_new ();
-
-    X509 * peer_cert = SSL_get_peer_certificate (hu_ssl_ssl);
-    STACK_OF(X509) * stackof_x509 = SSL_get_peer_cert_chain (hu_ssl_ssl);
-
-    ret = X509_STORE_CTX_init (x509_store_ctx, x509_store, x509_cert, stackof_x509);
-    logd ("X509_STORE_CTX_init ret: %d", ret);
-
-    X509_STORE_CTX_set_chain (x509_store_ctx, stackof_x509);
-
-    unsigned long time_flags = 0;
-    time_t curr_time = time (NULL);
-    X509_STORE_CTX_set_time (x509_store_ctx, time_flags, curr_time);
-
-    ret = X509_verify_cert (x509_store_ctx);
-    logd ("X509_verify_cert() ret: %d", ret);
-
-    ret = X509_STORE_CTX_get_error (x509_store_ctx);
-    logd ("X509_STORE_CTX_get_error() ret: %d", ret);
-
-    const char * ver_cert_err = X509_verify_cert_error_string (ret);
-    logd ("X509_verify_cert_error_string() ver_cert_err: %s", ver_cert_err);
-
-    X509_STORE_CTX_cleanup (x509_store_ctx);
-    X509_STORE_CTX_free (x509_store_ctx);
-
-
-
-    int have_error_or_done = 1;//0;
-    if (have_error_or_done) {    
-      BIO_free_all (hu_ssl_rm_bio);  // Free the bio and all other BIOs in the list, walking the bio->next_bio list
-      BIO_free_all (hu_ssl_wm_bio);  // Free the bio and all other BIOs in the list, walking the bio->next_bio list
-      //BIO_free_all (wf_bio);  // Free the bio and all other BIOs in the list, walking the bio->next_bio list
-      SSL_free (hu_ssl_ssl);
-      SSL_CTX_free (hu_ssl_ctx);
-      X509_STORE_free (x509_store);
-      X509_free (x509_cert);
-      EVP_PKEY_free (priv_key);
-
-      ret = CONF_modules_free ();
-      logd ("CONF_modules_free() ret: %d", ret);
-
-      ret = ENGINE_cleanup ();
-      logd ("ENGINE_cleanup() ret: %d", ret);
-
-      int all = 0;  //  If all is set to 0 only modules loaded from DSOs will be unloads. If all is 1 all modules, including builtin modules will be unloaded.
-      ret = CONF_modules_unload (all);
-      logd ("CONF_modules_unload() ret: %d", ret);
-
-      EVP_cleanup ();
-      CRYPTO_cleanup_all_ex_data ();
-
-      const CRYPTO_THREADID * tid = NULL;
-      ERR_remove_thread_state (tid);
-      ERR_free_strings ();
-    }
-*/
-
-
-
-/*
-  int server_verify_peer (SSL * ssl) {
-
-    X509 * peer_cert = SSL_get_peer_certificate (ssl);
-
-    STACK_OF(X509) * stackof_x509 = SSL_get_peer_cert_chain (ssl);
-
-    if (peer_cert == NULL || stackof_x509 == NULL)
-      return (-1);
-
-    return (0);
-  }
-
-  int server_init (X509 * x509_cert, EVP_PKEY * priv_key) {
-    int                 ret;
-
-// "VmNativeSslInfo"
-// "SslWrapperNative"
-
-    SSL_load_error_strings ();
-
-    ret = SSL_library_init ();                                          // Init
-    logd ("SSL_library_init ret: %d", ret);
-    if (ret < 0) {                                                      // Always returns "1", so it is safe to discard the return value.
-      loge ("SSL_library_init() error");
-      return (-1);
-    }
-
-    OPENSSL_add_all_algorithms_noconf ();                               // Add all algorithms, without using config file
-
-  hu_ssl_method = (SSL_METHOD *) TLSv1_2_client_method ();  // Not ! ?
-
-    hu_ssl_ctx = SSL_CTX_new (hu_ssl_method);
-    if (hu_ssl_ctx == NULL) {
-// "Failed to allocate ssl context!"
-      loge ("SSL_CTX_new() error");
-      return (-1);
-    }
-
-  //X509 * x509_cert = NULL;
-    ret = SSL_CTX_use_certificate (hu_ssl_ctx, x509_cert);
-    logd ("SSL_CTX_use_certificate ret: %d", ret);
-
-  //EVP_PKEY * priv_key = NULL;
-    ret = SSL_CTX_use_PrivateKey (hu_ssl_ctx, priv_key);
-    logd ("SSL_CTX_use_PrivateKey ret: %d", ret);
-
-    int cmd1 = 0;
-    long larg1 = 0;
-    void * parg1 = NULL;
-    SSL_CTX_ctrl (hu_ssl_ctx, cmd1, larg1, parg1);
-
-    hu_ssl_ssl = SSL_new (hu_ssl_ctx);
-    if (hu_ssl_ssl == NULL) {
-// "Failed to allocate ssl!"
-      loge ("SSL_new() hu_ssl_ssl: %p", hu_ssl_ssl);
-      return (-1);
-    }
-    logd ("SSL_new() hu_ssl_ssl: %p", hu_ssl_ssl);
-
-    ret = SSL_check_private_key (hu_ssl_ssl);
-    if (ret != 1) {
-// "SSL private key check failed!"
-      loge ("SSL_check_private_key() ret: %d", ret);
-      return (-1);
-    }
-    logd ("SSL_check_private_key() ret: %d", ret);
-
-
-  BIO * wf_bio = NULL;//BIO_new (BIO_f_ssl ());                         // Filter bio
-  BIO * rf_bio = NULL;//BIO_new (BIO_f_ssl ());                         // Filter bio
-
-    SSL_set_bio (hu_ssl_ssl, rf_bio, wf_bio);                                  // Read from memory, write to filter
-
-    SSL_set_accept_state (hu_ssl_ssl);                                         // Set ssl to work in server mode
-
-// "SSL native library successfully initialized!"
-  }
-
-  int server_handshake () {
-    int ret = 0;
-
-    ret = SSL_do_handshake (hu_ssl_ssl);                                       // HANDSHAKE: ServerHello+ServerCert, ClientKeyExchange+ChangeCipher
-    logd ("SSL_do_handshake ret: %d", ret);
-
-    hu_ssl_ret_log (ret);
-    hu_ssl_inf_log ();
-
-    return (0);
-  }
-*/
 

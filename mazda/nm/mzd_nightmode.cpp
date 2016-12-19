@@ -17,13 +17,13 @@ void mzd_nightmode_start() {
 
     service_bus = dbus_connection_open(SERVICE_BUS_ADDRESS, &error);
     if (!service_bus) {
-        loge("DBUS: Failed to connect to SERVICE bus %s: %s", error.name, error.value);
+        loge("DBUS: Failed to connect to SERVICE bus %s: %s", error.name, error.message);
         service_bus = NULL;
         return;
     }
 
     if (!dbus_bus_register(service_bus, &error)) {
-        loge("DBUS: Failed to connect to SERVICE bus %s: %s", error.name, error.value);
+        loge("DBUS: Failed to connect to SERVICE bus %s: %s", error.name, error.message);
         service_bus = NULL;
         return;
     }
