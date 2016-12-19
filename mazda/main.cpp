@@ -668,7 +668,7 @@ static void nightmode_thread_func(std::condition_variable& quitcv, std::mutex& q
 {
 	int nightmode = NM_NO_VALUE;
 	mzd_nightmode_start();
-	while (g_main_loop_is_running (gst_app.loop)) 
+    while (true)
 	{		
 		int nightmodenow = mzd_is_night_mode_set();
 
@@ -766,7 +766,10 @@ public:
   virtual void DisconnectionOrError() override
   {
   	printf("DisconnectionOrError\n");
-  	g_main_loop_quit(gst_app.loop);
+  	if (gst_app.loop && g_main_loop_is_running (gst_app.loop))
+	{
+  		g_main_loop_quit(gst_app.loop);
+  	}
   }
 
   virtual void CustomizeOutputChannel(int chan, HU::ChannelDescriptor::OutputStreamChannel& streamChannel) override
@@ -814,8 +817,10 @@ void gps_location_handler(uint64_t timestamp, double lat, double lng, double bea
 
 int main (int argc, char *argv[])
 {	
-	setvbuf(stdout, NULL, _IONBF, 0);
-	setvbuf(stderr, NULL, _IONBF, 0);
+	//Force line-only buffering so we can see the output during hangs
+	setvbuf(stdout, NULL, _IOLBF, 0);
+	setvbuf(stderr, NULL, _IOLBF, 0);
+
 	GOOGLE_PROTOBUF_VERIFY_VERSION;
 
 	hu_log_library_versions();
@@ -823,7 +828,7 @@ int main (int argc, char *argv[])
 
 	dbus_threads_init_default();
 
-	signal (SIGTERM, signals_handler);
+	//signal (SIGTERM, signals_handler);
 
 	gst_app_t *app = &gst_app;
 	int ret = 0;
@@ -919,11 +924,15 @@ int main (int argc, char *argv[])
     printf("waiting for dbus_thread\n");
 	dbus_thread.join();
 
+	printf("waiting for gps_thread\n");
+	mzd_gps_stop();
+
     printf("shutting down\n");
 
 	close(touchfd);
 
     g_main_loop_unref(gst_app.loop);
+    gst_app.loop = nullptr;
 
 		/* Stop AA processing */
 	ret = headunit.hu_aap_shutdown();
@@ -945,7 +954,6 @@ int main (int argc, char *argv[])
 
 	g_hu = nullptr;
 
-	mzd_gps_stop();
 	system("kill -SIGUSR2 $(pgrep input_filter)");
 
 	printf("END \n");

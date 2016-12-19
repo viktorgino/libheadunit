@@ -36,6 +36,9 @@
 #include <execinfo.h>
 #include <dlfcn.h>    // for dladdr
 #include <cxxabi.h>   // for __cxa_demangle
+#define UNW_LOCAL_ONLY
+#include <libunwind.h>
+#include <ucontext.h>
 
 int gen_server_loop_func (unsigned char * cmd_buf, int cmd_len, unsigned char * res_buf, int res_max);
 int gen_server_poll_func (int poll_ms);
@@ -186,43 +189,96 @@ void hu_log_library_versions()
   printf("openssl version: %s (%#010lx)\n", SSLeay_version(SSLEAY_VERSION), SSLeay());
 }
 
-static void print_backtrace()
+static void print_backtrace(ucontext_t* ucontext)
 {
-  int skip = 3;
-  void *callstack[256];
-  const int nMaxFrames = 256;
-  int nFrames = backtrace(callstack, nMaxFrames);
-  char **symbols = backtrace_symbols(callstack, nFrames);
-  for (int i = skip; i < nFrames; i++) {
-    printf("%s\n", symbols[i]);
+  unw_cursor_t cursor;
+  unw_context_t context;
 
-    Dl_info info;
-    if (dladdr(callstack[i], &info) && info.dli_sname) 
+  if (ucontext)
+  {
+    #ifdef __arm__
+    //convert ucontext_t
+    context.regs[UNW_ARM_R0] = ucontext->uc_mcontext.arm_r0;
+    context.regs[UNW_ARM_R1] = ucontext->uc_mcontext.arm_r1;
+    context.regs[UNW_ARM_R2] = ucontext->uc_mcontext.arm_r2;
+    context.regs[UNW_ARM_R3] = ucontext->uc_mcontext.arm_r3;
+    context.regs[UNW_ARM_R4] = ucontext->uc_mcontext.arm_r4;
+    context.regs[UNW_ARM_R5] = ucontext->uc_mcontext.arm_r5;
+    context.regs[UNW_ARM_R6] = ucontext->uc_mcontext.arm_r6;
+    context.regs[UNW_ARM_R7] = ucontext->uc_mcontext.arm_r7;
+    context.regs[UNW_ARM_R8] = ucontext->uc_mcontext.arm_r8;
+    context.regs[UNW_ARM_R9] = ucontext->uc_mcontext.arm_r9;
+    context.regs[UNW_ARM_R10] = ucontext->uc_mcontext.arm_r10;
+    context.regs[UNW_ARM_R11] = ucontext->uc_mcontext.arm_fp;
+    context.regs[UNW_ARM_R12] = ucontext->uc_mcontext.arm_ip;
+    context.regs[UNW_ARM_R13] = ucontext->uc_mcontext.arm_sp;
+    context.regs[UNW_ARM_R14] = ucontext->uc_mcontext.arm_lr;
+    context.regs[UNW_ARM_R15] = ucontext->uc_mcontext.arm_pc;
+    #else
+    //they are the same
+    context = *ucontext;
+    #endif
+  }
+  else
+  {
+      // Initialize cursor to current frame for local unwinding.
+      unw_getcontext(&context);
+  }
+  unw_init_local(&cursor, &context);
+
+  int skip_count = 0; //show everything for now
+  int cur_level = 0;
+
+  // Unwind frames one by one, going up the frame stack.
+  while (unw_step(&cursor) > 0) 
+  {
+    unw_word_t offset, pc;
+    unw_get_reg(&cursor, UNW_REG_IP, &pc);
+    if (pc == 0) 
     {
-      char *demangled = NULL;
-      int status = -1;
-      
-      if (info.dli_sname[0] == '_')
-        demangled = abi::__cxa_demangle(info.dli_sname, NULL, 0, &status);
+      break;
+    }
+    cur_level++;
+    if (cur_level <= skip_count)
+    {
+      continue;
+    }
 
-      printf("%-3d %*p %s + %zd\n",i, int(2 + sizeof(void*) * 2), callstack[i],
-           status == 0 ? demangled : info.dli_sname,
-           (char *)callstack[i] - (char *)info.dli_saddr);
+    printf("(%i) 0x%lx:", cur_level - skip_count - 1, pc);
 
-      free(demangled);
-    } else {
-      printf("%-3d %*p %s\n", i, int(2 + sizeof(void*) * 2), callstack[i], symbols[i]);
+
+    char sym[4096];
+    if (unw_get_proc_name(&cursor, sym, sizeof(sym), &offset) == 0) 
+    {
+      const char* sym_name = sym;
+      char* demanged_name = nullptr;
+      if (sym[0] == '_')
+      {
+        int status = 1;
+        demanged_name = abi::__cxa_demangle(sym, NULL, 0, &status);
+        if (status == 0)
+        {
+          sym_name = demanged_name;
+        }
+      }
+
+      printf(" (%s+0x%lx)\n", sym_name, offset);
+      free(demanged_name);
+    } 
+    else 
+    {
+      printf(" ???\n");
     }
   }
-  free(symbols);
 }
 
-static void crash_handler(int sig) 
+static void crash_handler(int sig, siginfo_t * info, void * ucontext) 
 {
+  ucontext_t* context = reinterpret_cast<ucontext_t*>(ucontext);
   // print out all the frames to stderr
-  printf("Error: signal %s:\n", strsignal(sig));
+  printf("Error: signal %s context %p :\n", strsignal(sig), context);
 
-  print_backtrace();
+  print_backtrace(context);
 
   abort();
 }
@@ -232,19 +288,25 @@ static void crash_handler_terminate()
     // print out all the frames to stderr
   printf("Error: c++ exception\n");
 
-  print_backtrace();
+  print_backtrace(nullptr);
 
   abort();
 }
 
 void hu_install_crash_handler()
 {
-  signal(SIGSEGV, &crash_handler);
-  signal(SIGILL, &crash_handler);
-  signal(SIGFPE, &crash_handler);
-  signal(SIGBUS, &crash_handler);
-  signal(SIGSYS, &crash_handler);
-  signal(SIGXCPU, &crash_handler);
-  signal(SIGXFSZ, &crash_handler);
+  struct sigaction sigact;
+  memset(&sigact, 0, sizeof(sigact));
+
+  sigact.sa_sigaction = &crash_handler;
+  sigact.sa_flags = SA_SIGINFO;
+
+  sigaction(SIGSEGV, &sigact, nullptr);
+  sigaction(SIGILL, &sigact, nullptr);
+  sigaction(SIGFPE, &sigact, nullptr);
+  sigaction(SIGBUS, &sigact, nullptr);
+  sigaction(SIGSYS, &sigact, nullptr);
+  sigaction(SIGXCPU, &sigact, nullptr);
+  sigaction(SIGXFSZ, &sigact, nullptr);
   std::set_terminate (crash_handler_terminate);
 }

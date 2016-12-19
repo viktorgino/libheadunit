@@ -66,9 +66,11 @@ void* process_gps(void* arg) {
     }
 
     fclose(fp);
+    return nullptr;
 }
 
-static pthread_t gps_thread;
+static pthread_t gps_thread = 0;
+
 void mzd_gps_start(void(*callbackPtr)(uint64_t, double, double, double, double, double, double)) {
     running = true;
 

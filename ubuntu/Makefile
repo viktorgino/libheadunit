@@ -1,8 +1,8 @@
 TOP = ..
 
-INCLUDES=$(shell pkg-config --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl gtk+-3.0 x11 protobuf sdl) -I$(TOP)/hu -I$(TOP)/hu/generated.x64
+INCLUDES=$(shell pkg-config --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl gtk+-3.0 x11 protobuf sdl libunwind) -I$(TOP)/hu -I$(TOP)/hu/generated.x64
 CFLAGS= -g -rdynamic -pthread
-LFLAGS= -g -rdynamic -pthread -ldl $(shell pkg-config --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl gtk+-3.0 x11 protobuf sdl)
+LFLAGS= -g -rdynamic -pthread -ldl $(shell pkg-config --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 gstreamer-interfaces-0.10 libcrypto libusb-1.0 openssl gtk+-3.0 x11 protobuf sdl libunwind)
 CXXFLAGS= $(CFLAGS) -std=c++11 -Wno-narrowing
 
 
