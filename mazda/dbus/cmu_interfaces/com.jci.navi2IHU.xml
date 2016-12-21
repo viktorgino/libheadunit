@@ -1,0 +1,110 @@
+<node>
+	<interface name="com.jci.navi2IHU">
+		<method name="ShowNavigation">
+			<annotation name="async_client" value="true"/>
+		</method>
+		<method name="ClearStack">
+			<annotation name="async_client" value="true"/>
+		</method>
+		<method name="FavoriteLongPress">
+			<annotation name="async_client" value="true"/>
+		</method>
+		<method name="NaviButtonPress">
+			<annotation name="async_client" value="true"/>
+		</method>
+		<method name="NaviFocusStatusUpdate">
+			<annotation name="async_client" value="true"/>
+			<arg direction="in" name="status" type="i"/>
+		</method>
+		<method name="RequestShowNavigationDenied">
+			<annotation name="async_client" value="true"/>
+		</method>
+		<method name="GetCurrentNaviState">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="naviState" type="i"/>
+		</method>
+		<method name="NavigateToAddress">
+			<annotation name="async_client" value="true"/>
+			<arg direction="in" name="name" type="s"/>
+			<arg direction="in" name="addressLine1" type="s"/>
+			<arg direction="in" name="addressLine2" type="s"/>
+			<arg direction="in" name="city" type="s"/>
+			<arg direction="in" name="stateProvince" type="s"/>
+			<arg direction="in" name="country" type="s"/>
+			<arg direction="in" name="code" type="s"/>
+			<arg direction="in" name="latitude" type="d"/>
+			<arg direction="in" name="longitude" type="d"/>
+		</method>
+		<method name="SetLanguage">
+			<annotation name="async_client" value="true"/>
+			<arg direction="in" name="language" type="i"/>
+		</method>
+		<method name="SetLanguageEx">
+			<annotation name="async_client" value="true"/>
+			<arg direction="in" name="display_language" type="i"/>
+			<arg direction="in" name="vr_supported" type="b"/>
+			<arg direction="in" name="vr_language" type="i"/>
+			<arg direction="in" name="tts_language" type="i"/>
+			<arg direction="in" name="keyboard_language" type="i"/>
+		</method>
+		<method name="FactoryReset">
+			<annotation name="async_client" value="true"/>
+		</method>
+		<method name="GetCurrentLocationInfo">
+			<annotation name="async_client" value="true"/>
+		</method>
+		<method name="GetVolumeScreenFocusStatus">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="volumeScreenInFocus" type="b"/>
+		</method>
+		<signal name="NaviStateUpdate">
+			<arg name="state" type="i"/>
+		</signal>
+		<signal name="ReadyToShowNavi"/>
+		<signal name="RequestShowNavigation"/>
+		<signal name="NaviButtonPressed">
+			<arg name="buttonPressedID" type="i"/>
+		</signal>
+		<signal name="DialPhoneNumber">
+			<arg name="phoneNumber" type="s"/>
+			<arg name="name" type="s"/>
+		</signal>
+		<signal name="NaviconDestinationRequest">
+			<arg name="name" type="s"/>
+			<arg name="latitude" type="d"/>
+			<arg name="longitude" type="d"/>
+		</signal>
+		<signal name="LanguageChangeFinished">
+			<arg name="status" type="b"/>
+			<arg name="language" type="i"/>
+		</signal>
+		<signal name="LanguageChangeFinishedEx">
+			<arg name="status" type="b"/>
+			<arg name="display_language" type="i"/>
+			<arg name="vr_language" type="i"/>
+			<arg name="tts_language" type="i"/>
+			<arg name="keyboard_language" type="i"/>
+		</signal>
+		<signal name="FactoryResetFinished">
+			<arg name="status" type="b"/>
+		</signal>
+		<signal name="CurrentLocationInfo">
+			<arg name="latitude" type="d"/>
+			<arg name="longitude" type="d"/>
+			<arg name="altitude" type="i"/>
+			<arg name="altitudeUnit" type="i"/>
+			<arg name="isValidInfo" type="b"/>
+			<arg name="heading" type="d"/>
+			<arg name="isHeadingValid" type="b"/>
+		</signal>
+		<signal name="VolumeScreenFocusChanged">
+			<arg name="volumeScreenInFocus" type="b"/>
+		</signal>
+		<signal name="RequestScreenMode">
+			<arg name="ScreenMode" type="i"/>
+		</signal>
+		<signal name="ReadyToShowNaviEx">
+			<arg name="ScreenMode" type="i"/>
+		</signal>
+	</interface>
+</node>

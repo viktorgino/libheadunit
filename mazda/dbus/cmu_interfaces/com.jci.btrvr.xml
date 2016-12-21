@@ -1,0 +1,42 @@
+<node>
+	<interface name="com.jci.btrvr">
+		<method name="StartRemoteVr">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="StopRemoteVr">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="EnableEyesFreemode">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="DisableEyesFreeMode">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="GetRemoteVrStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="SetDontShowSetting">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="dontShowSettingValue" type="u"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="GetDontShowSetting">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<signal name="RemoteVrStatusResp">
+			<arg direction="in" name="status" type="u"/>
+		</signal>
+		<signal name="DontShowSettingResp">
+			<arg direction="in" name="dontShowSettingValue" type="u"/>
+		</signal>
+		<signal name="ShowWinkSettingResp">
+			<arg direction="in" name="showWinkSettingValue" type="u"/>
+		</signal>
+	</interface>
+</node>

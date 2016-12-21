@@ -1,0 +1,49 @@
+<node>
+	<interface name="com.jci.audioPlayer">
+		<method name="Open">
+			<arg direction="out" name="client_id" type="i"/>
+			<arg direction="out" name="result" type="i"/>
+		</method>
+		<method name="OpenByName">
+			<arg direction="in" name="device" type="s"/>
+			<arg direction="out" name="client_id" type="i"/>
+			<arg direction="out" name="result" type="i"/>
+		</method>
+		<method name="Close">
+			<arg direction="in" name="client_id" type="i"/>
+			<arg direction="out" name="result" type="i"/>
+		</method>
+		<method name="PlaySync">
+			<annotation name="async" value="server"/>
+			<arg direction="in" name="client_id" type="i"/>
+			<arg direction="in" name="fileName" type="s"/>
+			<arg direction="in" name="mode" type="i"/>
+			<arg direction="out" name="result" type="i"/>
+		</method>
+		<method name="PlayASync">
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="client_id" type="i"/>
+			<arg direction="in" name="fileName" type="s"/>
+			<arg direction="in" name="mode" type="i"/>
+			<arg direction="out" name="result" type="i"/>
+		</method>
+		<method name="AbortSync">
+			<annotation name="async" value="server"/>
+			<arg direction="in" name="client_id" type="i"/>
+			<arg direction="in" name="fileName" type="s"/>
+			<arg direction="in" name="abort_type" type="i"/>
+			<arg direction="out" name="result" type="i"/>
+		</method>
+		<method name="AbortASync">
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="client_id" type="i"/>
+			<arg direction="in" name="fileName" type="s"/>
+			<arg direction="in" name="abort_type" type="i"/>
+			<arg direction="out" name="result" type="i"/>
+		</method>
+		<signal name="Exception">
+			<arg name="id" type="n"/>
+			<arg name="message" type="s"/>
+		</signal>
+	</interface>
+</node>

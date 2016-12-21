@@ -1,0 +1,430 @@
+<node>
+	<interface name="com.jci.vbs.settings">
+		<annotation name="com.jci.def_struct_names.VBS_Settings_Beep_Control_s_t" value="beepToneDecimal,beepToneInteger,beepCycle,beepOnTime,beepOffTime"/>
+		<annotation name="com.jci.def_struct_types.VBS_Settings_Beep_Control_s_t" value="              y,              y,        y,        y,          y "/>
+		<annotation name="com.jci.def_struct_names.VBS_SETTINGS_CSTMZRESP_RBCM_s_t" value="contents,status,atDrLck_Mde,rmLmpOffDrClose_T,rmLmpOffDrOpn_T,atLtOff_T,smtTrn_OnOff,atWpr_OnOff,autoLght_Sens_1,drl_OnOff,atDrLck_Mde_Mt,chl_t,lhl_OnOff,atDrLck_Mde_6items"/>
+		<annotation name="com.jci.def_struct_types.VBS_SETTINGS_CSTMZRESP_RBCM_s_t" value="      y,      y,          y,               y,               y,        y,           y,          y,              y,        y,             y,    y,        y,                 y"/>
+		<annotation name="com.jci.def_struct_names.VBS_SETTINGS_CSTMZRESP_BSM_s_t" value="contents,status,bsmInd_Brghtns,bsmSptZone_Rnge,bsmCntPtn_Mde"/>
+		<annotation name="com.jci.def_struct_types.VBS_SETTINGS_CSTMZRESP_BSM_s_t" value="      y,      y,            y,               y,            y"/>
+		<annotation name="com.jci.def_struct_names.VBS_SETTINGS_CSTMZRESP_SSU_s_t" value="contents,status,kylssWal_OnOff,kylssAtLck_T,kylssUnlck_Mde,kylssChm_Vol"/>
+		<annotation name="com.jci.def_struct_types.VBS_SETTINGS_CSTMZRESP_SSU_s_t" value="      y,      y,            y,            y,             y,           y"/>
+		<annotation name="com.jci.def_struct_names.VBS_SETTINGS_CSTMZRESP_CCM_s_t" value="contents,status,pcs_onoff,pcs_warning_thres,drss_onoff,drss_warning_thres"/>
+		<annotation name="com.jci.def_struct_types.VBS_SETTINGS_CSTMZRESP_CCM_s_t" value="      y,      y,       y,                 y,        y,                  y"/>
+		<annotation name="com.jci.def_struct_names.VBS_SETTINGS_CSTMZRESP_FSC1_s_t" value="contents,status,ldwJudge_Thres,ldwCancel_Sens,ldwVibration_OnOff,ldwLka_Mode,lka_Alert,lka_Bz_Volume"/>
+		<annotation name="com.jci.def_struct_types.VBS_SETTINGS_CSTMZRESP_FSC1_s_t" value="      y,      y,             y,             y,                 y,          y,        y,            y"/>
+		<annotation name="com.jci.def_struct_names.VBS_SETTINGS_CSTMZRESP_FSC2_s_t" value="contents,status,hbc_OnOff,hbc_Sens"/>
+		<annotation name="com.jci.def_struct_types.VBS_SETTINGS_CSTMZRESP_FSC2_s_t" value="      y,      y,        y,       y"/>
+		<annotation name="com.jci.def_struct_names.VBS_SETTINGS_CSTMZRESP_HEC_s_t" value="contents,status,stbeltRmdr_Bz_Vol,lghtRndr_Bz_Vol,ldwBz_Sound,turn_Bz_Vol,sbs_Bz_Vol,rvm_Bz_Vol,ldw_Bz_Vol,bsm_Bz_Vol,ind_Clr_OnOff,trip_Rst_Mde,turn_Ind_OnOff,idm_Max_Stage"/>
+		<annotation name="com.jci.def_struct_types.VBS_SETTINGS_CSTMZRESP_HEC_s_t" value="      y,      y,               y,               y,          y,          y,         y,         y,         y,         y,            y,           y,             y,            y"/>
+		<annotation name="com.jci.def_struct_names.VBS_SETTINGS_CSTMZRESP_PSM_s_t" value="contents,status,frontBzVol,rearBzVol,drvAlt_OnOff"/>
+		<annotation name="com.jci.def_struct_types.VBS_SETTINGS_CSTMZRESP_PSM_s_t" value="      y,      y,         y,        y,           y"/>
+		<annotation name="com.jci.def_struct_names.VBS_Settings_SignalStatus_s_t" value="autoWiper,lightTimeout_DO,                                                                                             lightTimeout_DC,                                                                                             autoDoorLock,                                                                                             autoDoorLock_Mt,                                                                                             headlight_Off_Timer,                                                                                             headlight_Auto_Senstivity,                                                                                             drl_On_Off,                                                                                             threeFlash,                                                                                             turnSignal_Vol,                                                                                             seatbelt_Rmdr_Vol,                                                                                             rvm_Buzzer_Vol,                                                                                             trafficAlert,                                                                                             trafficAlert_Freq,                                                                                             autoFreq,                                                                                             regionLock,                                                                                             drss,                                                                                             drss_Warn,                                                                                             sbs_distance,                                                                                             sbs_bz_Vol,                                                                                             fow,                                                                                             mrcc_Ind,                                                                                             bsm_Bz_Vol,                                                                                             ldw_Bz_Sound,                                                                                             ldw_Bz_Vol,                                                                                             ldw_Sens_Wide_Range,                                                                                             ldw_Sens_Warn_Cancel,                                                                                             ldw_Steering_Vibration,                                                                                             hbc,                                                                                             hbc_Sens,                                                                                             headlight_On_Warning,                                                                                             autoDoor_Relock,                                                                                             walkAway_Lock,                                                                                             autoRelock_Timer,                                                                                             unlock_Mode,                                                                                             buzzer_AnswerBack,                                                                                             hud,                                                                                             scbs,                                                                                             distance_Unit,                                                                                             temp_Unit,                                                                                             language,                                                                                             lhd_rhd,                                                                                             destination,                                                                                             voltage,                                                                                             bose_status,                                                                                             destination_1,                                                                                             vehicle_Type,                                                                                             afs_On_Off,                                                                                             vehiclePic,                                                                                             chl_T,                                                                                             lhl_OnOff,                                                                                             atDrLck_Mde_6items,                                                                                             drvAlt_OnOff,                                                                                             ldw_Lka_Mode,                                                                                             lka_Alert,                                                                                             lka_Bz_Volume,                                                                                             distUnitCnfg_Inh,                                                                                             tempUnitCnfg_Inh,                                                                                             brand,                                                                                             destination_2,                                                                                             DSP_mic,                                                                                             destination_canada"/>
+		<annotation name="com.jci.def_struct_types.VBS_Settings_SignalStatus_s_t" value="b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b,b"/>
+		<method name="SetBeepControl">
+			<annotation name="com.jci.type_ref.beepControl" value="VBS_Settings_Beep_Control_s_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="beepControl" type="(yyyyy)"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="GetBoseDetectStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="returnBoseDetectStatus" type="y"/>
+		</method>
+		<method name="SetRBCMCustomizeRequest1">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="cstmzRqType" type="y"/>
+			<arg direction="in" name="cstmzValue" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="return_status" type="y"/>
+		</method>
+		<method name="GetRBCMCustomizeStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="customizeStutsType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="rbcmCustomizeStatusVal" type="y"/>
+			<arg direction="out" name="rbcmCustomizeStatusType" type="y"/>
+			<arg direction="out" name="contents" type="y"/>
+			<arg direction="out" name="status" type="y"/>
+		</method>
+		<method name="GetRBCMCustomizeStatus2">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="customizeStatusType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="rbcmCustomizeStatusVal" type="y"/>
+			<arg direction="out" name="rbcmCustomizeStatusType" type="y"/>
+		</method>
+		<method name="ResetRBCMCustomizeRequest">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="rbcmCstzRequest" type="q"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="SetBSMCustomizeRequest1">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="bsmcstmzRqType" type="y"/>
+			<arg direction="in" name="bsmcstmzValue" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="return_status" type="y"/>
+		</method>
+		<method name="GetBSMCustomizeStatus1">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="bsmCustomizeStutsType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="bsmCustomizeStatusVal" type="y"/>
+			<arg direction="out" name="bsmCustomizeStatusType" type="y"/>
+			<arg direction="out" name="contents" type="y"/>
+			<arg direction="out" name="status" type="y"/>
+		</method>
+		<method name="GetBSMCustomizeStatus2">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="bsmCustomizeStutsType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="bsmCustomizeStatusVal" type="y"/>
+			<arg direction="out" name="bsmCustomizeStatusType" type="y"/>
+		</method>
+		<method name="ResetBSMCustomizeRequest">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="bsmCstzRequest" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="SetHECCustomizeRequest1">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="heccstmzRqType" type="y"/>
+			<arg direction="in" name="heccstmzValue" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="return_status" type="y"/>
+		</method>
+		<method name="GetHECCustomizeStatus1">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="hecCustomizeStutsType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="hecCustomizeStatusVal" type="y"/>
+			<arg direction="out" name="hecCustomizeStatusType" type="y"/>
+			<arg direction="out" name="contents" type="y"/>
+			<arg direction="out" name="status" type="y"/>
+		</method>
+		<method name="GetHECCustomizeStatus2">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="hecCustomizeStutsType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="hecCustomizeStatusVal" type="y"/>
+			<arg direction="out" name="hecCustomizeStatusType" type="y"/>
+		</method>
+		<method name="ResetHECCustomizeRequest">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="hecCstzRequest" type="q"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="SetSSUCustomizeRequest1">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="ssucstmzRqType" type="y"/>
+			<arg direction="in" name="ssucstmzValue" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="return_status" type="y"/>
+		</method>
+		<method name="GetSSUCustomizeStatus1">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="ssuCustomizeStutsType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="ssuCustomizeStatusVal" type="y"/>
+			<arg direction="out" name="ssuCustomizeStatusType" type="y"/>
+			<arg direction="out" name="contents" type="y"/>
+			<arg direction="out" name="status" type="y"/>
+		</method>
+		<method name="GetSSUCustomizeStatus2">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="ssuCustomizeStutsType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="ssuCustomizeStatusVal" type="y"/>
+			<arg direction="out" name="ssuCustomizeStatusType" type="y"/>
+		</method>
+		<method name="ResetSSUCustomizeRequest">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="ssuCstzRequest" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="SetCMUControlReq">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="cmuControlType" type="y"/>
+			<arg direction="in" name="cmuControlVal" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="return_status" type="y"/>
+		</method>
+		<method name="GetCMUControlReq">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="cmuControlType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="cmuCtrlVal" type="y"/>
+			<arg direction="out" name="cmuCtrlType" type="y"/>
+		</method>
+		<method name="SetCCMCustomizeRequest">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="cstmzRqType" type="y"/>
+			<arg direction="in" name="cstmzValue" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="return_status" type="y"/>
+		</method>
+		<method name="GetCCMCustomizeStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="customizeStutsType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="ccmCustomizeStatusVal" type="y"/>
+			<arg direction="out" name="ccmCustomizeStatusType" type="y"/>
+			<arg direction="out" name="contents" type="y"/>
+			<arg direction="out" name="status" type="y"/>
+		</method>
+		<method name="GetCCMCustomizeStatus2">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="customizeStutsType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="ccmCustomizeStatusVal" type="y"/>
+			<arg direction="out" name="ccmCustomizeStatusType" type="y"/>
+		</method>
+		<method name="ResetCCMCustomizeRequest">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="ccmCstzRequest" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="SetFSCCustomizeRequest1">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="cstmzRqType" type="y"/>
+			<arg direction="in" name="cstmzValue" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="return_status" type="y"/>
+		</method>
+		<method name="GetFSCCustomizeStatus1">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="fscCustomizeStatusType1" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="fscCstmStatusVal1" type="y"/>
+			<arg direction="out" name="fscCstmStatusType1" type="y"/>
+			<arg direction="out" name="contents" type="y"/>
+			<arg direction="out" name="status" type="y"/>
+		</method>
+		<method name="GetFSCCustomizeStatus1_ID485">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="fscCustomizeStatusType1" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="fscCstmStatusVal1" type="y"/>
+			<arg direction="out" name="fscCstmStatusType1" type="y"/>
+		</method>
+		<method name="ResetFSCCustomizeRequest1">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="fscCstzRequest1" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="SetFSCCustomizeRequest2">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="cstmzRqType" type="y"/>
+			<arg direction="in" name="cstmzValue" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="return_status" type="y"/>
+		</method>
+		<method name="GetFSCCustomizeStatus2">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="fscCustomizeStatusType2" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="fscCstmStatusVal2" type="y"/>
+			<arg direction="out" name="fscCstmStatusType2" type="y"/>
+			<arg direction="out" name="contents" type="y"/>
+			<arg direction="out" name="status" type="y"/>
+		</method>
+		<method name="GetFSCCustomizeStatus2_ID488">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="fscCustomizeStatusType2" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="fscCstmStatusVal2" type="y"/>
+			<arg direction="out" name="fscCstmStatusType2" type="y"/>
+		</method>
+		<method name="ResetFSCCustomizeRequest2">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="fscCstzRequest2" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="GetHECIlluminationStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="hecillumStatus" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="hecillumStatusVal" type="y"/>
+			<arg direction="out" name="hecillumStatusType" type="y"/>
+		</method>
+		<method name="SetPSMCustomizeRequest">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="cstmzRqType" type="y"/>
+			<arg direction="in" name="cstmzValue" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="return_status" type="y"/>
+		</method>
+		<method name="GetPSMCustomizeStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="customizeStutsType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="psmCustomizeStatusVal" type="y"/>
+			<arg direction="out" name="psmCustomizeStatusType" type="y"/>
+			<arg direction="out" name="contents" type="y"/>
+			<arg direction="out" name="status" type="y"/>
+		</method>
+		<method name="GetPSMCustomizeStatus2">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="customizeStutsType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="psmCustomizeStatusVal" type="y"/>
+			<arg direction="out" name="psmCustomizeStatusType" type="y"/>
+		</method>
+		<method name="ResetPSMCustomizeRequest">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="psmCstzRequest" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="GetGCCConfigMgmtID1">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="gccConfigMgmtType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="gccConfigMgmtValue" type="u"/>
+			<arg direction="out" name="gccCfMgmtType" type="y"/>
+		</method>
+		<method name="ResetToFactorySettings">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="GetVehicleSetting">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="settingType" type="y"/>
+			<arg direction="in" name="userInfoIn" type="u"/>
+			<arg direction="out" name="userInfoOut" type="u"/>
+			<arg direction="out" name="return_SettingStatus" type="y"/>
+		</method>
+		<method name="GetHUDTiltLvlReqVal">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="returnHUDTiltLvlReqValue" type="y"/>
+		</method>
+		<method name="GetVehicleType">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="retVehicleType" type="y"/>
+		</method>
+		<signal name="BoseConnectStatus">
+			<arg direction="in" name="BoseConnectType" type="y"/>
+		</signal>
+		<signal name="RBCMCustomizeStatus1Notification">
+			<arg direction="in" name="rbcmcustomizeStatusType" type="y"/>
+			<arg direction="in" name="rbcmcustomizeStatusValue" type="y"/>
+		</signal>
+		<signal name="RBCMCustomizeResponse">
+			<annotation name="com.jci.type_ref.rbcmCustomizeRespdata" value="VBS_SETTINGS_CSTMZRESP_RBCM_s_t"/>
+			<arg direction="in" name="rbcmCustomizeRespdata" type="(yyyyyyyyyyyyyy)"/>
+		</signal>
+		<signal name="BSMCustomizeStatus1Notification">
+			<arg direction="in" name="bsmCustomizeStatus1Type" type="y"/>
+			<arg direction="in" name="bsmCustomizeStatus1Value" type="y"/>
+		</signal>
+		<signal name="BSMCustomizeResponse">
+			<annotation name="com.jci.type_ref.bsmCustomizeRespdata" value="VBS_SETTINGS_CSTMZRESP_BSM_s_t"/>
+			<arg direction="in" name="bsmCustomizeRespdata" type="(yyyyy)"/>
+		</signal>
+		<signal name="HECCustomizeStatus1Notification">
+			<arg direction="in" name="hecCustomizeStatus1Type" type="y"/>
+			<arg direction="in" name="hecCustomizeStatus1Value" type="y"/>
+		</signal>
+		<signal name="SSUCustomizeStatus1Notification">
+			<arg direction="in" name="ssuCustomizeStatus1Type" type="y"/>
+			<arg direction="in" name="ssuCustomizeStatus1Value" type="y"/>
+		</signal>
+		<signal name="SSUCustomizeResponse">
+			<annotation name="com.jci.type_ref.ssuCustomizeRespdata" value="VBS_SETTINGS_CSTMZRESP_SSU_s_t"/>
+			<arg direction="in" name="ssuCustomizeRespdata" type="(yyyyyy)"/>
+		</signal>
+		<signal name="CMUControlNotification">
+			<arg direction="in" name="cmuControlStatusType" type="y"/>
+			<arg direction="in" name="cmuControlStatusValue" type="y"/>
+		</signal>
+		<signal name="CCMCustomizeStatus1Notification">
+			<arg direction="in" name="ccmcustomizeStatusType" type="y"/>
+			<arg direction="in" name="ccmcustomizeStatusValue" type="y"/>
+		</signal>
+		<signal name="CCMCustomizeResponse">
+			<annotation name="com.jci.type_ref.ccmCustomizeRespdata" value="VBS_SETTINGS_CSTMZRESP_CCM_s_t"/>
+			<arg direction="in" name="ccmCustomizeRespdata" type="(yyyyyy)"/>
+		</signal>
+		<signal name="FSCCustomizeStatus1Notification">
+			<arg direction="in" name="fsccustomizeStatusType1" type="y"/>
+			<arg direction="in" name="fsccustomizeStatusValue1" type="y"/>
+		</signal>
+		<signal name="FSCCustomizeResponse1">
+			<annotation name="com.jci.type_ref.fscCustomizeRespdata1" value="VBS_SETTINGS_CSTMZRESP_FSC1_s_t"/>
+			<arg direction="in" name="fscCustomizeRespdata1" type="(yyyyyyyy)"/>
+		</signal>
+		<signal name="FSCCustomizeStatus2Notification">
+			<arg direction="in" name="fsccustomizeStatusType2" type="y"/>
+			<arg direction="in" name="fsccustomizeStatusValue2" type="y"/>
+		</signal>
+		<signal name="FSCCustomizeResponse2">
+			<annotation name="com.jci.type_ref.fscCustomizeRespdata2" value="VBS_SETTINGS_CSTMZRESP_FSC2_s_t"/>
+			<arg direction="in" name="fscCustomizeRespdata2" type="(yyyy)"/>
+		</signal>
+		<signal name="HECIlluminationStatus">
+			<arg direction="in" name="hecilliumStatusType" type="y"/>
+			<arg direction="in" name="hecilliumStatusValue" type="y"/>
+		</signal>
+		<signal name="HECCustomizeResponse">
+			<annotation name="com.jci.type_ref.hecCustomizeRespdata" value="VBS_SETTINGS_CSTMZRESP_HEC_s_t"/>
+			<arg direction="in" name="hecCustomizeRespdata" type="(yyyyyyyyyyyyyy)"/>
+		</signal>
+		<signal name="HECCustomizeRespAFSOnOff">
+			<arg direction="in" name="hecCustmzAFSOnOff" type="y"/>
+		</signal>
+		<signal name="PSMCustomizeResponse">
+			<annotation name="com.jci.type_ref.psmCustomizeRespdata" value="VBS_SETTINGS_CSTMZRESP_PSM_s_t"/>
+			<arg direction="in" name="psmCustomizeRespdata" type="(yyyyy)"/>
+		</signal>
+		<signal name="PSMCustomiseStatus">
+			<arg direction="in" name="psmCustomiseStatusType" type="y"/>
+			<arg direction="in" name="psmCustomiseStatusValue" type="y"/>
+		</signal>
+		<signal name="GCCConfigMgmtID1Notification">
+			<arg direction="in" name="gccConfigMgmtType" type="y"/>
+			<arg direction="in" name="gccConfigMgmtValue" type="u"/>
+		</signal>
+		<signal name="MODSettingsReadyStatus">
+			<annotation name="com.jci.type_ref.signalStatus" value="VBS_Settings_SignalStatus_s_t"/>
+			<arg direction="in" name="signalStatus" type="(bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb)"/>
+		</signal>
+		<signal name="HUDTiltLvlReqCompleted">
+			<arg direction="in" name="hudTiltLvlStatus" type="y"/>
+		</signal>
+		<signal name="IgnitionStatus_HarnessRemoved">
+			<arg direction="in" name="ignitionStatus" type="y"/>
+		</signal>
+		<signal name="HUDTiltLvlReqVal">
+			<arg direction="in" name="HUDTiltLvlReqValue" type="y"/>
+		</signal>
+	</interface>
+</node>

@@ -1,0 +1,44 @@
+<node>
+	<interface name="com.jci.bucpsa">
+		<method name="GetReverseStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="reverseStatus" type="i"/>
+		</method>
+		<method name="DisplayCommand">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="command" type="u"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="GetDisplayMode_async">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="currentDisplayMode" type="u"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="GetDisplayMode">
+			<annotation name="sync" value="client"/>
+			<arg direction="out" name="currentDisplayMode" type="u"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="SetPSMEnabled">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="psmEnabled" type="y"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="GetPSMInstalledStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="psmInstalled" type="y"/>
+		</method>
+		<signal name="CommandResponse">
+			<arg name="cmdResponse" type="u"/>
+		</signal>
+		<signal name="DisplayMode">
+			<arg name="currentDisplayMode" type="u"/>
+		</signal>
+		<signal name="ReverseStatusChanged">
+			<arg name="reverseStatus" type="i"/>
+		</signal>
+		<signal name="PSMInstallStatusChanged">
+			<arg name="psmInstalled" type="y"/>
+		</signal>
+	</interface>
+</node>

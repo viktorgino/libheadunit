@@ -1,0 +1,62 @@
+<node>
+	<interface name="com.jci.navi2IHU.VR">
+		<annotation name="def_struct_names.navi2IHU_VDEListItem_t" value="stateId, cityId, streetId, houseNumber"/>
+		<annotation name="def_struct_types.navi2IHU_VDEListItem_t" value="      u,      u,        u,           u"/>
+		<annotation name="def_struct_names.navi2IHU_VDEHypothesisList_t" value="count, VDEHypothesisList"/>
+		<annotation name="def_struct_types.navi2IHU_VDEHypothesisList_t" value="    i, navi2IHU_VDEListItem_t"/>
+		<annotation name="def_struct_names.navi2IHU_HypothesisID_t" value="id"/>
+		<annotation name="def_struct_types.navi2IHU_HypothesisID_t" value=" u"/>
+		<annotation name="def_struct_names.navi2IHU_HypothesisList_t" value="count, list"/>
+		<annotation name="def_struct_types.navi2IHU_HypothesisList_t" value="    i, navi2IHU_HypothesisID_t"/>
+		<annotation name="def_struct_names.navi2IHU_PoiName_t" value="poiName"/>
+		<annotation name="def_struct_types.navi2IHU_PoiName_t" value="      s"/>
+		<annotation name="def_struct_names.navi2IHU_PoiCategories_t" value="count, poiCategories"/>
+		<annotation name="def_struct_types.navi2IHU_PoiCategories_t" value="    i, navi2IHU_PoiName_t"/>
+		<annotation name="def_struct_names.navi2IHU_JpjHypothesis_t" value="level1_id, level2_id, level3_id, level4_id, level5_id, level6_id"/>
+		<annotation name="def_struct_types.navi2IHU_JpjHypothesis_t" value="        u,         u,         u,         u,         u,         u"/>
+		<annotation name="def_struct_names.navi2IHU_JpjHypothesisList_t" value="count, hypothesisList"/>
+		<annotation name="def_struct_types.navi2IHU_JpjHypothesisList_t" value="    i, navi2IHU_JpjHypothesis_t"/>
+		<method name="VREvent">
+			<annotation name="async_client" value="true"/>
+			<arg direction="in" name="EventId" type="s"/>
+		</method>
+		<method name="SelectedListItem">
+			<annotation name="async_client" value="true"/>
+			<arg direction="in" name="SeletedItem" type="i"/>
+		</method>
+		<method name="JpjIntermediateHypothesis">
+			<annotation name="async_client" value="true"/>
+			<annotation name="type_ref.JpjHypothesis" value="navi2IHU_JpjHypothesis_t"/>
+			<arg direction="in" name="JpjHypothesis" type="(uuuuuu)"/>
+		</method>
+		<method name="JpjVDEHypothesisList">
+			<annotation name="async_client" value="true"/>
+			<annotation name="type_ref.JpjHypothesisList" value="navi2IHU_JpjHypothesisList_t"/>
+			<arg direction="in" name="JpjHypothesisList" type="(ia(uuuuuu))"/>
+		</method>
+		<method name="VDEHypothesisList">
+			<annotation name="async_client" value="true"/>
+			<annotation name="type_ref.VDEList" value="navi2IHU_VDEHypothesisList_t"/>
+			<arg direction="in" name="VDEList" type="(ia(uuuu))"/>
+		</method>
+		<method name="NavigateToPOI">
+			<annotation name="async_client" value="true"/>
+			<annotation name="type_ref.PoiCategoryName" value="navi2IHU_PoiCategories_t"/>
+			<arg direction="in" name="PoiCategoryName" type="(ia(s))"/>
+		</method>
+		<method name="AddWaypointPOI">
+			<annotation name="async_client" value="true"/>
+			<annotation name="type_ref.PoiCategoryName" value="navi2IHU_PoiCategories_t"/>
+			<arg direction="in" name="PoiCategoryName" type="(ia(s))"/>
+		</method>
+		<method name="SimpleHypothesisList">
+			<annotation name="async_client" value="true"/>
+			<annotation name="type_ref.IdList" value="navi2IHU_HypothesisList_t"/>
+			<arg direction="in" name="IdList" type="(ia(u))"/>
+		</method>
+		<method name="ModeChanged">
+			<annotation name="async_client" value="true"/>
+			<arg direction="in" name="Modality" type="i"/>
+		</method>
+	</interface>
+</node>

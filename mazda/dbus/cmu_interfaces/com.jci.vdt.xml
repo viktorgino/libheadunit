@@ -1,0 +1,110 @@
+<node>
+	<interface name="com.jci.vdt">
+		<annotation name="header_include" value="vdt_data.h"/>
+		<annotation name="com.jci.def_struct_names.vdt_msg_1_t" value="arg1, arg2"/>
+		<annotation name="com.jci.def_struct_types.vdt_msg_1_t" value="i,ay"/>
+		<annotation name="com.jci.def_struct_names.VDT_LogFileProtDelReq_s_t" value="Protect_Delete,DrvLogNum"/>
+		<annotation name="com.jci.def_struct_types.VDT_LogFileProtDelReq_s_t" value="y,y"/>
+		<annotation name="com.jci.def_struct_names.VDT_CMU_1hrFile_Properties_s_t" value="DrvNickName,DrvLogNum,DrvTimeStamp,Protected_Status"/>
+		<annotation name="com.jci.def_struct_types.VDT_CMU_1hrFile_Properties_s_t" value="s,y,u,b"/>
+		<annotation name="com.jci.def_struct_names.VDT_CMU_1hrNFile_Properties_s_t" value="Log_Count,Driver_Files"/>
+		<annotation name="com.jci.def_struct_types.VDT_CMU_1hrNFile_Properties_s_t" value="y,VDT_CMU_1hrFile_Properties_s_t"/>
+		<method name="MMUI_Startup_Initiated">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="vdt_mmui_init" type="b"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="DriveLogRecordingStatus">
+			<annotation name="typeof.record_status" value="VDT_CMU_Start_Stop_Recording_e_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="record_status" type="u"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="One_HrLog_File_Protect_Delete">
+			<annotation name="com.jci.type_ref.one_hrlog_info" value="VDT_LogFileProtDelReq_s_t"/>
+			<arg direction="in" name="one_hrlog_info" type="(yy)"/>
+		</method>
+		<method name="File_List_Req">
+			<annotation name="async" value="client"/>
+		</method>
+		<method name="DiagnosticsMode_Request">
+			<annotation name="typeof.testscreen_ID" value="VDT_TestScreen_Request_ID_e_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="testscreen_ID" type="q"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="UserMode_Setting">
+			<annotation name="typeof.setting_type" value="VDT_UserMode_Settings_e_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="setting_type" type="q"/>
+			<arg direction="in" name="value" type="b"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="UserMode_Request">
+			<annotation name="typeof.request_type" value="VDT_UserMode_Request_e_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="request_type" type="q"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="PIN_Request">
+			<annotation name="typeof.pin_req_type" value="VDT_PIN_Requests_e_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="pin_req_type" type="q"/>
+			<arg direction="in" name="value" type="q"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="Screen_Req">
+			<annotation name="typeof.VDTScreen" value="VDT_screen_user_action_e_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="VDTScreen" type="u"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<signal name="Drv_File_List">
+			<annotation name="com.jci.type_ref.file_list" value="VDT_CMU_1hrNFile_Properties_s_t"/>
+			<arg direction="in" name="file_list" type="(ya(syub))"/>
+		</signal>
+		<signal name="UMASS_Device_Status">
+			<annotation name="typeof.umass_status" value="VDT_UMASS_Status_e_t"/>
+			<arg name="umass_status" type="q"/>
+		</signal>
+		<signal name="MD_Device_Status">
+			<annotation name="typeof.md_status" value="VDT_MD_Status_e_t"/>
+			<arg name="md_status" type="q"/>
+			<arg name="is_drvchart" type="b"/>
+		</signal>
+		<signal name="ClearDataStatus">
+			<annotation name="typeof.clr_data_sts" value="VDT_ClearData_Status_e_t"/>
+			<arg name="clr_data_sts" type="q"/>
+		</signal>
+		<signal name="UmassTransferProgress">
+			<arg name="current_count" type="q"/>
+			<arg name="total_count" type="q"/>
+		</signal>
+		<signal name="ActivateDeactivateRecordingStatus">
+			<annotation name="typeof.recording_status" value="VDT_OneHr_Recording_Status_e_t"/>
+			<arg name="recording_status" type="u"/>
+		</signal>
+		<signal name="Send_Pin_Validation_Result">
+			<arg name="pin_validation_result" type="b"/>
+		</signal>
+		<signal name="Send_Pin_Updation_Result">
+			<annotation name="typeof.req_type" value="VDT_PIN_Updation_Req_Type_e_t"/>
+			<arg name="pin_updation_result" type="b"/>
+			<arg name="req_type" type="q"/>
+		</signal>
+		<signal name="Send_EOLConfig_Status">
+			<annotation name="typeof.eol_config_type" value="VDT_EOLConfig_Type_e_t"/>
+			<arg name="eol_config_type" type="q"/>
+			<arg name="value" type="b"/>
+		</signal>
+		<signal name="Send_HVD_Setting">
+			<annotation name="typeof.hvd_setting_type" value="VDT_Setting_Type_e_t"/>
+			<arg name="hvd_setting_type" type="q"/>
+			<arg name="value" type="b"/>
+		</signal>
+		<signal name="Delete_DriveRecord_DataStatus">
+			<annotation name="typeof.del_drv_data_sts" value="VDT_DeleteDrvData_Status_e_t"/>
+			<arg name="del_drv_data_sts" type="q"/>
+		</signal>
+	</interface>
+</node>

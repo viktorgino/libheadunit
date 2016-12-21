@@ -1,0 +1,7 @@
+<node>
+	<interface name="com.jci.cpp.dbus.DbusConnection">
+		<method name="Wiki">
+			<arg direction="in" name="timeout" type="u"/>
+		</method>
+	</interface>
+</node>

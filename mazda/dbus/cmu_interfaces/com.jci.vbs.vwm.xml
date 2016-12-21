@@ -1,0 +1,856 @@
+<node>
+	<interface name="com.jci.vbs.vwm">
+		<annotation name="header_include" value="status.h"/>
+		<annotation name="com.jci.def_struct_names.vbs_vwm_msg_1_t" value="arg1, arg2"/>
+		<annotation name="com.jci.def_struct_types.vbs_vwm_msg_1_t" value="       i,    ay"/>
+		<method name="BLM_Startup_Initiated">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="vwm_blm_init" type="b"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="OilDtrWrnB_D_Rq">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="OilDtrWrnB_D" type="y"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="SchMnt_Oil_B_Rq">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="SchMnt_Oil_B" type="y"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="SchMnt_Reg_B_Rq">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="SchMnt_Reg_B" type="y"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="SchMnt_Tyre_B_Rq">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="SchMnt_Tyre_B" type="y"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="Warning_BitMap_Rq">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="Warn_BitMap_1_32" type="u"/>
+			<arg direction="in" name="Warn_BitMap_33_64" type="u"/>
+			<arg direction="in" name="Warn_BitMap_65_92" type="u"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<signal name="PCS_MRCC_types">
+			<arg direction="in" name="pcs_mrcc_t" type="y"/>
+		</signal>
+		<signal name="FSC_Types">
+			<arg direction="in" name="fsc_typ" type="y"/>
+		</signal>
+		<signal name="DR_NDBW">
+			<arg direction="in" name="drnd_bw" type="b"/>
+		</signal>
+		<signal name="DR_MBLW">
+			<arg direction="in" name="drmb_lw" type="b"/>
+		</signal>
+		<signal name="EngCInt_Wrn_D_Rq">
+			<arg direction="in" name="EngCInt_Wrn" type="y"/>
+		</signal>
+		<signal name="Ignition_Status">
+			<arg direction="in" name="Ignition_Sta" type="n"/>
+		</signal>
+		<signal name="Ignition_Status_5sec">
+			<arg direction="in" name="Ignition_Sta_5" type="n"/>
+		</signal>
+		<signal name="CAN_Missing_Error">
+			<arg direction="in" name="Can_miss_Err" type="n"/>
+		</signal>
+		<signal name="DR_MBLO">
+			<arg direction="in" name="DR_MBL" type="b"/>
+		</signal>
+		<signal name="DR_B_WPOS">
+			<arg direction="in" name="DR_B_WPO" type="y"/>
+		</signal>
+		<signal name="DR_BattLoVolWarn_B_Rq">
+			<arg direction="in" name="DR_BattLoVolWarn_B" type="y"/>
+		</signal>
+		<signal name="Drive_Type">
+			<arg direction="in" name="Dr_type" type="y"/>
+		</signal>
+		<signal name="CMU_Types">
+			<arg direction="in" name="CM_Types" type="y"/>
+		</signal>
+		<signal name="Gearbox_Type">
+			<arg direction="in" name="Gearb_Type" type="y"/>
+		</signal>
+		<signal name="FuelType_Delivery">
+			<arg direction="in" name="FuType_Delivery" type="q"/>
+		</signal>
+		<signal name="TELLTALE_4X4_AUTO_copy">
+			<arg direction="in" name="TELL_4X4_AUTO_copy" type="q"/>
+		</signal>
+		<signal name="DR_CAU">
+			<arg direction="in" name="D_CAU" type="b"/>
+		</signal>
+		<signal name="DR_HVOT">
+			<arg direction="in" name="D_HVOT" type="b"/>
+		</signal>
+		<signal name="DR_PRQM">
+			<arg direction="in" name="D_PRQM" type="b"/>
+		</signal>
+		<signal name="DR_B_BRKW">
+			<arg direction="in" name="D_BRKW" type="y"/>
+		</signal>
+		<signal name="DR_B_EBW">
+			<arg direction="in" name="D_EBW" type="y"/>
+		</signal>
+		<signal name="DR_B_ABS">
+			<arg direction="in" name="D_ABS" type="y"/>
+		</signal>
+		<signal name="DR_SLP_WL">
+			<arg direction="in" name="D_SLP_WL" type="y"/>
+		</signal>
+		<signal name="BatteryChargingTelltale">
+			<arg direction="in" name="BatChargTelltale" type="b"/>
+		</signal>
+		<signal name="REGEN_Types">
+			<arg direction="in" name="REG_Types" type="y"/>
+		</signal>
+		<signal name="DPFTelltale">
+			<arg direction="in" name="Dpftell" type="b"/>
+		</signal>
+		<signal name="RVM_Types">
+			<arg direction="in" name="Rvm_Type" type="y"/>
+		</signal>
+		<signal name="BSM_Types">
+			<arg direction="in" name="BS_Type" type="y"/>
+		</signal>
+		<signal name="Light_Types">
+			<arg direction="in" name="Lit_Type" type="y"/>
+		</signal>
+		<signal name="System_Check">
+			<arg direction="in" name="Sys_Check" type="b"/>
+		</signal>
+		<signal name="OD_Hold_Sport_Flash">
+			<arg direction="in" name="OD_Hd_Spt_Flash" type="b"/>
+		</signal>
+		<signal name="CSDeniedByMonitor">
+			<arg direction="in" name="CSDenByMonitor" type="b"/>
+		</signal>
+		<signal name="SedimentWarning">
+			<arg direction="in" name="SedimentWarn" type="b"/>
+		</signal>
+		<signal name="FuelFilterWarning">
+			<arg direction="in" name="FuelFilterWarn" type="b"/>
+		</signal>
+		<signal name="DieselGlowplugTelltale">
+			<arg direction="in" name="DieselGlowplugTell" type="b"/>
+		</signal>
+		<signal name="GlobalRealTime">
+			<arg direction="in" name="GbRealTime" type="u"/>
+		</signal>
+		<signal name="Total_Distance">
+			<arg direction="in" name="Tot_Distance" type="u"/>
+		</signal>
+		<signal name="Oil_deteriorate_warning">
+			<arg direction="in" name="Oil_det_warn" type="b"/>
+		</signal>
+		<signal name="OilDtrWrn_Init_B_Eco">
+			<arg direction="in" name="OilDtrWrn_Init" type="b"/>
+		</signal>
+		<signal name="DR_Oil_deteriorate_Level">
+			<arg direction="in" name="DR_Oil_det_Level" type="q"/>
+		</signal>
+		<signal name="SchMnt_Reg_B_Rq">
+			<arg direction="in" name="SchMnt_Reg_Rq" type="y"/>
+		</signal>
+		<signal name="SchMnt_Tyre_B_Rq">
+			<arg direction="in" name="SchMnt_Tyre_Rq" type="y"/>
+		</signal>
+		<signal name="SchMnt_Oil_B_Rq">
+			<arg direction="in" name="SchMnt_Oil_Rq" type="y"/>
+		</signal>
+		<signal name="DistncUnit_D_Status">
+			<arg direction="in" name="DistncUnit_Status" type="y"/>
+		</signal>
+		<signal name="DistncUnitCnfg_D_Init">
+			<arg direction="in" name="DistncUnitCnfg_Init" type="y"/>
+		</signal>
+		<signal name="OilDtrWrnB_D_Rq">
+			<arg direction="in" name="OilDtrWrnB_Rq" type="y"/>
+		</signal>
+		<signal name="Turn_Ind_Cmd_Right">
+			<arg direction="in" name="Turn_Ind_Right" type="b"/>
+		</signal>
+		<signal name="Turn_Ind_Cmd_Left">
+			<arg direction="in" name="Turn_Ind_Left" type="b"/>
+		</signal>
+		<signal name="ESS_Active">
+			<arg direction="in" name="ES_Active" type="b"/>
+		</signal>
+		<signal name="HiBeamIpcDsply_B_Rq">
+			<arg direction="in" name="HiBeamIpcDsply" type="b"/>
+		</signal>
+		<signal name="HeadLght_D_Actl">
+			<arg direction="in" name="HeadLght_Actl" type="y"/>
+		</signal>
+		<signal name="FrntFogLght_B_Actl">
+			<arg direction="in" name="FrntFogLght_Actl" type="b"/>
+		</signal>
+		<signal name="RearFogLght_B_Rq">
+			<arg direction="in" name="RearFogLght_Rq" type="b"/>
+		</signal>
+		<signal name="TNS_LampStatus">
+			<arg direction="in" name="TNS_LampStat" type="b"/>
+		</signal>
+		<signal name="Equip_AutLghtOf_B_Actl">
+			<arg direction="in" name="Equip_AutLghtOf_Actl" type="b"/>
+		</signal>
+		<signal name="RLS_HeadReq_D_Actl">
+			<arg direction="in" name="RLS_HeadReq_Actl" type="y"/>
+		</signal>
+		<signal name="WshrLvl_D_Actl">
+			<arg direction="in" name="WshrLvl_Actl" type="y"/>
+		</signal>
+		<signal name="FrntWipr_D_Actl">
+			<arg direction="in" name="FrntWipr_Actl" type="y"/>
+		</signal>
+		<signal name="RLS_WiperReq_D_Actl">
+			<arg direction="in" name="RLS_WiperReq_Actl" type="y"/>
+		</signal>
+		<signal name="BrkFluidLvl_D_Actl">
+			<arg direction="in" name="BrkFluidLvl_Actl" type="y"/>
+		</signal>
+		<signal name="Security_Indicator_Request1">
+			<arg direction="in" name="Security_Indicator_Req1" type="b"/>
+		</signal>
+		<signal name="Security_Indicator_Request2">
+			<arg direction="in" name="Security_Indicator_Req2" type="b"/>
+		</signal>
+		<signal name="Buzzer_Control">
+			<arg direction="in" name="Buzzer_Cont" type="y"/>
+		</signal>
+		<signal name="Lamp_KEY_GREEN_Control">
+			<arg direction="in" name="Lamp_KEY_GREEN_Cont" type="y"/>
+		</signal>
+		<signal name="Lamp_KEY_RED_Control">
+			<arg direction="in" name="Lamp_KEY_RED_Cont" type="y"/>
+		</signal>
+		<signal name="ESCL_Display">
+			<arg direction="in" name="ESCL_Disp" type="y"/>
+		</signal>
+		<signal name="Buzzer_for_ESCL">
+			<arg direction="in" name="Buzz_for_Escl" type="y"/>
+		</signal>
+		<signal name="Power_Not_Off">
+			<arg direction="in" name="Pow_Not_Off" type="b"/>
+		</signal>
+		<signal name="Key_Battery_Low">
+			<arg direction="in" name="Key_Batt_Low" type="y"/>
+		</signal>
+		<signal name="Key_Not_Found">
+			<arg direction="in" name="Key_Not_Fnd" type="y"/>
+		</signal>
+		<signal name="TransmitterNo">
+			<arg direction="in" name="TransmitNo" type="y"/>
+		</signal>
+		<signal name="DrLockStat_D_Actl">
+			<arg direction="in" name="DrLockStat_Actl" type="y"/>
+		</signal>
+		<signal name="CalReq_DISP">
+			<arg direction="in" name="CalReq_Dsp" type="b"/>
+		</signal>
+		<signal name="MntSwtch_B_Actl">
+			<arg direction="in" name="MntSwtch_Actl" type="b"/>
+		</signal>
+		<signal name="AirAmb_Wrn_B_Rq">
+			<arg direction="in" name="AirAmb_Wrn_Rq" type="b"/>
+		</signal>
+		<signal name="Refill_Wrn_B_Rq">
+			<arg direction="in" name="Refill_Wrn_Rq" type="b"/>
+		</signal>
+		<signal name="WshrLvl_Cnfg_B_Stat">
+			<arg direction="in" name="WshrLvl_Cnfg_Stat" type="b"/>
+		</signal>
+		<signal name="TPMSCtlHec_D_Rq">
+			<arg direction="in" name="TPMSCtlHec_Rq" type="y"/>
+		</signal>
+		<signal name="MODE_4x4_copy">
+			<arg direction="in" name="MODE_copy" type="y"/>
+		</signal>
+		<signal name="Sds_TotSD_Avl_D_Actl">
+			<arg direction="in" name="Sds_TotSD_Avl_Actl" type="q"/>
+		</signal>
+		<signal name="LDW_Ramble_Strips_Vol">
+			<arg direction="in" name="LDW_Ramb_Strips_Vol" type="y"/>
+		</signal>
+		<signal name="EngClnt_Te_Actl_2">
+			<arg direction="in" name="EngClnt_Te_Actl" type="q"/>
+		</signal>
+		<signal name="OdoCount_2">
+			<arg direction="in" name="OdoCnt_2" type="q"/>
+		</signal>
+		<signal name="FuelPulse_2">
+			<arg direction="in" name="FulPulse_2" type="n"/>
+		</signal>
+		<signal name="AirAmb_P_Actl_2">
+			<arg direction="in" name="AirAmb_Actl_2" type="n"/>
+		</signal>
+		<signal name="ECMMILRequest_2">
+			<arg direction="in" name="ECMILReq_2" type="y"/>
+		</signal>
+		<signal name="DieselGlowplugTelltale_2">
+			<arg direction="in" name="DiesGlowplugTel_2" type="b"/>
+		</signal>
+		<signal name="EngineIdleStatus_2">
+			<arg direction="in" name="EngIdleSta_2" type="b"/>
+		</signal>
+		<signal name="FUEL_CAP_OFF_TELTAL_2">
+			<arg direction="in" name="Fuel_Cp_Off_Tll_2" type="b"/>
+		</signal>
+		<signal name="OilPressureWarning_2">
+			<arg direction="in" name="OilPreseWarn_2" type="b"/>
+		</signal>
+		<signal name="FuelFilterWarning_2">
+			<arg direction="in" name="FuelFiltWarn_2" type="b"/>
+		</signal>
+		<signal name="Oil_deteriorate_warning_2">
+			<arg direction="in" name="Oil_deteriorate_warn_2" type="b"/>
+		</signal>
+		<signal name="OilDtrWrn_Init_B_Eco_2">
+			<arg direction="in" name="OilDtrWrn_Init_Eco_2" type="b"/>
+		</signal>
+		<signal name="EngClntTe_D_Qf_2">
+			<arg direction="in" name="EngClntTe_Qf_2" type="y"/>
+		</signal>
+		<signal name="AirAmbTe_D_Qf_2">
+			<arg direction="in" name="AirAmbTe_Qf_2" type="y"/>
+		</signal>
+		<signal name="SedimentWarning_2">
+			<arg direction="in" name="SedimentWarn_2" type="b"/>
+		</signal>
+		<signal name="OilDtrWrn_Stat_B_Actl_2">
+			<arg direction="in" name="OilDtrWrn_Stat_Actl_2" type="b"/>
+		</signal>
+		<signal name="AirAmb_Te_Actl_2">
+			<arg direction="in" name="AirAmb_Te_Act_2" type="n"/>
+		</signal>
+		<signal name="EngineState">
+			<arg direction="in" name="EngineSta" type="y"/>
+		</signal>
+		<signal name="ShiftIndicatorLight">
+			<arg direction="in" name="SftIndicatLight" type="y"/>
+		</signal>
+		<signal name="KeyState">
+			<arg direction="in" name="KeySta" type="y"/>
+		</signal>
+		<signal name="CSEngineStatus_1">
+			<arg direction="in" name="CSEngStatus_1" type="b"/>
+		</signal>
+		<signal name="CSEngineStatus_2">
+			<arg direction="in" name="CSEngStatus_2" type="b"/>
+		</signal>
+		<signal name="SilGearPos_D_Dsply">
+			<arg direction="in" name="SilGearPos_Dsply" type="y"/>
+		</signal>
+		<signal name="GlobalConfgWarn_B_Rq">
+			<arg direction="in" name="GlobConfgWarn_Rq" type="b"/>
+		</signal>
+		<signal name="SRLY_state">
+			<arg direction="in" name="Srly_sta" type="b"/>
+		</signal>
+		<signal name="OilPSolWarn_B_Rq">
+			<arg direction="in" name="OilPSolWarn_Rq" type="b"/>
+		</signal>
+		<signal name="CSEngineStatus_No_Cnt">
+			<arg direction="in" name="CSEngStatus_No_Cnt" type="q"/>
+		</signal>
+		<signal name="SilGearPosActl_D_Dsply">
+			<arg direction="in" name="SilGearPosActl_Dsp" type="y"/>
+		</signal>
+		<signal name="Crank_wait">
+			<arg direction="in" name="Crank_wt" type="y"/>
+		</signal>
+		<signal name="ElectricalLoadControl">
+			<arg direction="in" name="ElectLoadCont" type="y"/>
+		</signal>
+		<signal name="CrankingTime">
+			<arg direction="in" name="CrankTime" type="q"/>
+		</signal>
+		<signal name="DPFSootOverload">
+			<arg direction="in" name="DPFStOvload" type="b"/>
+		</signal>
+		<signal name="ChangeOilNow">
+			<arg direction="in" name="ChanOilNow" type="b"/>
+		</signal>
+		<signal name="BrakeSw_Fail_Warning">
+			<arg direction="in" name="BrakeSw_Fail_Warn" type="b"/>
+		</signal>
+		<signal name="SmtAclInh_B_Actl">
+			<arg direction="in" name="SmtAclInh_Actl" type="b"/>
+		</signal>
+		<signal name="BmsWarn_B_Rq">
+			<arg direction="in" name="BmsWarn_Rq" type="b"/>
+		</signal>
+		<signal name="RegenBrkFailWarning">
+			<arg direction="in" name="RegenBrkFailWarn" type="b"/>
+		</signal>
+		<signal name="BattRgenStat_B_Actl">
+			<arg direction="in" name="BattRgenStat_Actl" type="b"/>
+		</signal>
+		<signal name="ATFalseStartWarning">
+			<arg direction="in" name="ATFalseStartWarn" type="b"/>
+		</signal>
+		<signal name="BoostPressure">
+			<arg direction="in" name="BoostPres" type="q"/>
+		</signal>
+		<signal name="EngineWarningInd">
+			<arg direction="in" name="EngWarnInd" type="q"/>
+		</signal>
+		<signal name="DrvAntiLckLamp_D_Rq">
+			<arg direction="in" name="DrvAntiLckLamp_Rq" type="y"/>
+		</signal>
+		<signal name="BrkLamp_B_Rq">
+			<arg direction="in" name="BrkLamp_Rq" type="b"/>
+		</signal>
+		<signal name="DrvSlipCtlMde_D_Ind">
+			<arg direction="in" name="DrvSlipCtlMde_Ind" type="y"/>
+		</signal>
+		<signal name="DrvSlipCtlLamp_D_Rq">
+			<arg direction="in" name="DrvSlipCtlLamp_Rq" type="y"/>
+		</signal>
+		<signal name="TPMSDis_D_Rq">
+			<arg direction="in" name="TPMSDis_Rq" type="y"/>
+		</signal>
+		<signal name="BpedMove_D_Actl">
+			<arg direction="in" name="BpedMove_Actl" type="y"/>
+		</signal>
+		<signal name="BpedMove_No_Cnt">
+			<arg direction="in" name="BpedMv_No_Cnt" type="q"/>
+		</signal>
+		<signal name="BpedMove_No_Cs">
+			<arg direction="in" name="BpedMv_No_Cs" type="n"/>
+		</signal>
+		<signal name="Dsc_B_Falt">
+			<arg direction="in" name="Dsc_Falt" type="b"/>
+		</signal>
+		<signal name="TCS_BRK_FAILD">
+			<arg direction="in" name="Tcs_Bk_Fail" type="b"/>
+		</signal>
+		<signal name="TCS_ENG_FAILD">
+			<arg direction="in" name="Tcs_Eng_Fail" type="b"/>
+		</signal>
+		<signal name="TPMSWarnBuzzer_B_Rq">
+			<arg direction="in" name="TPMSWarnBuzzer" type="b"/>
+		</signal>
+		<signal name="TPMSCtlLamp_D_Rq">
+			<arg direction="in" name="TPMSCtlLamp" type="y"/>
+		</signal>
+		<signal name="TPMSAnsBack_B_Rq">
+			<arg direction="in" name="TPMSAnsBack" type="b"/>
+		</signal>
+		<signal name="FLTirePressure_D_Stat">
+			<arg direction="in" name="FLTirePres_Stat" type="y"/>
+		</signal>
+		<signal name="RLTirePressure_D_Stat">
+			<arg direction="in" name="RLTirePres_Stat" type="y"/>
+		</signal>
+		<signal name="RRTirePressure_D_Stat">
+			<arg direction="in" name="RRTirePres_Stat" type="y"/>
+		</signal>
+		<signal name="SCHazard_D_Rq">
+			<arg direction="in" name="SCHaz_Rq" type="y"/>
+		</signal>
+		<signal name="CSBrakeStatus_1">
+			<arg direction="in" name="CSBrakeStat_1" type="b"/>
+		</signal>
+		<signal name="CSBrakeStatus_2">
+			<arg direction="in" name="CSBrakeStat_2" type="b"/>
+		</signal>
+		<signal name="CSBrakeStatus_3">
+			<arg direction="in" name="CSBrakeStat_3" type="b"/>
+		</signal>
+		<signal name="CSBrakeStatus_4">
+			<arg direction="in" name="CSBrakeStat_4" type="b"/>
+		</signal>
+		<signal name="CSBrakeStatus_5">
+			<arg direction="in" name="CSBrakeStat_5" type="b"/>
+		</signal>
+		<signal name="CSBrakeStatus_6">
+			<arg direction="in" name="CSBrakeStat_6" type="b"/>
+		</signal>
+		<signal name="StopLamp_D_RqArb">
+			<arg direction="in" name="StopLamp_RqArb" type="y"/>
+		</signal>
+		<signal name="CSBrkStpLmp_No_Cnt">
+			<arg direction="in" name="CSBrkStpLp_No_Cnt" type="y"/>
+		</signal>
+		<signal name="RVM_state">
+			<arg direction="in" name="RVM_stat" type="y"/>
+		</signal>
+		<signal name="RVM_EME">
+			<arg direction="in" name="RV_Eme" type="b"/>
+		</signal>
+		<signal name="RVM_BuzzerRequest">
+			<arg direction="in" name="RVM_BuzzerReq" type="b"/>
+		</signal>
+		<signal name="AFS_Warning_Status">
+			<arg direction="in" name="AFS_Warn_Status" type="y"/>
+		</signal>
+		<signal name="LVL_Warning_Status">
+			<arg direction="in" name="LVL_Warn_Status" type="y"/>
+		</signal>
+		<signal name="AFS_LVL_Configuration">
+			<arg direction="in" name="AFS_LVL_Config" type="y"/>
+		</signal>
+		<signal name="ADB_Warning_Status">
+			<arg direction="in" name="ADB_Warn_Status" type="y"/>
+		</signal>
+		<signal name="PreCrash_Status_Lamp">
+			<arg direction="in" name="PCrash_Stat_Lamp" type="y"/>
+		</signal>
+		<signal name="ACC_Status_Lamp">
+			<arg direction="in" name="ACC_Stat_Lamp" type="y"/>
+		</signal>
+		<signal name="LDW_Status_Lamp">
+			<arg direction="in" name="LDW_Stat_Lamp" type="y"/>
+		</signal>
+		<signal name="HBC_Status_Lamp">
+			<arg direction="in" name="HBC_Stat_Lamp" type="y"/>
+		</signal>
+		<signal name="DisplayColor">
+			<arg direction="in" name="DispColor" type="b"/>
+		</signal>
+		<signal name="FLASH_IND">
+			<arg direction="in" name="Flash_IN" type="b"/>
+		</signal>
+		<signal name="LDW_Status">
+			<arg direction="in" name="LDW_Stat" type="y"/>
+		</signal>
+		<signal name="Leading_Vehicle_Display">
+			<arg direction="in" name="Leading_Veh_Disp" type="b"/>
+		</signal>
+		<signal name="PopUp_Display_Request">
+			<arg direction="in" name="PopUp_Disp_Req" type="b"/>
+		</signal>
+		<signal name="Distance_SW_Status">
+			<arg direction="in" name="Dist_SW_Stat" type="y"/>
+		</signal>
+		<signal name="DRSS_status">
+			<arg direction="in" name="DRSS_stat" type="y"/>
+		</signal>
+		<signal name="DRSS_Distance">
+			<arg direction="in" name="DRSS_Dist" type="y"/>
+		</signal>
+		<signal name="CCM_Deactivated">
+			<arg direction="in" name="CCM_Deactiv" type="y"/>
+		</signal>
+		<signal name="ACC_Failed">
+			<arg direction="in" name="ACC_Fail" type="b"/>
+		</signal>
+		<signal name="PCS_Failed">
+			<arg direction="in" name="PCS_Fail" type="b"/>
+		</signal>
+		<signal name="DRSS_Failed">
+			<arg direction="in" name="DRSS_Fail" type="b"/>
+		</signal>
+		<signal name="Warning_Signal_Status">
+			<arg direction="in" name="Warn_Sig_Status" type="q"/>
+		</signal>
+		<signal name="FSC_Status">
+			<arg direction="in" name="FSC_Stat" type="y"/>
+		</signal>
+		<signal name="Radar_Blocked">
+			<arg direction="in" name="Radar_Block" type="y"/>
+		</signal>
+		<signal name="ACC_Set_Status">
+			<arg direction="in" name="ACC_Set_Stat" type="b"/>
+		</signal>
+		<signal name="Warning_Buzzer_Request">
+			<arg direction="in" name="Warn_Buzzer_Req" type="q"/>
+		</signal>
+		<signal name="SCBSServiceReqFlg">
+			<arg direction="in" name="SCBSServiceReqFlg" type="b"/>
+		</signal>
+		<signal name="SensorBlkgMsg">
+			<arg direction="in" name="SensorBlkgMsg" type="b"/>
+		</signal>
+		<signal name="SCBSUnavailableFlg">
+			<arg direction="in" name="SCBSUnavailableFlg" type="b"/>
+		</signal>
+		<signal name="EBAPostInctMsg">
+			<arg direction="in" name="EBAPostInctMsg" type="b"/>
+		</signal>
+		<signal name="CitySafetyMsg_Updatebit">
+			<arg direction="in" name="CitySafMsg_Updatebit" type="b"/>
+		</signal>
+		<signal name="EBABrakeDecelReqEnbl">
+			<arg direction="in" name="EBABrakeDecelReqEnbl" type="b"/>
+		</signal>
+		<signal name="EBABrakeDecelReqEnbl_Updatebit">
+			<arg direction="in" name="EBABrakeDecelReqEnbl_Updatebit" type="b"/>
+		</signal>
+		<signal name="EBABrakeDecelReq_Updatebit">
+			<arg direction="in" name="EBABrakeDecelReq_Updatebit" type="b"/>
+		</signal>
+		<signal name="EBABrakeDecelReq">
+			<arg direction="in" name="EBABrakeDecelReq" type="b"/>
+		</signal>
+		<signal name="EBABrakePrechargeReq">
+			<arg direction="in" name="EBABrakePrechargeReq" type="y"/>
+		</signal>
+		<signal name="EBABrakePrechargeReq_Updatebit">
+			<arg direction="in" name="EBABrakePrechargeReq_Updatebit" type="b"/>
+		</signal>
+		<signal name="EBABrkCtlUnitStats">
+			<arg direction="in" name="EBABrkCtlUnitStats" type="b"/>
+		</signal>
+		<signal name="EBABrkCtlUnitStats_Updatebit">
+			<arg direction="in" name="EBABrkCtlUnitStats_Updatebit" type="b"/>
+		</signal>
+		<signal name="EBAHBASensReq">
+			<arg direction="in" name="EBAHBASensReq" type="y"/>
+		</signal>
+		<signal name="EBAHBASensReq_Updatebit">
+			<arg direction="in" name="EBAHBASensReq_Updatebit" type="b"/>
+		</signal>
+		<signal name="EBAEngineBrakeReq">
+			<arg direction="in" name="EBAEngineBrakeReq" type="b"/>
+		</signal>
+		<signal name="EBAEngineBrakeReq_Updatebit">
+			<arg direction="in" name="EBAEngineBrakeReq_Updatebit" type="b"/>
+		</signal>
+		<signal name="CVMonitorData_Updatebit">
+			<arg direction="in" name="CVMonitorData_Update" type="b"/>
+		</signal>
+		<signal name="CVMonitorData">
+			<arg direction="in" name="CVMonitorDat" type="b"/>
+		</signal>
+		<signal name="CSBrakeDecelCS">
+			<arg direction="in" name="CSBrakeDecel" type="q"/>
+		</signal>
+		<signal name="DcdcForcedTermination_B_Rq">
+			<arg direction="in" name="DcdcForcedTermination" type="b"/>
+		</signal>
+		<signal name="DcdcCtlStrt_B_Rq">
+			<arg direction="in" name="DcdcCtlStrt" type="b"/>
+		</signal>
+		<signal name="DirCnnctRlyCtl_B_Rq">
+			<arg direction="in" name="DirCnnctRlyCtl" type="b"/>
+		</signal>
+		<signal name="RstrtSwtchCtl_B_Rq">
+			<arg direction="in" name="RstrtSwtchCtl" type="b"/>
+		</signal>
+		<signal name="DcdcOut_U_Rq">
+			<arg direction="in" name="DcdcOut" type="q"/>
+		</signal>
+		<signal name="CapaDchrg_B_RqSoc">
+			<arg direction="in" name="CapaDchrg" type="b"/>
+		</signal>
+		<signal name="CapaSenseCapacity_B_Rq">
+			<arg direction="in" name="CapaSenseCapacity" type="b"/>
+		</signal>
+		<signal name="DcdcSocChrg_U_Rq">
+			<arg direction="in" name="DcdcSocChrg" type="q"/>
+		</signal>
+		<signal name="EDLCChrgCtl_D_Rq">
+			<arg direction="in" name="EDLCChrgCtl" type="y"/>
+		</signal>
+		<signal name="RegenCtlStat_D_Actl">
+			<arg direction="in" name="RegenCtlStat" type="y"/>
+		</signal>
+		<signal name="CapaSOC_Pc_Actl">
+			<arg direction="in" name="CapaSOC" type="q"/>
+		</signal>
+		<signal name="RegenSave">
+			<arg direction="in" name="RegenSa" type="q"/>
+		</signal>
+		<signal name="RegenPw_Watt_Actl">
+			<arg direction="in" name="RegenPw_Watt" type="q"/>
+		</signal>
+		<signal name="DcdcSocChrgOver_U_Rq">
+			<arg direction="in" name="DcdcSocChrgOver" type="q"/>
+		</signal>
+		<signal name="DcdcWarningDisp_B_Rq">
+			<arg direction="in" name="DcdcWarningDisp" type="b"/>
+		</signal>
+		<signal name="DcdcWarningBuzzer_B_Rq">
+			<arg direction="in" name="DcdcWarningBuzzer" type="b"/>
+		</signal>
+		<signal name="SteeringColumnTorque">
+			<arg direction="in" name="SteeringColumnTor" type="q"/>
+		</signal>
+		<signal name="ElectPowerConsumption">
+			<arg direction="in" name="ElectPowerConsump" type="n"/>
+		</signal>
+		<signal name="Epas_ContStatus">
+			<arg direction="in" name="Epas_ContStat" type="y"/>
+		</signal>
+		<signal name="EpasOverTempProt">
+			<arg direction="in" name="EpasOverTempPr" type="y"/>
+		</signal>
+		<signal name="SteerMtrCurrent_I_Actl">
+			<arg direction="in" name="SteerMtrCurrent" type="q"/>
+		</signal>
+		<signal name="SteeringAngleChangeRate">
+			<arg direction="in" name="SteeringAngleChangeR" type="u"/>
+		</signal>
+		<signal name="SteAngChRate_No_Cnt">
+			<arg direction="in" name="SteAngChRate_No" type="q"/>
+		</signal>
+		<signal name="EpasWrnBuzr_D_Rq">
+			<arg direction="in" name="EpasWrnBuzr" type="q"/>
+		</signal>
+		<signal name="FuelCutoffReq">
+			<arg direction="in" name="FuelCutoff" type="q"/>
+		</signal>
+		<signal name="RcmFuelCutStat_B_Actl">
+			<arg direction="in" name="RcmFuelCutStat" type="b"/>
+		</signal>
+		<signal name="RcmDeplyFrnt_B_Actl">
+			<arg direction="in" name="RcmDeplyFrnt" type="b"/>
+		</signal>
+		<signal name="RcmDeplyRear_B_Actl">
+			<arg direction="in" name="RcmDeplyRear" type="b"/>
+		</signal>
+		<signal name="FuelCutoffReq_No_Cnt">
+			<arg direction="in" name="FuelCutoffReq" type="q"/>
+		</signal>
+		<signal name="FuelCutoffReq_No_Cs">
+			<arg direction="in" name="FuelCutoffReq_No" type="q"/>
+		</signal>
+		<signal name="RILReq">
+			<arg direction="in" name="RILR" type="y"/>
+		</signal>
+		<signal name="RCM_AirbagWarningChimeReq">
+			<arg direction="in" name="RCM_AirbagWarningChime" type="b"/>
+		</signal>
+		<signal name="PAD_Ind_Req">
+			<arg direction="in" name="PAD_Ind" type="y"/>
+		</signal>
+		<signal name="OCS_Status">
+			<arg direction="in" name="OCS" type="y"/>
+		</signal>
+		<signal name="FirstRowBuckleDriver">
+			<arg direction="in" name="FirstRowBuckleD" type="b"/>
+		</signal>
+		<signal name="FirstRowBucklePsngr">
+			<arg direction="in" name="FirstRowBuckleP" type="b"/>
+		</signal>
+		<signal name="HVCut_Safing">
+			<arg direction="in" name="HVCut_Saf" type="b"/>
+		</signal>
+		<signal name="HVCut_Rollover">
+			<arg direction="in" name="HVCut_Rollov" type="b"/>
+		</signal>
+		<signal name="HVCut_Rear">
+			<arg direction="in" name="HVCut_Re" type="b"/>
+		</signal>
+		<signal name="HVCut_Side">
+			<arg direction="in" name="HVCut_Si" type="b"/>
+		</signal>
+		<signal name="HVCut_Front">
+			<arg direction="in" name="HVCut_Fro" type="y"/>
+		</signal>
+		<signal name="HVCut_Qf">
+			<arg direction="in" name="HVCut_Q" type="y"/>
+		</signal>
+		<signal name="HVCut_No_Cnt">
+			<arg direction="in" name="HVCut_No_Cn" type="q"/>
+		</signal>
+		<signal name="HVCut_No_Cs">
+			<arg direction="in" name="HVCut_No_C" type="n"/>
+		</signal>
+		<signal name="OcsCalib_B_Rq">
+			<arg direction="in" name="OcsCalib" type="b"/>
+		</signal>
+		<signal name="OcsCalcChk_B_Rq">
+			<arg direction="in" name="OcsCalcChk" type="b"/>
+		</signal>
+		<signal name="OcsClr_B_Rq">
+			<arg direction="in" name="OcsClr" type="b"/>
+		</signal>
+		<signal name="OcsDataRec_B_Rq">
+			<arg direction="in" name="OcsDataRec" type="b"/>
+		</signal>
+		<signal name="COMMAND_No_Cs">
+			<arg direction="in" name="COMMAND_No_C" type="q"/>
+		</signal>
+		<signal name="BSM_BuzzerRequest">
+			<arg direction="in" name="BSM_BuzzerReq" type="b"/>
+		</signal>
+		<signal name="BSM_OffIndicator">
+			<arg direction="in" name="BSM_OffIndi" type="b"/>
+		</signal>
+		<signal name="BSM_Warn_R">
+			<arg direction="in" name="BSM_Warn" type="y"/>
+		</signal>
+		<signal name="BSM_Warn_L">
+			<arg direction="in" name="BSM_War" type="y"/>
+		</signal>
+		<signal name="BSM_Status">
+			<arg direction="in" name="BSM_Stat" type="y"/>
+		</signal>
+		<signal name="RCTA_Warn_Status_R">
+			<arg direction="in" name="RCTA_Warn_Stat" type="b"/>
+		</signal>
+		<signal name="RCTA_Warn_Indicator_R">
+			<arg direction="in" name="RCTA_Warn_Indicator" type="b"/>
+		</signal>
+		<signal name="RCTA_Warn_Status_L">
+			<arg direction="in" name="RCTA_Warn_Status" type="b"/>
+		</signal>
+		<signal name="RCTA_Warn_Indicator_L">
+			<arg direction="in" name="RCTA_Warn_Indicat" type="b"/>
+		</signal>
+		<signal name="RCTA_BuzzerRequest">
+			<arg direction="in" name="RCTA_BuzzerReq" type="b"/>
+		</signal>
+		<signal name="RCTA_OffIndicator">
+			<arg direction="in" name="RCTA_OffIndicat" type="b"/>
+		</signal>
+		<signal name="RCTA_Status">
+			<arg direction="in" name="RCTA_Stat" type="y"/>
+		</signal>
+		<signal name="BSM_Ext_Status_info">
+			<arg direction="in" name="BSM_Ext_Status_in" type="q"/>
+		</signal>
+		<signal name="DR_CHAW">
+			<arg direction="in" name="DR_CHAW_Info" type="q"/>
+		</signal>
+		<signal name="BatteryChargingTelltale2">
+			<arg direction="in" name="BatteryChargingTelltale_info" type="b"/>
+		</signal>
+		<signal name="OilPressureWarning">
+			<arg direction="in" name="OilPressureWarning_info" type="q"/>
+		</signal>
+		<signal name="Fuel_cap_off_teltal">
+			<arg direction="in" name="Fuel_cap_off_teltal_info" type="q"/>
+		</signal>
+		<signal name="ECMMILRequest">
+			<arg direction="in" name="ECMMILRequest_info" type="y"/>
+		</signal>
+		<signal name="SISS_WarningLamp_R">
+			<arg direction="in" name="SISS_WarningLamp_R_info" type="y"/>
+		</signal>
+		<signal name="OilDtrWrn_Stat_B_Actl">
+			<arg direction="in" name="OilDtrWrn_Stat_B_Actl_info" type="q"/>
+		</signal>
+		<signal name="Destination_1">
+			<arg direction="in" name="cmu_config_destination_1" type="y"/>
+		</signal>
+		<signal name="Sent_Missed_Signal_Flag"/>
+		<signal name="EPB_RedTelltale_copy">
+			<arg direction="in" name="EPB_RedTelltale" type="y"/>
+		</signal>
+		<signal name="EPB_DisplayRequest3_copy">
+			<arg direction="in" name="EPB_DisplayRequest3" type="b"/>
+		</signal>
+		<signal name="DHS_RILReq_copy">
+			<arg direction="in" name="DHS_RILReq" type="y"/>
+		</signal>
+		<signal name="EvpWrn_B_Rq_copy">
+			<arg direction="in" name="EvpWrn_B_Rq" type="b"/>
+		</signal>
+		<signal name="EvpBrkWrn_B_Rq_copy">
+			<arg direction="in" name="EvpBrkWrn_B_Rq" type="b"/>
+		</signal>
+		<signal name="Runflattire_Wrn_B_Rq">
+			<arg direction="in" name="Runflattire_Wrn_B" type="b"/>
+		</signal>
+	</interface>
+</node>

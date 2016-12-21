@@ -1,0 +1,72 @@
+<node>
+	<interface name="com.jci.lds.data">
+		<annotation name="com.jci.with_error_string" value="true"/>
+		<method name="GetPosition">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="PositionAccuracy" type="i">
+				<doc line=" Accuracy = enum(POSITION_UNKNOWN=0x00, POSITION_GPS_3D=0x01, POSITION_GPS_2D=0x02, POSITION_DR=0x03) "/>
+			</arg>
+			<arg direction="out" name="UTCtime" type="t">
+				<doc line=" UNIX timestamp from epoch, 0 means invalid."/>
+			</arg>
+			<arg direction="out" name="Latitude" type="d">
+				<doc line=" Latitude in degrees. "/>
+			</arg>
+			<arg direction="out" name="Longitude" type="d">
+				<doc line=" Longitude in degrees. "/>
+			</arg>
+			<arg direction="out" name="Altitude" type="i">
+				<doc line=" Altitude in meters (can be negative). "/>
+			</arg>
+			<arg direction="out" name="Heading" type="d">
+				<doc line=" Heading value in degrees, clockwise, zero is north. "/>
+			</arg>
+			<arg direction="out" name="Velocity" type="d">
+				<doc line=" Speed in km/h. "/>
+			</arg>
+			<arg direction="out" name="HorizontalAccuracy" type="d">
+				<doc line=" Horizontal DOP value. "/>
+			</arg>
+			<arg direction="out" name="VerticalAccuracy" type="d">
+				<doc line=" Vertical DOP value. "/>
+			</arg>
+			<doc line="GetPosition = This method returns the current position. "/>
+		</method>
+		<method name="GetLastKnownPosition">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="UTCtime" type="t">
+				<doc line=" UNIX timestamp from epoch, 0 means invalid."/>
+			</arg>
+			<arg direction="out" name="Latitude" type="d">
+				<doc line="Latitude in degrees. "/>
+			</arg>
+			<arg direction="out" name="Longitude" type="d">
+				<doc line="Longitude in degrees. "/>
+			</arg>
+			<doc line=" GetLastKnownPosition = This method returns the last known position. Valid only if UTCtime is non-zero."/>
+		</method>
+		<method name="GetGPSFirmwareVersion">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="FirmwareVersion" type="s">
+				<doc line=" Firmware version in format STA8088.XXXx, where Xs are digits and x is a lowercase letter. &quot;Unknown ver.&quot; means version hasn't been obtained from the GPS yet."/>
+			</arg>
+			<doc line=" GetGPSFirmwareVersion = This method returns the firmware version of the used GPS device."/>
+		</method>
+		<method name="GetSatelliteInfo">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="SatellitesInUse" type="i">
+				<doc line=" Count of the satellites, which are used for position calculation."/>
+			</arg>
+			<doc line=" GetSatelliteInfo = This method returns the current satellite information."/>
+		</method>
+		<signal name="GPSDiagnostics">
+			<arg name="DTCId" type="y">
+				<doc line=" Id of the DTC = enum(DTC_ANT_SHORT=0x11, DTC_ANT_OPEN=0x13, DTC_ANT_OVERCURR=0x1D, DTC_NMEA_FAILURE=0x92) "/>
+			</arg>
+			<arg name="DTCAction" type="y">
+				<doc line=" Setting or clearing of the DTC = enum(DTC_ACTION_SET=0x00, DTC_ACTION_CLEAR=0x01) "/>
+			</arg>
+			<doc line="GPSDiagnostics = This signal is sent when a DTC is set or cleared. "/>
+		</signal>
+	</interface>
+</node>

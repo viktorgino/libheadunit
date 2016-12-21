@@ -1,0 +1,177 @@
+<node>
+	<interface name="com.jci.vbs.diag">
+		<annotation name="header_include" value="mod_diag_signals.h"/>
+		<annotation name="header_include" value="status.h"/>
+		<annotation name="com.jci.def_struct_names.vbs_diag_msg_1_t" value="arg1, arg2"/>
+		<annotation name="com.jci.def_struct_types.vbs_diag_msg_1_t" value="       i,    ay"/>
+		<annotation name="com.jci.def_struct_names.VBS_DIAG_Fault_ID_Group_s_t" value="Fault_IDs, no_faultids"/>
+		<annotation name="com.jci.def_struct_types.VBS_DIAG_Fault_ID_Group_s_t" value="                     au, y"/>
+		<annotation name="com.jci.def_struct_names.VBS_DIAG_Routine_Response_s_t" value="routine_id_enum, routine_response_status, routine_response"/>
+		<annotation name="com.jci.def_struct_types.VBS_DIAG_Routine_Response_s_t" value="                     u,                                   y,                        y"/>
+		<annotation name="com.jci.def_struct_names.VBS_DIAG_VehicleInfo_s_t" value="destination, cmu_Types,driveChart_Log_Distance,destination_1,destination_2,driveChart_Display,driveChart_DataTrans,myDoctor_Display,driverIdentification,stDis_IDM_Req,endDis_IDM_Req,stDis_Eco_Req,endDis_Eco_Req,custmzDisp_SW"/>
+		<annotation name="com.jci.def_struct_types.VBS_DIAG_VehicleInfo_s_t" value="y,y,y,y,y,y,y,y,y,y,y,y,y,y"/>
+		<annotation name="com.jci.def_struct_names.VBS_DIAG_Fault_Status_s_t" value="Fault_ID, status"/>
+		<annotation name="com.jci.def_struct_types.VBS_DIAG_Fault_Status_s_t" value="            u,       y"/>
+		<annotation name="com.jci.def_struct_names.VBS_DIAG_Fault_Response_Group_s_t" value="                             Fault_IDs, no_faultids"/>
+		<annotation name="com.jci.def_struct_types.VBS_DIAG_Fault_Response_Group_s_t" value=" VBS_DIAG_Fault_Status_s_t,   y"/>
+		<annotation name="com.jci.def_struct_names.VBS_DIAG_ClearFault_Response_s_t" value="fault_Id, status, no_of_faults"/>
+		<annotation name="com.jci.def_struct_types.VBS_DIAG_ClearFault_Response_s_t" value="        u,        y,                  y"/>
+		<annotation name="com.jci.def_struct_names.VBS_DIAG_Data_Response_s_t" value="data_id_enum, data_response"/>
+		<annotation name="com.jci.def_struct_types.VBS_DIAG_Data_Response_s_t" value="                  y,                    ay"/>
+		<annotation name="com.jci.def_struct_names.VBS_DIAG_TAUVehicleInfo_s_t" value="ldw_ramble_Strips_vol, ldw_ramble_Strips_sound,warning_buzzer_request,vehicle_type,body_style,destination,cmu_configuration,illumiChange_request,steering_wheel_location"/>
+		<annotation name="com.jci.def_struct_types.VBS_DIAG_TAUVehicleInfo_s_t" value="y,y,y,q,y,y,u,y,y"/>
+		<annotation name="com.jci.def_struct_names.VBS_DIAG_PermanentDTCLogResponse_s_t" value="fault_id"/>
+		<annotation name="com.jci.def_struct_types.VBS_DIAG_PermanentDTCLogResponse_s_t" value="ay"/>
+		<annotation name="com.jci.def_struct_names.VBS_DIAG_PermanentDTCLogCounterResponse_s_t" value="log_counter,log_counter_number"/>
+		<annotation name="com.jci.def_struct_types.VBS_DIAG_PermanentDTCLogCounterResponse_s_t" value="             aq,                    y"/>
+		<method name="SetFault_Request">
+			<annotation name="typeof.Fault_ID" value="VBS_DIAG_Fault_ID_e_t"/>
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="Fault_ID" type="u"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<method name="ClearSingleFault_Request">
+			<annotation name="typeof.Fault_ID" value="VBS_DIAG_Fault_ID_e_t"/>
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="Fault_ID" type="u"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<method name="GetFaultStatus_Request">
+			<annotation name="com.jci.type_ref.Fault_ID_List" value="VBS_DIAG_Fault_ID_Group_s_t"/>
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="Fault_ID_List" type="(auy)"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<method name="ReadCMUFaults_Request">
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<method name="ReadAVCFaults_Request">
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<method name="ClearFaults_Request">
+			<annotation name="com.jci.type_ref.Fault_ID_List" value="VBS_DIAG_Fault_ID_Group_s_t"/>
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="Fault_ID_List" type="(auy)"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<method name="ClearFaults_HMIRequest">
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<method name="Routine_Request">
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="RoutineID" type="y"/>
+			<arg direction="in" name="Routine_Param" type="q"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<method name="Data_Request">
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="DIDNo" type="y"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<method name="GGDS_Data_Response">
+			<annotation name="com.jci.type_ref.data_response" value="VBS_DIAG_Data_Response_s_t"/>
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="data_response" type="(yay)"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<method name="GGDS_Routine_Response">
+			<annotation name="com.jci.type_ref.routine_response" value="VBS_DIAG_Routine_Response_s_t"/>
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="routine_response" type="(uyy)"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<method name="TestScreen_Status_Response">
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="TestScreenStatus" type="y"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<method name="TAU_Vehicle_Info_Data_Request">
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="DIDNo" type="y"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<method name="BLM_Ready_Vehicle_Info_Data_Request">
+			<annotation name="com.jci.type_ref.return_value" value="VBS_DIAG_VehicleInfo_s_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="(yyyyyyyyyyyyyy)"/>
+		</method>
+		<method name="GenericMessage_Request">
+			<annotation name="typeof.SignalRequest" value="MOD_DIAG_GenericMessageRequest_e_t"/>
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="SignalRequest" type="u"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<method name="PermanentDTCLog_Request">
+			<annotation name="typeof.return_value" value="status_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="u"/>
+		</method>
+		<signal name="GetFaultStatus_Response">
+			<annotation name="com.jci.type_ref.FaultStatus" value="VBS_DIAG_Fault_Response_Group_s_t"/>
+			<arg direction="in" name="FaultStatus" type="(a(uy)y)"/>
+		</signal>
+		<signal name="ClearFault_Response">
+			<annotation name="com.jci.type_ref.ClearFaultAck" value="VBS_DIAG_Fault_Response_Group_s_t"/>
+			<arg direction="in" name="ClearFaultAck" type="(a(uy)y)"/>
+		</signal>
+		<signal name="Clear_HMIResponse">
+			<annotation name="com.jci.type_ref.ClearHMIResponse" value="VBS_DIAG_ClearFault_Response_s_t"/>
+			<arg direction="in" name="ClearHMIResponse" type="(uyy)"/>
+		</signal>
+		<signal name="GetRoutineStatus_Response">
+			<annotation name="com.jci.type_ref.RoutineResponse" value="VBS_DIAG_Routine_Response_s_t"/>
+			<arg direction="in" name="RoutineResponse" type="(uyy)"/>
+		</signal>
+		<signal name="GetData_Response">
+			<annotation name="com.jci.type_ref.DIDResponse" value="VBS_DIAG_Data_Response_s_t"/>
+			<arg direction="in" name="DIDResponse" type="(yay)"/>
+		</signal>
+		<signal name="GGDSData_Request">
+			<arg direction="in" name="GGDSDataRequest" type="y"/>
+		</signal>
+		<signal name="GGDSRoutine_Request">
+			<arg direction="in" name="GGDSRoutineRequest" type="y"/>
+		</signal>
+		<signal name="GetVehicleInfoData_Response">
+			<annotation name="com.jci.type_ref.data_vehicle_info" value="VBS_DIAG_VehicleInfo_s_t"/>
+			<arg direction="in" name="data_vehicle_info" type="(yyyyyyyyyyyyyy)"/>
+		</signal>
+		<signal name="GetSystemFailureError_Response">
+			<arg direction="in" name="error_id" type="y"/>
+			<arg direction="in" name="error_status" type="y"/>
+		</signal>
+		<signal name="GetTAUVehicleInfoData_Response">
+			<annotation name="com.jci.type_ref.data_vehicle_info_tau" value="VBS_DIAG_TAUVehicleInfo_s_t"/>
+			<arg direction="in" name="data_vehicle_info_tau" type="(yyyqyyuyy)"/>
+		</signal>
+		<signal name="Session_Notification">
+			<arg direction="in" name="SessionID" type="y"/>
+		</signal>
+		<signal name="Vip_Reset_Notification"/>
+		<signal name="ReadPermanentDTCLog_Response">
+			<annotation name="com.jci.type_ref.dtc_log" value="VBS_DIAG_PermanentDTCLogResponse_s_t"/>
+			<arg direction="in" name="dtc_log" type="(ay)"/>
+		</signal>
+		<signal name="ReadPermanentDTCLogCounter_Response">
+			<annotation name="com.jci.type_ref.dtc_log_counter" value="VBS_DIAG_PermanentDTCLogCounterResponse_s_t"/>
+			<arg direction="in" name="dtc_log_counter" type="(aqy)"/>
+		</signal>
+	</interface>
+</node>

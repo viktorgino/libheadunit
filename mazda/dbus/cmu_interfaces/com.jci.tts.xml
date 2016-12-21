@@ -1,0 +1,43 @@
+<node>
+	<interface name="com.jci.tts">
+		<method name="ConnectToTTS">
+			<annotation name="com.jci.server_interested_in_client" value="true"/>
+			<annotation name="com.jci.typeof.result" value="status_t"/>
+			<arg direction="in" name="clientName" type="s"/>
+			<arg direction="out" name="result" type="i"/>
+		</method>
+		<method name="DisconnectFromTTS">
+			<annotation name="com.jci.server_interested_in_client" value="true"/>
+			<annotation name="com.jci.typeof.result" value="status_t"/>
+			<arg direction="in" name="clientName" type="s"/>
+			<arg direction="out" name="result" type="i"/>
+		</method>
+		<method name="PlayText">
+			<annotation name="com.jci.server_interested_in_client" value="true"/>
+			<annotation name="com.jci.async_client" value="true"/>
+			<arg direction="in" name="clientName" type="s"/>
+			<arg direction="in" name="string" type="s"/>
+		</method>
+		<method name="PausePlayback">
+			<annotation name="com.jci.server_interested_in_client" value="true"/>
+			<annotation name="com.jci.async_client" value="true"/>
+			<arg direction="in" name="clientName" type="s"/>
+		</method>
+		<method name="ResumePlayback">
+			<annotation name="com.jci.server_interested_in_client" value="true"/>
+			<annotation name="com.jci.async_client" value="true"/>
+			<arg direction="in" name="clientName" type="s"/>
+		</method>
+		<method name="AbortPlayback">
+			<annotation name="com.jci.server_interested_in_client" value="true"/>
+			<annotation name="com.jci.async_client" value="true"/>
+			<arg direction="in" name="clientName" type="s"/>
+		</method>
+		<signal name="Status">
+			<annotation name="com.jci.typeof.result" value="TTS_PromptStatus_t"/>
+			<annotation name="com.jci.typedef_callback" value="ReceiveTTSStatus"/>
+			<annotation name="com.jci.always_broadcast" value="false"/>
+			<arg name="result" type="i"/>
+		</signal>
+	</interface>
+</node>

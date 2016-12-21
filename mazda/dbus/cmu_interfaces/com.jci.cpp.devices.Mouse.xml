@@ -1,0 +1,49 @@
+<node>
+	<interface name="com.jci.cpp.devices.Mouse">
+		<method name="buttonClick">
+			<arg direction="in" name="name" type="s"/>
+			<arg direction="in" name="button" type="i"/>
+			<arg direction="out" name="exception" type="i"/>
+		</method>
+		<method name="buttonPress">
+			<arg direction="in" name="name" type="s"/>
+			<arg direction="in" name="button" type="i"/>
+			<arg direction="out" name="exception" type="i"/>
+		</method>
+		<method name="buttonRelease">
+			<arg direction="in" name="name" type="s"/>
+			<arg direction="in" name="button" type="i"/>
+			<arg direction="out" name="exception" type="i"/>
+		</method>
+		<method name="enumerate">
+			<arg direction="out" name="exception" type="i"/>
+			<arg direction="out" name="names" type="as"/>
+		</method>
+		<method name="move">
+			<arg direction="in" name="name" type="s"/>
+			<arg direction="in" name="x" type="i"/>
+			<arg direction="in" name="y" type="i"/>
+			<arg direction="in" name="z" type="i"/>
+			<arg direction="out" name="exception" type="i"/>
+		</method>
+		<method name="moveAxis">
+			<arg direction="in" name="name" type="s"/>
+			<arg direction="in" name="axis" type="i"/>
+			<arg direction="in" name="distance" type="i"/>
+			<arg direction="out" name="exception" type="i"/>
+		</method>
+		<method name="scroll">
+			<arg direction="in" name="name" type="s"/>
+			<arg direction="in" name="x" type="i"/>
+			<arg direction="in" name="y" type="i"/>
+			<arg direction="in" name="z" type="i"/>
+			<arg direction="out" name="exception" type="i"/>
+		</method>
+		<method name="scrollAxis">
+			<arg direction="in" name="name" type="s"/>
+			<arg direction="in" name="axis" type="i"/>
+			<arg direction="in" name="distance" type="i"/>
+			<arg direction="out" name="exception" type="i"/>
+		</method>
+	</interface>
+</node>

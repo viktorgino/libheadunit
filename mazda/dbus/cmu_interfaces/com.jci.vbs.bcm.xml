@@ -1,0 +1,98 @@
+<node>
+	<interface name="com.jci.vbs.bcm">
+		<annotation name="def_struct_names.VBS_BCM_BSM_Info_st" value="buzReq, offIndi, warnR, warnL, status, rctaStatR, rctaIndiR, rctaStatL, rctaIndiL, rctaBuzReq, rctaOffIndi, rctaStatus, extStatInfo"/>
+		<annotation name="def_struct_types.VBS_BCM_BSM_Info_st" value="     b,       b,     y,     y,      y,         b,         b,         b,         b,          b,           b,          y,           y"/>
+		<annotation name="com.jci.def_struct_names.VBS_BCM_PSM_Info1_s_t" value="cstm_stat,cstm_errstat,frontcenter,frontcorner_r,frontcorner_l,rearcenter,rearcorner_r,rearcorner_l,sysVariation,dispReqFlag"/>
+		<annotation name="com.jci.def_struct_types.VBS_BCM_PSM_Info1_s_t" value="       y,           y,          y,            y,            y,         y,           y,           y,           y,           y"/>
+		<annotation name="com.jci.def_struct_names.VBS_BCM_Eng_Conf_s_t" value="transmission_Type"/>
+		<annotation name="com.jci.def_struct_types.VBS_BCM_Eng_Conf_s_t" value="             y  "/>
+		<method name="GetCarSpeed">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="speedUnit" type="u"/>
+			<arg direction="out" name="return_vehicleSpeed" type="u"/>
+		</method>
+		<method name="GetCarSpeedThrshld">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="speedUnit" type="y"/>
+			<arg direction="out" name="return_carSpeedThrshld" type="y"/>
+		</method>
+		<method name="GetPSMInfo">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="GetBSMInfo">
+			<annotation name="com.jci.type_ref.bsmInformation" value="VBS_BCM_BSM_Info_st"/>
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="bsmInformation" type="(bbyyybbbbbbyy)"/>
+		</method>
+		<method name="getEngineTransmissionType">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="returnTransmissionType" type="y"/>
+		</method>
+		<method name="GetIgnitionStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_ignitionStatus" type="y"/>
+		</method>
+		<method name="GetPublicCanStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_PublicCanStatus" type="y"/>
+		</method>
+		<method name="GetPrivateCanStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_PrivateCanStatus" type="y"/>
+		</method>
+		<method name="GetTouchDisplayCarSpeedThrshld">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="speedUnit" type="y"/>
+			<arg direction="out" name="return_touchDisplayCarSpeedThrshld" type="y"/>
+		</method>
+		<method name="GetFuelCutOffStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_FuelCutOff" type="y"/>
+		</method>
+		<method name="GetBrkPedalDepressedStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_brkPdlDprssed" type="y"/>
+		</method>
+		<signal name="CarSpeedResp">
+			<arg direction="in" name="carSpeed" type="u"/>
+		</signal>
+		<signal name="CarSpeedThresholdNotification">
+			<arg direction="in" name="carSpeedThrshld" type="y"/>
+		</signal>
+		<signal name="AccidentTriggerNotifiction">
+			<arg direction="in" name="fuelCutOff" type="y"/>
+		</signal>
+		<signal name="PSM_Information1">
+			<annotation name="com.jci.type_ref.psInformation" value="VBS_BCM_PSM_Info1_s_t"/>
+			<arg direction="in" name="psInformation" type="(yyyyyyyyyy)"/>
+		</signal>
+		<signal name="BSM_Information">
+			<annotation name="type_ref.bsmInformation" value="VBS_BCM_BSM_Info_st"/>
+			<arg name="bsmInformation" type="(bbyyybbbbbbyy)"/>
+		</signal>
+		<signal name="PublicCanStatusNotification">
+			<arg direction="in" name="publicCanStat" type="y"/>
+		</signal>
+		<signal name="PrivateCanStatusNotification">
+			<arg direction="in" name="privateCanStat" type="y"/>
+		</signal>
+		<signal name="engineConfigResp">
+			<annotation name="com.jci.type_ref.engineConfigValue" value="VBS_BCM_Eng_Conf_s_t"/>
+			<arg direction="in" name="engineConfigType" type="y"/>
+			<arg direction="in" name="engineConfigValue" type="(y)"/>
+		</signal>
+		<signal name="IgnitionControl_Status">
+			<arg direction="in" name="ignitionControl" type="y"/>
+		</signal>
+		<signal name="NoSpeedRestrict_TouchDisplay">
+			<arg direction="in" name="noSpeedRestrict" type="y"/>
+		</signal>
+		<signal name="BatteryVoltageFlag">
+			<arg direction="in" name="batt_volt_flag" type="b"/>
+		</signal>
+		<signal name="BrakePedalDepressedStatus">
+			<arg direction="in" name="brkPedalDepressed" type="y"/>
+		</signal>
+	</interface>
+</node>

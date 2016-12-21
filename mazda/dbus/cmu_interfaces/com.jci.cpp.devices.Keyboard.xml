@@ -1,0 +1,29 @@
+<node>
+	<interface name="com.jci.cpp.devices.Keyboard">
+		<method name="enumerate">
+			<arg direction="out" name="exception" type="i"/>
+			<arg direction="out" name="names" type="as"/>
+		</method>
+		<method name="keyClick">
+			<arg direction="in" name="name" type="s"/>
+			<arg direction="in" name="code" type="i"/>
+			<arg direction="in" name="shift" type="b"/>
+			<arg direction="out" name="exception" type="i"/>
+		</method>
+		<method name="keyPress">
+			<arg direction="in" name="name" type="s"/>
+			<arg direction="in" name="code" type="i"/>
+			<arg direction="out" name="exception" type="i"/>
+		</method>
+		<method name="keyRelease">
+			<arg direction="in" name="name" type="s"/>
+			<arg direction="in" name="code" type="i"/>
+			<arg direction="out" name="exception" type="i"/>
+		</method>
+		<method name="keySequence">
+			<arg direction="in" name="name" type="s"/>
+			<arg direction="in" name="string" type="s"/>
+			<arg direction="out" name="exception" type="i"/>
+		</method>
+	</interface>
+</node>

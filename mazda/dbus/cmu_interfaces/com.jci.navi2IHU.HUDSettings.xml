@@ -1,0 +1,45 @@
+<node>
+	<interface name="com.jci.navi2IHU.HUDSettings">
+		<method name="GetHUDIsInstalled">
+			<arg direction="out" name="HUDInstalled" type="b"/>
+		</method>
+		<method name="GetHUDIsInstalled_async">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="HUDInstalled" type="b"/>
+		</method>
+		<method name="SetHUDSetting">
+			<arg direction="in" name="HUDSettingType" type="i"/>
+			<arg direction="in" name="HUDSettingValue" type="i"/>
+		</method>
+		<method name="SetHUDSetting_Async">
+			<annotation name="async_client" value="true"/>
+			<arg direction="in" name="HUDSettingType" type="i"/>
+			<arg direction="in" name="HUDSettingValue" type="i"/>
+		</method>
+		<method name="GetHUDSetting">
+			<arg direction="in" name="HUDSettingType" type="i"/>
+			<arg direction="out" name="HUDSettingValue" type="i"/>
+		</method>
+		<method name="ResetHUDSettings">
+			<annotation name="async_client" value="true"/>
+		</method>
+		<method name="GetHUDControlAllowed">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="bAllowed" type="i"/>
+		</method>
+		<signal name="HUDInstalledChanged">
+			<arg name="HUDInstalled" type="b"/>
+		</signal>
+		<signal name="SetHUDSettingFailed">
+			<arg name="HUDSettingType" type="i"/>
+			<arg name="err" type="i"/>
+		</signal>
+		<signal name="HUDControlAllowed">
+			<arg name="bAllowed" type="b"/>
+		</signal>
+		<signal name="HUDSettingChanged">
+			<arg name="HUDSettingType" type="i"/>
+			<arg name="value" type="i"/>
+		</signal>
+	</interface>
+</node>

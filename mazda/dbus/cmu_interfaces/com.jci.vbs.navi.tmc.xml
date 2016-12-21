@@ -1,0 +1,29 @@
+<node>
+	<interface name="com.jci.vbs.navi.tmc">
+		<annotation name="com.jci.def_struct_names.VBS_NAVI_TMC_ServiceList_Resp_s_t" value="rdsTMCStationNum,messageGeographicalScope,countryCode,locationTableNumber,serviceIdentifier,quality"/>
+		<annotation name="com.jci.def_struct_types.VBS_NAVI_TMC_ServiceList_Resp_s_t" value="                        y,                                     ay,               ay,                           ay,                    ay,    ay "/>
+		<signal name="ServiceListResponse">
+			<annotation name="com.jci.type_ref.providerList" value="VBS_NAVI_TMC_ServiceList_Resp_s_t"/>
+			<arg direction="in" name="providerList" type="(yayayayayay)"/>
+			<doc line=" Reply to TMCServiceListRequest "/>
+			<doc line=" Array of TMC provider structs (max. 14) (Country Code; Message Geographical Scope; Location Table Number; Service Identifier; Quality) "/>
+		</signal>
+		<signal name="ResponseToTMCSelection">
+			<arg direction="in" name="rdstmcOperation" type="y"/>
+			<arg direction="in" name="tmcSearchMode" type="y"/>
+			<arg direction="in" name="countryCode" type="y"/>
+			<arg direction="in" name="locationTableNumber" type="y"/>
+			<arg direction="in" name="serviceIdentifier" type="y"/>
+			<arg direction="in" name="quality" type="y"/>
+			<arg direction="in" name="receptionStatus" type="y"/>
+			<doc line=" Reply to TMCSelectionRequest "/>
+			<doc line="rdstmcOperation = enum( rdstmc_operation_stop (0), rdstmc_operation_start (1) )"/>
+			<doc line="tmcSearchMode = enum( Automatic (0), Reserved (1) )"/>
+			<doc line="country Code (0-15)"/>
+			<doc line="location Table number (0-63)"/>
+			<doc line="service Identifier (0-63)"/>
+			<doc line="quality (0-100)"/>
+			<doc line="reception status = enum( OK (0), Pending (1), NotOK (2) )"/>
+		</signal>
+	</interface>
+</node>

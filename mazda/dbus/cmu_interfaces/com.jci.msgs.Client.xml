@@ -1,0 +1,201 @@
+<node>
+	<interface name="com.jci.msgs.Client">
+		<method name="Connect">
+			<annotation name="typeof.retStatus" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="context" type="u"/>
+			<arg direction="in" name="params" type="((uuuuuuuuuuuuuuuuuuu)((ia(sii(iay)))(ia(sii(iay)))))"/>
+			<arg direction="in" name="timeout" type="t"/>
+			<arg direction="in" name="dbusConnectionName" type="s"/>
+			<arg direction="in" name="clientConnection" type="u"/>
+			<arg direction="out" name="context_o" type="u"/>
+			<arg direction="out" name="retStatus" type="i"/>
+			<arg direction="out" name="connection_o" type="u"/>
+			<arg direction="out" name="clientConnection_o" type="u"/>
+		</method>
+		<method name="Disconnect">
+			<annotation name="typeof.retStatus" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="connection" type="u"/>
+			<arg direction="in" name="context" type="u"/>
+			<arg direction="in" name="timeout" type="t"/>
+			<arg direction="out" name="context_o" type="u"/>
+			<arg direction="out" name="retStatus" type="i"/>
+			<arg direction="out" name="connection_o" type="u"/>
+		</method>
+		<method name="ConnectMAP">
+			<annotation name="typeof.retStatus" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="connection" type="u"/>
+			<arg direction="in" name="context" type="u"/>
+			<arg direction="in" name="timeout" type="t"/>
+			<arg direction="out" name="context_o" type="u"/>
+			<arg direction="out" name="retStatus" type="i"/>
+			<arg direction="out" name="connectionStatus" type="(iu(bb)(ia(bbqis)))"/>
+			<arg direction="out" name="connection_o" type="u"/>
+		</method>
+		<method name="DisconnectMAP">
+			<annotation name="typeof.retStatus" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="connection" type="u"/>
+			<arg direction="in" name="context" type="u"/>
+			<arg direction="in" name="timeout" type="t"/>
+			<arg direction="out" name="context_o" type="u"/>
+			<arg direction="out" name="retStatus" type="i"/>
+			<arg direction="out" name="deviceId" type="u"/>
+			<arg direction="out" name="connection_o" type="u"/>
+		</method>
+		<method name="GetMAPConnectionStatus">
+			<annotation name="typeof.retStatus" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="connection" type="u"/>
+			<arg direction="in" name="context" type="u"/>
+			<arg direction="in" name="timeout" type="t"/>
+			<arg direction="out" name="context_o" type="u"/>
+			<arg direction="out" name="retStatus" type="i"/>
+			<arg direction="out" name="connectionStatus" type="(iu(bb)(ia(bbqis)))"/>
+			<arg direction="out" name="connection_o" type="u"/>
+		</method>
+		<method name="GetFolderList">
+			<annotation name="typeof.retStatus" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="connection" type="u"/>
+			<arg direction="in" name="context" type="u"/>
+			<arg direction="in" name="timeout" type="t"/>
+			<arg direction="in" name="filter" type="((qs)si)"/>
+			<arg direction="out" name="context_o" type="u"/>
+			<arg direction="out" name="retStatus" type="i"/>
+			<arg direction="out" name="filter_o" type="((qs)si)"/>
+			<arg direction="out" name="receivedPhoneFolderCount" type="u"/>
+			<arg direction="out" name="folderList" type="((qs)iia(s))"/>
+			<arg direction="out" name="connection_o" type="u"/>
+		</method>
+		<method name="GetMessageList">
+			<annotation name="typeof.retStatus" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="connection" type="u"/>
+			<arg direction="in" name="context" type="u"/>
+			<arg direction="in" name="timeout" type="t"/>
+			<arg direction="in" name="filter" type="((qs)suuiiuuss)"/>
+			<arg direction="out" name="context_o" type="u"/>
+			<arg direction="out" name="retStatus" type="i"/>
+			<arg direction="out" name="filter_o" type="((qs)suuiiuuss)"/>
+			<arg direction="out" name="receivedPhoneMessagesCount" type="u"/>
+			<arg direction="out" name="messageList" type="(bus(ia(tiiuuu(ia(s(ia(us))))(ia(s(ia(us))))s)))"/>
+			<arg direction="out" name="connection_o" type="u"/>
+		</method>
+		<method name="GetMessage">
+			<annotation name="typeof.retStatus" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="connection" type="u"/>
+			<arg direction="in" name="context" type="u"/>
+			<arg direction="in" name="timeout" type="t"/>
+			<arg direction="in" name="filter" type="(qtb)"/>
+			<arg direction="out" name="context_o" type="u"/>
+			<arg direction="out" name="retStatus" type="i"/>
+			<arg direction="out" name="filter_o" type="(qtb)"/>
+			<arg direction="out" name="message" type="(tii(ia(s(ia(us))))(ia(s(ia(us))))(ia(s(ia(us))))(ia(s(ia(us))))s(is))"/>
+			<arg direction="out" name="connection_o" type="u"/>
+		</method>
+		<method name="SubscribeForNotifications">
+			<annotation name="typeof.retStatus" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="connection" type="u"/>
+			<arg direction="in" name="context" type="u"/>
+			<arg direction="in" name="timeout" type="t"/>
+			<arg direction="in" name="instanceMask" type="u"/>
+			<arg direction="out" name="context_o" type="u"/>
+			<arg direction="out" name="retStatus" type="i"/>
+			<arg direction="out" name="reqInstanceMask" type="u"/>
+			<arg direction="out" name="respInstanceMask" type="u"/>
+			<arg direction="out" name="connection_o" type="u"/>
+		</method>
+		<method name="GetMessageListInfo">
+			<annotation name="typeof.retStatus" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="connection" type="u"/>
+			<arg direction="in" name="context" type="u"/>
+			<arg direction="in" name="timeout" type="t"/>
+			<arg direction="in" name="filter" type="((qs)uu)"/>
+			<arg direction="out" name="context_o" type="u"/>
+			<arg direction="out" name="retStatus" type="i"/>
+			<arg direction="out" name="filter_o" type="((qs)uu)"/>
+			<arg direction="out" name="messageListInfo" type="((qs)uuu)"/>
+			<arg direction="out" name="connection_o" type="u"/>
+		</method>
+		<method name="SetMessageStatus">
+			<annotation name="typeof.retStatus" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="connection" type="u"/>
+			<arg direction="in" name="context" type="u"/>
+			<arg direction="in" name="timeout" type="t"/>
+			<arg direction="in" name="instanceId" type="q"/>
+			<arg direction="in" name="messageId" type="t"/>
+			<arg direction="in" name="status" type="u"/>
+			<arg direction="out" name="context_o" type="u"/>
+			<arg direction="out" name="retStatus" type="i"/>
+			<arg direction="out" name="instanceId_o" type="q"/>
+			<arg direction="out" name="messageId_o" type="t"/>
+			<arg direction="out" name="status_o" type="u"/>
+			<arg direction="out" name="connection_o" type="u"/>
+		</method>
+		<method name="DeleteMessage">
+			<annotation name="typeof.retStatus" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="connection" type="u"/>
+			<arg direction="in" name="context" type="u"/>
+			<arg direction="in" name="timeout" type="t"/>
+			<arg direction="in" name="instanceId" type="q"/>
+			<arg direction="in" name="messageId" type="t"/>
+			<arg direction="out" name="context_o" type="u"/>
+			<arg direction="out" name="retStatus" type="i"/>
+			<arg direction="out" name="instanceId_o" type="q"/>
+			<arg direction="out" name="messageId_o" type="t"/>
+			<arg direction="out" name="connection_o" type="u"/>
+		</method>
+		<method name="SaveMessage">
+			<annotation name="typeof.retStatus" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="connection" type="u"/>
+			<arg direction="in" name="context" type="u"/>
+			<arg direction="in" name="timeout" type="t"/>
+			<arg direction="in" name="folder" type="(qs)"/>
+			<arg direction="in" name="message" type="(tii(ia(s(ia(us))))(ia(s(ia(us))))(ia(s(ia(us))))(ia(s(ia(us))))s(is))"/>
+			<arg direction="out" name="context_o" type="u"/>
+			<arg direction="out" name="retStatus" type="i"/>
+			<arg direction="out" name="folder_o" type="(qs)"/>
+			<arg direction="out" name="messageId" type="t"/>
+			<arg direction="out" name="connection_o" type="u"/>
+		</method>
+		<method name="CancelAllRequests">
+			<annotation name="typeof.retStatus" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="connection" type="u"/>
+			<arg direction="in" name="context" type="u"/>
+			<arg direction="in" name="timeout" type="t"/>
+			<arg direction="out" name="context_o" type="u"/>
+			<arg direction="out" name="retStatus" type="i"/>
+			<arg direction="out" name="connection_o" type="u"/>
+		</method>
+		<signal name="InstanceListUpdate">
+			<arg name="instanceList" type="(ia(bbqis))"/>
+			<arg name="client_connection" type="u"/>
+		</signal>
+		<signal name="MessageListUpdate">
+			<arg name="notification" type="(iitqss)"/>
+			<arg name="client_connection" type="u"/>
+		</signal>
+		<signal name="MapConnectionSettingsUpdate">
+			<arg name="connectionSettings" type="(bb)"/>
+			<arg name="client_connection" type="u"/>
+		</signal>
+		<signal name="MapConnectedNotification">
+			<arg name="connectionStatus" type="(iu(bb)(ia(bbqis)))"/>
+			<arg name="client_connection" type="u"/>
+		</signal>
+		<signal name="MapDisconnectedNotification">
+			<arg name="deviceId" type="u"/>
+			<arg name="client_connection" type="u"/>
+		</signal>
+	</interface>
+</node>

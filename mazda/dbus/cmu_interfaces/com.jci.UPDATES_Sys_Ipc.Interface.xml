@@ -1,0 +1,125 @@
+<node>
+	<interface name="com.jci.UPDATES_Sys_Ipc.Interface">
+		<annotation name="header_include" value="status.h"/>
+		<annotation name="header_include" value="updates.h"/>
+		<annotation name="header_include" value="updates_system.h"/>
+		<method name="Connect">
+			<annotation name="typeof.out_result" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<annotation name="com.jci.timeout" value="UPDATES_SYS_CONNECT_MAX_TIMEOUT"/>
+			<annotation name="com.jci.with_error_string" value="yes"/>
+			<arg direction="in" name="in_connId" type="u"/>
+			<arg direction="out" name="out_result" type="i"/>
+			<arg direction="out" name="out_connId" type="u"/>
+		</method>
+		<method name="Disconnect">
+			<annotation name="typeof.out_result" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<annotation name="com.jci.timeout" value="UPDATES_SYS_DISCONNECT_MAX_TIMEOUT"/>
+			<annotation name="com.jci.with_error_string" value="yes"/>
+			<arg direction="in" name="in_connId" type="u"/>
+			<arg direction="out" name="out_result" type="i"/>
+			<arg direction="out" name="out_connId" type="u"/>
+		</method>
+		<method name="IsPresentFailSafeOS">
+			<annotation name="typeof.out_result" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<annotation name="com.jci.timeout" value="UPDATES_SYS_ISPRESFAILSAFE_MAX_TIMEOUT"/>
+			<annotation name="com.jci.with_error_string" value="yes"/>
+			<arg direction="in" name="in_connId" type="u"/>
+			<arg direction="out" name="out_isPresent" type="b"/>
+			<arg direction="out" name="out_result" type="i"/>
+			<arg direction="out" name="out_connId" type="u"/>
+		</method>
+		<method name="GetPackageInfo">
+			<annotation name="typeof.out_result" value="status_t"/>
+			<annotation name="typeof.out_type" value="UPDATES_up_type_t"/>
+			<annotation name="typeof.out_subtype" value="UPDATES_up_subtype_t"/>
+			<annotation name="async" value="both"/>
+			<annotation name="com.jci.timeout" value="UPDATES_SYS_GETPACKAGEINFO_MAX_TIMEOUT"/>
+			<annotation name="com.jci.with_error_string" value="yes"/>
+			<arg direction="in" name="in_connId" type="u"/>
+			<arg direction="in" name="in_upLocation" type="s"/>
+			<arg direction="out" name="out_name" type="s"/>
+			<arg direction="out" name="out_type" type="i"/>
+			<arg direction="out" name="out_subtype" type="i"/>
+			<arg direction="out" name="out_version" type="s"/>
+			<arg direction="out" name="out_compatible" type="b"/>
+			<arg direction="out" name="out_result" type="i"/>
+			<arg direction="out" name="out_connId" type="u"/>
+		</method>
+		<method name="ValidateUP">
+			<annotation name="typeof.out_result" value="status_t"/>
+			<annotation name="typeof.out_type" value="UPDATES_up_type_t"/>
+			<annotation name="typeof.out_subtype" value="UPDATES_up_subtype_t"/>
+			<annotation name="async" value="both"/>
+			<annotation name="com.jci.timeout" value="UPDATES_SYS_VALIDATEUP_MAX_TIMEOUT"/>
+			<annotation name="com.jci.with_error_string" value="yes"/>
+			<arg direction="in" name="in_connId" type="u"/>
+			<arg direction="in" name="in_upLocation" type="s"/>
+			<arg direction="out" name="out_name" type="s"/>
+			<arg direction="out" name="out_type" type="i"/>
+			<arg direction="out" name="out_subtype" type="i"/>
+			<arg direction="out" name="out_version" type="s"/>
+			<arg direction="out" name="out_compatible" type="b"/>
+			<arg direction="out" name="out_result" type="i"/>
+			<arg direction="out" name="out_connId" type="u"/>
+		</method>
+		<method name="CancelValidate">
+			<annotation name="typeof.out_result" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<annotation name="com.jci.timeout" value="UPDATES_SYS_CNCLVALIDATE_MAX_TIMEOUT"/>
+			<annotation name="com.jci.with_error_string" value="yes"/>
+			<arg direction="in" name="in_connId" type="u"/>
+			<arg direction="out" name="out_result" type="i"/>
+			<arg direction="out" name="out_connId" type="u"/>
+		</method>
+		<method name="InstallUP">
+			<annotation name="typeof.in_installCtrlOpt" value="UPDATES_SYS_install_ctrl_opt_t"/>
+			<annotation name="typeof.out_result" value="status_t"/>
+			<annotation name="typeof.out_nextStepInfo_type" value="UPDATES_up_type_t"/>
+			<annotation name="typeof.out_nextStepInfo_subtype" value="UPDATES_up_subtype_t"/>
+			<annotation name="typeof.out_nextStepInfo_point" value="UPDATES_SYS_inst_step_pnt_type_t"/>
+			<annotation name="async" value="both"/>
+			<annotation name="com.jci.timeout" value="UPDATES_SYS_INSTALLUP_MAX_TIMEOUT"/>
+			<annotation name="com.jci.with_error_string" value="yes"/>
+			<arg direction="in" name="in_connId" type="u"/>
+			<arg direction="in" name="in_upLocation" type="s"/>
+			<arg direction="in" name="in_installCtrlOpt" type="i"/>
+			<arg direction="out" name="out_result" type="i"/>
+			<arg direction="out" name="out_nextStepInfo_type" type="i"/>
+			<arg direction="out" name="out_nextStepInfo_subtype" type="i"/>
+			<arg direction="out" name="out_nextStepInfo_point" type="i"/>
+			<arg direction="out" name="out_connId" type="u"/>
+		</method>
+		<method name="CancelInstall">
+			<annotation name="typeof.out_result" value="status_t"/>
+			<annotation name="async" value="both"/>
+			<annotation name="com.jci.timeout" value="UPDATES_SYS_CNCLINSTALL_MAX_TIMEOUT"/>
+			<annotation name="com.jci.with_error_string" value="yes"/>
+			<arg direction="in" name="in_connId" type="u"/>
+			<arg direction="out" name="out_result" type="i"/>
+			<arg direction="out" name="out_connId" type="u"/>
+		</method>
+		<method name="GetUpdateStatus">
+			<annotation name="typeof.out_result" value="status_t"/>
+			<annotation name="typeof.out_state" value="UPDATES_state_type_t"/>
+			<annotation name="async" value="both"/>
+			<annotation name="com.jci.timeout" value="UPDATES_SYS_GETUPDSTATUS_MAX_TIMEOUT"/>
+			<annotation name="com.jci.with_error_string" value="yes"/>
+			<arg direction="in" name="in_connId" type="u"/>
+			<arg direction="out" name="out_state" type="i"/>
+			<arg direction="out" name="out_progress" type="u"/>
+			<arg direction="out" name="out_result" type="i"/>
+			<arg direction="out" name="out_connId" type="u"/>
+		</method>
+		<signal name="update_status_event">
+			<annotation name="typeof.result" value="status_t"/>
+			<annotation name="typeof.state" value="UPDATES_state_type_t"/>
+			<arg name="state" type="i"/>
+			<arg name="progress" type="u"/>
+			<arg name="result" type="i"/>
+			<arg name="connId" type="u"/>
+		</signal>
+	</interface>
+</node>

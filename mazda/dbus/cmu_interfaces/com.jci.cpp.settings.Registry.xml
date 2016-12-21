@@ -1,0 +1,16 @@
+<node>
+	<interface name="com.jci.cpp.settings.Registry">
+		<method name="addNode">
+			<arg direction="in" name="path" type="s"/>
+		</method>
+		<method name="getNode">
+			<arg direction="in" name="path" type="s"/>
+		</method>
+		<method name="restoreNode">
+			<arg direction="in" name="path" type="s"/>
+		</method>
+		<method name="setNode">
+			<arg direction="in" name="path" type="s"/>
+		</method>
+	</interface>
+</node>

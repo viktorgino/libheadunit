@@ -1,0 +1,168 @@
+<node>
+	<interface name="com.jci.vbs.vdt">
+		<annotation name="header_include" value="status.h"/>
+		<annotation name="com.jci.def_struct_names.vbs_vdt_msg_1_t" value="arg1, arg2"/>
+		<annotation name="com.jci.def_struct_types.vbs_vdt_msg_1_t" value="       i,    ay"/>
+		<annotation name="com.jci.def_struct_names.VBS_VDT_CAN_Miss_Ind_s_t" value="OdoCount,OdoCount_2,SISS_Status,VehSpeed,BrakePressure,AC_ContStatus,HvacHeaterCal_D_Rq,TotalDistance"/>
+		<annotation name="com.jci.def_struct_types.VBS_VDT_CAN_Miss_Ind_s_t" value="             y,            y,                y,             y,                   y ,                    y,                             y,                 y"/>
+		<method name="BLM_Startup_Initiated">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="vdt_blm_init" type="b"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<signal name="SISS_EngineState">
+			<arg direction="in" name="SISS_EngineState" type="y"/>
+		</signal>
+		<signal name="SISSStatus">
+			<arg direction="in" name="SISSStatus" type="b"/>
+		</signal>
+		<signal name="DR_EVM_MSG">
+			<arg direction="in" name="DR_EVM_MSG" type="y"/>
+		</signal>
+		<signal name="Veh_V_ActlEng">
+			<arg direction="in" name="Veh_V_ActlEng" type="q"/>
+		</signal>
+		<signal name="VehVActlEng_D_Qf">
+			<arg direction="in" name="VehVActlEng_D_Qf" type="y"/>
+		</signal>
+		<signal name="OdoCount">
+			<arg direction="in" name="OdoCount" type="y"/>
+		</signal>
+		<signal name="FuelPulse">
+			<arg direction="in" name="FuelPulse" type="y"/>
+		</signal>
+		<signal name="OdoCount_2">
+			<arg direction="in" name="OdoCount_2" type="y"/>
+		</signal>
+		<signal name="FuelPulse_2">
+			<arg direction="in" name="FuelPulse_2" type="y"/>
+		</signal>
+		<signal name="EngAout_N_Actl">
+			<arg direction="in" name="EngAout_N_Actl" type="q"/>
+		</signal>
+		<signal name="ApedPos_Pc_ActlArb">
+			<arg direction="in" name="ApedPos_Pc_ActlArb" type="q"/>
+		</signal>
+		<signal name="ApedPosPcActl_D_Qf">
+			<arg direction="in" name="ApedPosPcActl_D_Qf" type="y"/>
+		</signal>
+		<signal name="SteWhlComp_An_Est">
+			<arg direction="in" name="SteWhlComp_An_Est" type="q"/>
+		</signal>
+		<signal name="VehLong_A_Actl">
+			<arg direction="in" name="VehLong_A_Actl" type="q"/>
+		</signal>
+		<signal name="FSC_Diag_Rx">
+			<arg direction="in" name="FSC_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="HEC_Diag_Rx">
+			<arg direction="in" name="HEC_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="HEVHEC_Diag_Rx">
+			<arg direction="in" name="HEVHEC_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="FBCM_Diag_Rx">
+			<arg direction="in" name="FBCM_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="EPAS_Diag_Rx">
+			<arg direction="in" name="EPAS_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="SSU_Diag_Rx">
+			<arg direction="in" name="SSU_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="AFS_Diag_Rx">
+			<arg direction="in" name="AFS_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="RCM_Diag_Rx">
+			<arg direction="in" name="RCM_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="REGEN_Diag_Sig_Rx">
+			<arg direction="in" name="REGEN_Diag_Sig_Rx" type="t"/>
+		</signal>
+		<signal name="ABS_Diag_Rx">
+			<arg direction="in" name="ABS_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="AWD_Diag_Rx">
+			<arg direction="in" name="AWD_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="CCM_Diag_Rx">
+			<arg direction="in" name="CCM_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="ICA_Diag_Rx">
+			<arg direction="in" name="ICA_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="AMP_Diag_Rx">
+			<arg direction="in" name="AMP_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="EATC_Diag_Rx">
+			<arg direction="in" name="EATC_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="RBCM_Diag_Rx">
+			<arg direction="in" name="RBCM_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="BSM_RVM_Diag_Rx">
+			<arg direction="in" name="BSM_RVM_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="PCM_DTC">
+			<arg direction="in" name="PCM_DTC" type="t"/>
+		</signal>
+		<signal name="TCM_DTC">
+			<arg direction="in" name="TCM_DTC" type="t"/>
+		</signal>
+		<signal name="ECB_Diag_Rx">
+			<arg direction="in" name="ECB_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="PLK_Diag_Rx">
+			<arg direction="in" name="PLK_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="HEV_Diag_Rx">
+			<arg direction="in" name="HEV_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="ACN_Diag_Rx">
+			<arg direction="in" name="ACN_Diag_Rx" type="t"/>
+		</signal>
+		<signal name="Ignition_Status">
+			<arg direction="in" name="Ignition_Status" type="y"/>
+		</signal>
+		<signal name="Lateral_Acceleration">
+			<arg direction="in" name="Lateral_Acceleration" type="q"/>
+		</signal>
+		<signal name="CAN_Missing_Ind">
+			<annotation name="com.jci.type_ref.canMissFlag" value="VBS_VDT_CAN_Miss_Ind_s_t"/>
+			<arg direction="in" name="canMissFlag" type="(yyyyyyyy)"/>
+		</signal>
+		<signal name="EOLDriveChartDisplay">
+			<arg direction="in" name="EOLDriveChartDisplay" type="y"/>
+		</signal>
+		<signal name="EOLMyDoctorDisplay">
+			<arg direction="in" name="EOLMyDoctorDisplay" type="y"/>
+		</signal>
+		<signal name="EOLDriveChart_Log_Distance">
+			<arg direction="in" name="EOLDriveChart_Log_Distance" type="y"/>
+		</signal>
+		<signal name="EOLDriveChart_DataTrans">
+			<arg direction="in" name="EOLDriveChart_DataTrans" type="y"/>
+		</signal>
+		<signal name="IgnitionStatus_TSec">
+			<arg direction="in" name="tSec" type="y"/>
+			<arg direction="in" name="ignStat" type="y"/>
+		</signal>
+		<signal name="LampActivationNotify">
+			<arg name="lampType" type="y"/>
+			<arg name="isLampActivated" type="y"/>
+		</signal>
+		<signal name="FuelType">
+			<arg direction="in" name="FuelType" type="y"/>
+		</signal>
+		<signal name="OnOdrDataFullyReceived"/>
+		<signal name="Total_Distance">
+			<arg direction="in" name="Total_Distance" type="u"/>
+		</signal>
+		<signal name="GlobalRealTime">
+			<arg direction="in" name="globalRealTime" type="u"/>
+		</signal>
+		<signal name="Sds_TotSD_Point_D_Actl_2">
+			<arg direction="in" name="Sds_TotSD_Point_D_Actl_2" type="y"/>
+		</signal>
+	</interface>
+</node>

@@ -1,0 +1,36 @@
+<node>
+	<interface name="com.jci.itt">
+		<annotation name="com.jci.force_interface_visibility" value="client"/>
+		<annotation name="def_struct_names.ITT_MemoryInfo_t" value="deviceMemList, accessoryFreeSlots"/>
+		<annotation name="def_struct_types.ITT_MemoryInfo_t" value="ITT_DevMemoryInfo_t, u"/>
+		<annotation name="def_struct_names.ITT_DevMemoryInfo_t" value="tagToDevStatus, deviceFreeSlots, deviceName "/>
+		<annotation name="def_struct_types.ITT_DevMemoryInfo_t" value="i, u, s"/>
+		<method name="RequestMemoryInfo">
+			<annotation name="type_ref.memInfo" value="ITT_MemoryInfo_t"/>
+			<annotation name="async" value="both"/>
+			<arg direction="out" name="memInfo" type="(a(ius)u)"/>
+		</method>
+		<method name="ProcessTag">
+			<annotation name="type_ref.memInfo" value="ITT_MemoryInfo_t"/>
+			<annotation name="async" value="both"/>
+			<annotation name="com.jci.typeof.tagStoreStatus" value="ITT_StoreStatus_t"/>
+			<arg direction="out" name="tagStoreStatus" type="i"/>
+			<arg direction="out" name="memInfo" type="(a(ius)u)"/>
+		</method>
+		<method name="GetTaggingAvailability">
+			<annotation name="async" value="both"/>
+			<annotation name="com.jci.typeof.enableTagging" value="ITT_TagStates_t"/>
+			<arg direction="out" name="enableTagging" type="i"/>
+		</method>
+		<signal name="TaggingAvailable">
+			<annotation name="com.jci.typeof.enableTagging" value="ITT_TagStates_t"/>
+			<arg direction="in" name="enableTagging" type="i"/>
+		</signal>
+		<signal name="TagTransfer">
+			<annotation name="type_ref.memInfo" value="ITT_MemoryInfo_t"/>
+			<annotation name="com.jci.typeof.tagTransferStatus" value="ITT_StoreStatus_t"/>
+			<arg direction="in" name="tagTransferStatus" type="i"/>
+			<arg direction="in" name="memInfo" type="(a(ius)u)"/>
+		</signal>
+	</interface>
+</node>

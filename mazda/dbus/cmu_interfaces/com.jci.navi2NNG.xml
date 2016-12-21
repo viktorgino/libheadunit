@@ -1,0 +1,533 @@
+<node>
+	<interface alias="jci2NNG" name="com.jci.navi2NNG">
+		<annotation name="def_struct_names.navi2NNG_VDEListItem_t" value="stateId, cityId, streetId, houseNumber"/>
+		<annotation name="def_struct_types.navi2NNG_VDEListItem_t" value="      u,      u,        u,           u"/>
+		<annotation name="def_struct_names.navi2NNG_VDEHypothesisList_t" value="count, VDEHypothesisList"/>
+		<annotation name="def_struct_types.navi2NNG_VDEHypothesisList_t" value="    i, navi2NNG_VDEListItem_t"/>
+		<annotation name="def_struct_names.navi2NNG_HypothesisID_t" value="id"/>
+		<annotation name="def_struct_types.navi2NNG_HypothesisID_t" value=" u"/>
+		<annotation name="def_struct_names.navi2NNG_HypothesisList_t" value="count, list"/>
+		<annotation name="def_struct_types.navi2NNG_HypothesisList_t" value="    i, navi2NNG_HypothesisID_t"/>
+		<annotation name="def_struct_names.navi2NNG_PoiName_t" value="poiName"/>
+		<annotation name="def_struct_types.navi2NNG_PoiName_t" value="      s"/>
+		<annotation name="def_struct_names.navi2NNG_PoiCategories_t" value="count, poiCategories"/>
+		<annotation name="def_struct_types.navi2NNG_PoiCategories_t" value="    i, navi2NNG_PoiName_t"/>
+		<annotation name="def_struct_names.navi2NNG_DisplayedTime_t" value="year, month, day, hour, minute, second"/>
+		<annotation name="def_struct_types.navi2NNG_DisplayedTime_t" value="   n,     y,   y,    y,      y,      y"/>
+		<annotation name="def_struct_names.navi2NNG_LayoutID_t" value="id"/>
+		<annotation name="def_struct_types.navi2NNG_LayoutID_t" value=" i"/>
+		<annotation name="def_struct_names.navi2NNG_LayoutsList_t" value="count, list"/>
+		<annotation name="def_struct_types.navi2NNG_LayoutsList_t" value="    i, navi2NNG_LayoutID_t"/>
+		<annotation name="def_struct_names.navi2NNG_JpjHypothesis_t" value="level1_id, level2_id, level3_id, level4_id, level5_id, level6_id"/>
+		<annotation name="def_struct_types.navi2NNG_JpjHypothesis_t" value="        u,         u,         u,         u,         u,         u"/>
+		<annotation name="def_struct_names.navi2NNG_JpjHypothesisList_t" value="count, hypothesisList"/>
+		<annotation name="def_struct_types.navi2NNG_JpjHypothesisList_t" value="    i, navi2NNG_JpjHypothesis_t"/>
+		<method name="GetVDELang">
+			<arg direction="out" name="language" type="s">
+				<doc line=" The Nuance LLC code of the VR (VDE) language currently in use.  "/>
+			</arg>
+			<doc line=" This method is used to retrieve the VR language currently used by the OS. "/>
+		</method>
+		<method name="GetTTSLang">
+			<arg direction="out" name="language" type="i">
+				<doc line=" The LCID of the TTS language currently in use."/>
+			</arg>
+			<doc line=" This method returns the LCID of the current TTS language in the OS "/>
+		</method>
+		<method name="GetLanguage">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="language" type="i">
+				<doc line="language = the Microsoft LCID of the language that should be used by the navigation engine"/>
+			</arg>
+			<doc line="GetLanguage = This method returns the system language to EmNavi. "/>
+		</method>
+		<method name="GetVIN">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="VIN" type="s">
+				<doc line="The unique VIN of the car"/>
+			</arg>
+			<doc line=" Returns the Vehicle Identification Number of the vehicle as a string. "/>
+		</method>
+		<method name="GetRegionAndBranding">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="Region" type="s">
+				<doc line="Region description"/>
+			</arg>
+			<arg direction="out" name="Branding" type="s">
+				<doc line="Branding description"/>
+			</arg>
+			<doc line=" Returns the region and branding information of the vehicle. "/>
+		</method>
+		<method name="GetTemperatureUnit">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="TempUnit" type="i">
+				<doc line="TempUnit enum( TEMP_UNIT_CELSIUS=0, TEMP_UNIT_FAHRENHEIT=1 ) "/>
+			</arg>
+			<doc line=" This function returns the unit in which the temperature should be displayed. "/>
+		</method>
+		<method name="GetDayNightMode">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="mode" type="i">
+				<doc line="mode = enum( DAYNIGHTMODE_DAY=0x00, DAYNIGHTMODE_NIGHT=0x01, DAYNIGHTMODE_AUTO=0x02 )"/>
+			</arg>
+			<doc line="GetDayNightMode = This method returns the day/night mode to EmNavi. "/>
+		</method>
+		<method name="GetTimeFormat">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="format" type="i">
+				<doc line="format = enum( TIMEFORMAT_12H=0x00, TIMEFORMAT_24H=0x01 )"/>
+			</arg>
+			<doc line="GetTimeFormat = This method returns the time format to EmNavi. "/>
+		</method>
+		<method name="GetLengthUnit">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="unit" type="i">
+				<doc line="unit = enum( UNIT_MILES_YARD=0, UNIT_KM=1, UNIT_MILES_FEET=2 )"/>
+			</arg>
+			<doc line="GetLengthUnit = This method returns the length unit to EmNavi. "/>
+		</method>
+		<method name="GetPhoneConnectionStatus">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="PhoneStatus" type="i">
+				<doc line="PhoneStatus = enum( PHONE_DISCONNECTED=0x00, PHONE_CONNECTED=0x01 )"/>
+			</arg>
+			<doc line=" This method tells whether the phone is connected "/>
+		</method>
+		<method name="GetFuelType">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="FuelType" type="i">
+				<doc line="FuelType = enum( Fuel_Unknown (0), Fuel_Gasoline_DISI (1), Fuel_Gasoline_EFI (2), Fuel_Diesel_DI (3), Fuel_Diesel_IDI (4), Fuel_EV_HEV (5), Fuel_NaturalGas_CFI (6), Fuel_NaturealGas_EFI (7), Fuel_FlexibleFuel_CFI (8), Fuel_FlexibleFuel_EFI (9), Fuel_Gasoline_iStop (10), Fuel_Diesel_iStop (11) )"/>
+			</arg>
+			<doc line=" This method returns the type of fuel used in the car."/>
+		</method>
+		<method name="GetNetworkConnectionStatus">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="NetworkConnectionStatus" type="i">
+				<doc line="NetworkConnectionStatus = enum( NETWORK_AVAILABLE=0x00, NETWORK_NOT_AVAILABLE=0x01 )"/>
+			</arg>
+			<doc line=" This method tells whether network is available ."/>
+		</method>
+		<method name="GetAvailableLayouts">
+			<annotation name="type_ref.Layouts" value="navi2NNG_LayoutsList_t"/>
+			<arg direction="out" name="Layouts" type="(ia(i))">
+				<doc line="      List of layouts. All ids must come from the set defined in the method KeyboardLayout in this file.     "/>
+			</arg>
+			<doc line=" Returns the list of the keyboard layouts available at JCI side"/>
+		</method>
+		<method name="GetKeyboardLayout">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="KeyboardLayout" type="i">
+				<doc>
+					<line>KeyboardLayout is one of the following values </line>
+					<line>ABC = 0</line>
+					<line>Arabic = 1</line>
+					<line>Bahasa Malay = 2</line>
+					<line>Bulgarian = 3</line>
+					<line>Chinese Pinyin (Simplified) = 4</line>
+					<line>Chinese Pinyin (Traditional) = 5</line>
+					<line>Croatian = 6</line>
+					<line>Czech = 7</line>
+					<line>Danish = 8</line>
+					<line>Dutch = 9</line>
+					<line>English (ADR) = 10</line>
+					<line>English (UK) = 11</line>
+					<line>English(US) = 12</line>
+					<line>Estonian = 13</line>
+					<line>Finnish = 14</line>
+					<line>French (CA) = 15</line>
+					<line>French (EU) = 16</line>
+					<line>German = 17</line>
+					<line>Greek = 18</line>
+					<line>Hebrew = 19</line>
+					<line>Hungarian = 20</line>
+					<line>Indonesian = 21</line>
+					<line>Italian = 22</line>
+					<line>Japanese (Kana) = 23</line>
+					<line>Latvian = 24</line>
+					<line>Lithuanian = 25</line>
+					<line>Norwegian = 26</line>
+					<line>Polish = 27</line>
+					<line>Portuguese = 28</line>
+					<line>Romanian = 29</line>
+					<line>Russian = 30</line>
+					<line>Serbian (Latin) = 31</line>
+					<line>Slovakian = 32</line>
+					<line>Spanish (Castillian) = 33</line>
+					<line>Spanish (NA) = 34</line>
+					<line>Swedish = 35</line>
+					<line>Thai = 36</line>
+					<line>Turkish = 37</line>
+					<line>Arabic ABC = 38</line>
+					<line>Bahasa Malay ABC = 39</line>
+					<line>Bulgarian	ABC	= 40</line>
+					<line>Chinese Pinyin (Simplified) ABC =	41</line>
+					<line>Chinese Pinyin (Traditional) ABC = 42</line>
+					<line>Croatian	ABC	= 43</line>
+					<line>Czech	ABC	= 44</line>
+					<line>Danish ABC = 45</line>
+					<line>Dutch	ABC	= 46 </line>
+					<line>English (ADR)	ABC	= 47</line>
+					<line>English (UK)	ABC	= 48</line>
+					<line>English(US)	ABC	= 49</line>
+					<line>Estonian	ABC	= 50</line>
+					<line>Finnish	ABC	= 51</line>
+					<line>French (CA) ABC = 52</line>
+					<line>French (EU) ABC = 53</line>
+					<line>German ABC	= 54</line>
+					<line>Greek	ABC	= 55</line>
+					<line>Hebrew ABC	= 56</line>
+					<line>Hungarian	ABC	= 57</line>
+					<line>Indonesian ABC	= 58</line>
+					<line>Italian	ABC	= 59</line>
+					<line>Japanese (Kana) ABC = 60</line>
+					<line>Latvian	ABC	=61</line>
+					<line>Lithuanian ABC = 62</line>
+					<line>Norwegian	ABC	= 63</line>
+					<line>Polish ABC = 64</line>
+					<line>Portuguese ABC = 65</line>
+					<line>Romanian	ABC	= 66</line>
+					<line>Russian	ABC	= 67</line>
+					<line>Serbian (Latin) ABC =	68</line>
+					<line>Slovakian	ABC	= 69</line>
+					<line>Spanish (Castillian) ABC = 70</line>
+					<line>Spanish (NA) ABC	= 71</line>
+					<line>Swedish ABC =	72</line>
+					<line>Thai ABC = 73</line>
+					<line>Turkish ABC = 74 </line>
+				</doc>
+			</arg>
+			<doc line=" This method tells the currently selected keyboard layout."/>
+		</method>
+		<method name="GetRecentKeyboardNumber">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="NumberOfRecentKeyboards" type="i">
+				<doc line="      Number of most recent keyboard     "/>
+			</arg>
+			<doc line=" Number of keyboards at the top that needs to be marked as recent"/>
+		</method>
+		<method name="GetSpeedRestriction">
+			<annotation name="async_client" value="true"/>
+			<arg direction="out" name="SpeedRestriction" type="i">
+				<doc line="SpeedRestriction=  enum( SPEED_RESTRICTION_OFF=0x00, SPEED_RESTRICTION_ON=0x01 ) "/>
+			</arg>
+			<doc line=" This method returns the state of a speed restriction being active or not. "/>
+		</method>
+		<method name="GetLocalizedRecentText">
+			<arg direction="out" name="RecentText" type="s">
+				<doc line="Localized text for &quot;Recent&quot; word"/>
+			</arg>
+			<doc line=" Returns the localized text for &quot;Recent&quot; word "/>
+		</method>
+		<method name="GetVolumeRequestEnabled">
+			<arg direction="out" name="RequestEnabled" type="i">
+				<doc line="RequestEnabled = enum( DISABLED=0x00, ENABLED=0x01 )"/>
+			</arg>
+			<doc line="GetVolumeRequestEnabled = This method returns whether it is allowed for the navi engine to request change of the volume. "/>
+		</method>
+		<method name="GetNavigationVolume">
+			<arg direction="out" name="Volume" type="i">
+				<doc line=" Volume strength: falls between 0 and 63 inclusively, 0 means the guidance is muted."/>
+			</arg>
+			<doc line=" &quot;This method returns the volume with which JCI plays navigation-related sounds.&quot; "/>
+		</method>
+		<method name="DialPhoneNumber">
+			<annotation name="async_client" value="true"/>
+			<arg direction="in" name="phoneNumber" type="s">
+				<doc line="phoneNumber = the string for the phone number to call"/>
+			</arg>
+			<arg direction="in" name="name" type="s">
+				<doc line="name = the string name for the contact (POI name)"/>
+			</arg>
+			<doc line="This method triggers the phone application with the phone number to call and the name string. "/>
+		</method>
+		<method name="GetTimeMode">
+			<annotation name="type_ref.DisplayedTime" value="navi2NNG_DisplayedTime_t"/>
+			<arg direction="out" name="Mode" type="i">
+				<doc line=" Mode = enum( TIME_AUTO (0), TIME_MANUAL (1) )"/>
+			</arg>
+			<arg direction="out" name="TimeStamp" type="t">
+				<doc line=" TimeStamp: The value of the monotonic system clock (millisecond precision) when the reply to GetTimeMode was sent out. Will be ignored on the receiving side if Mode is TIME_AUTO."/>
+			</arg>
+			<arg direction="out" name="DisplayedTime" type="(nyyyyy)">
+				<doc line=" DispayedTime: The time that should be displayed (according to the user) when the reply to GetTimeMode was sent out. The first unsigned 16-bit value represents the year, then the following five bytes correspond to the month, day, hour, minute and second respectively. It will be ignored on the receiving side if Mode is TIME_AUTO."/>
+			</arg>
+			<doc line="  This method is used to notify a running NNG system that the user changed the time mode (or the displayed time) "/>
+		</method>
+		<signal name="ShutdownRequest">
+			<doc line="     ShutdownRequest = This signal instructs the navigation engine to close. Note that the engine will only     receive this message between its DBusClientStarted and DBusClientStopped signals.    "/>
+		</signal>
+		<signal name="FactoryReset">
+			<doc line="     This signal instructs the navigation engine to delete the save folder and restart.    "/>
+		</signal>
+		<signal name="ShowNavigation">
+			<doc line="ShowNavigation = This signal informs the navigation engine that it is about to get the focus and should start rendering."/>
+		</signal>
+		<signal name="RequestShowNavigationDenied">
+			<doc line=" With this signal, JCI acknowledges that it has received NNG's RequestShowNavigation signal, but it cannot yield the focus."/>
+		</signal>
+		<signal name="ClearStack">
+			<doc line=" This signal should be issued by JCI whenever the user presses the home button "/>
+		</signal>
+		<signal name="FavoriteLongPress">
+			<doc line=" This signal is issued by JCI if it detects a long press of the favorite button "/>
+		</signal>
+		<signal name="NaviButtonPress">
+			<doc line=" This signal is issued by JCI if it detects that the navi button has been pressed. "/>
+		</signal>
+		<signal name="GuiFocusStatusUpdate">
+			<arg name="status" type="i">
+				<doc line="enum(GUI_FOCUS_ON(0x00), GUI_FOCUS_OFF(0x01))"/>
+			</arg>
+			<doc line="GuiFocusStatusUpdate = This signal returns the updates for the GUI focus status of the EmNavi app."/>
+		</signal>
+		<signal name="AudioDone">
+			<arg name="CallbackId" type="i">
+				<doc line=" The id of the audio effect in question."/>
+			</arg>
+			<arg name="Result" type="i">
+				<doc line=" Result = enum(AUDIO_SUCCESS=0x00, AUDIO_FAIL=0x01, AUDIO_CANCELLED=0x02, AUDIO_TIMEOUT=0x03) "/>
+			</arg>
+			<doc line=" This signal informs the navigation engine about a fate of a given audio effect or voice."/>
+		</signal>
+		<signal name="SetNavigationVolume">
+			<arg name="Volume" type="i">
+				<doc line=" Volume strength: falls between 0 and 63 inclusively, 0 means the guidance is muted."/>
+			</arg>
+			<doc line=" &quot;This signal informs NNG that guidance volume has been changed&quot; "/>
+		</signal>
+		<signal name="VREvent">
+			<arg name="EventId" type="s">
+				<doc line=" A string identifying the event, e.g., &quot;NavigateToARecentDestination&quot; "/>
+			</arg>
+			<doc line=" This signal tells NNG that a VUI event occurred. "/>
+		</signal>
+		<signal name="SelectedListItem">
+			<arg name="SeletedItem" type="i">
+				<doc line=" This should fall between 1 and 5 inclusively, depending on whether the user say &quot;Line 1&quot;, &quot;Line 2&quot;, etc. "/>
+			</arg>
+			<doc line=" This signal tells NNG that the user selected a given line on the list. "/>
+		</signal>
+		<signal name="NavigateToPOI">
+			<annotation name="type_ref.PoiCategoryName" value="navi2NNG_PoiCategories_t"/>
+			<arg name="PoiCategoryName" type="(ia(s))">
+				<doc line=" The hypothesized category list, e.g., (&quot;POI_HOSPITAL&quot;, &quot;POI_DENTIST&quot;). These strings should constitute a subset of the list that was passed by NNG signal POICategoryList. "/>
+			</arg>
+			<doc line=" This signal tells NNG that the user said something like: Navigate to the nearest hospital, or Navigate to the nearest dentist. "/>
+		</signal>
+		<signal name="AddWaypointPOI">
+			<annotation name="type_ref.PoiCategoryName" value="navi2NNG_PoiCategories_t"/>
+			<arg name="PoiCategoryName" type="(ia(s))">
+				<doc line=" The hypothesized category list, e.g., (&quot;hospital&quot;, &quot;dentist&quot;). These strings should constitute a subset of the list that was passed by NNG signal POICategoryList. "/>
+			</arg>
+			<doc line=" This signal tells NNG that the user said something like: Add waypoint, hospital, or Add waypoint, dentist. "/>
+		</signal>
+		<signal name="JpjIntermediateHypothesis">
+			<annotation name="type_ref.JpjHypothesis" value="navi2NNG_JpjHypothesis_t"/>
+			<arg name="JpjHypothesis" type="(uuuuuu)">
+				<doc>
+					<line> A structure of integers describing the Japanese hypothesis. </line>
+					<line> It contains the IDs for the partially recognized utterance. </line>
+					<line> The IDs which are not valid will be filled with 9999999. </line>
+				</doc>
+			</arg>
+			<doc line=" Japanese one shot destination search result"/>
+		</signal>
+		<signal name="JpjVDEHypothesisList">
+			<annotation name="type_ref.JpjHypothesisList" value="navi2NNG_JpjHypothesisList_t"/>
+			<arg name="JpjHypothesisList" type="(ia(uuuuuu))">
+				<doc>
+					<line> Array of structures of integers describing the Japanese hypothesis list. The first integer is the array length </line>
+					<line> It contains the IDs for the partially recognized utterance. </line>
+					<line> The IDs which are not valid will be filled with 9999999. </line>
+				</doc>
+			</arg>
+			<doc line=" Japanese destination search result list"/>
+		</signal>
+		<signal name="VDEHypothesisList">
+			<annotation name="type_ref.VDEList" value="navi2NNG_VDEHypothesisList_t"/>
+			<arg name="VDEList" type="(ia(uuuu))">
+				<doc>
+					<line> Array of structures of integers describing the hypothesis list. The first integer is the array length</line>
+					<line> First unsigned integer: The state id recognized, or 0, if not applicable (e.g., in France) </line>
+					<line> Second unsigned integer: The city id recognized.</line>
+					<line> Third unsigned integer: The street id recognized.</line>
+					<line> Fourth unsigned integer: The house number recognized.</line>
+				</doc>
+			</arg>
+			<doc line=" One shot destination search result"/>
+		</signal>
+		<signal name="SimpleHypothesisList">
+			<annotation name="type_ref.IdList" value="navi2NNG_HypothesisList_t"/>
+			<arg name="IdList" type="(ia(u))">
+				<doc line=" Array of integers describing the hypothesis list, interpeted as ids. The first integer is the array length"/>
+			</arg>
+			<doc line=" General hypothesis list for structured VDE"/>
+		</signal>
+		<signal name="ModeChanged">
+			<arg name="Modality" type="i">
+				<doc>
+					<line> This parameter shows which mode was the source of last UI event if any </line>
+					<line> VUI (0x0) - Context was triggered by VUI</line>
+					<line> GUI (0x1) - Context was triggered by GUI</line>
+				</doc>
+			</arg>
+			<doc>
+				<line> This signal is issued whenever the modality of the VR should be changed. NNG will use this in SetContext </line>
+				<line> unless it has more up-to-date information available about what parameter to use.  </line>
+			</doc>
+		</signal>
+		<signal name="RequestGuidanceInfo">
+			<doc line=" Requests NNG to send the GuidanceChanged signal"/>
+		</signal>
+		<signal name="NavigateToAddress">
+			<arg name="Name" type="s">
+				<doc line="Name of the navigated POI. "/>
+			</arg>
+			<arg name="CountryName" type="s">
+				<doc line="Country of the address. "/>
+			</arg>
+			<arg name="StateName" type="s">
+				<doc line="State of the address (in the case of US). "/>
+			</arg>
+			<arg name="CityName" type="s">
+				<doc line="City of the address. "/>
+			</arg>
+			<arg name="StreetName" type="s">
+				<doc line="Street name and house number of the address. "/>
+			</arg>
+			<arg name="ZipCode" type="s">
+				<doc line="City of the address. "/>
+			</arg>
+			<arg name="Latitude" type="d">
+				<doc line="Latitude in degrees. "/>
+			</arg>
+			<arg name="Longitude" type="d">
+				<doc line="Longitude in degrees. "/>
+			</arg>
+			<doc line=" This signal requests the NAVI engine to navigate to an address."/>
+		</signal>
+		<signal name="DeleteFavorite">
+			<arg name="ID" type="u">
+				<doc line=" The unique id of the favorite"/>
+			</arg>
+			<doc line=" Delete a favourite stored by NNG"/>
+		</signal>
+		<signal name="DeleteAllFavorites">
+			<doc line=" Delete all the favorites. (This does not affect the home favorite.)"/>
+		</signal>
+		<signal name="NavigateToFavorite">
+			<arg name="ID" type="u">
+				<doc line=" The unique id of the favorite to navigate to"/>
+			</arg>
+			<doc line=" Navigate to a favorite"/>
+		</signal>
+		<signal name="RenameFavorite">
+			<arg name="ID" type="u">
+				<doc line=" The unique id of the favorite whose name is to be changed"/>
+			</arg>
+			<arg name="Name" type="s">
+				<doc line=" The new name"/>
+			</arg>
+			<doc line=" Change the name of a favourite stored by NNG"/>
+		</signal>
+		<signal name="SetHome">
+			<doc line=" Request the focus and provide the user a way to set the home position."/>
+		</signal>
+		<signal name="UnsetHome">
+			<doc line=" Delete the information associated with the home favorite."/>
+		</signal>
+		<signal name="SwapFavorites">
+			<arg name="ID1" type="u">
+				<doc line=" The unique id of the first favorite"/>
+			</arg>
+			<arg name="ID2" type="u">
+				<doc line=" The unique id of the second favorite"/>
+			</arg>
+			<doc line=" Change the order of the two favorites"/>
+		</signal>
+		<signal name="MoveFavorite">
+			<arg name="ID1" type="u">
+				<doc line=" The unique id of the favorite to move"/>
+			</arg>
+			<arg name="ID2" type="u">
+				<doc line=" The unique id of the favorite after which the favorite corresponding to ID1 should be inserted."/>
+			</arg>
+			<doc line=" Move a favorite to the position following another favorite"/>
+		</signal>
+		<signal name="AddCurrentPositionToFavorites">
+			<doc line=" Save the current position among the favorites with an empty name."/>
+		</signal>
+		<signal name="ReplaceFavoriteWithCurrentPosition">
+			<arg name="ID" type="u">
+				<doc line=" The id of the favorite that should be replaced "/>
+			</arg>
+			<doc line=" The contents of the given favorite should be discarded, and replaced by the current position."/>
+		</signal>
+		<signal name="AddCurrentDestinationToFavorites">
+			<doc line=" Save the current destination among the favorites with an empty name."/>
+		</signal>
+		<signal name="ReplaceFavoriteWithCurrentDestination">
+			<arg name="ID" type="u">
+				<doc line=" The id of the favorite that should be replaced. "/>
+			</arg>
+			<doc line=" The contents of the given favorite should be discarded, and replaced by the current destination."/>
+		</signal>
+		<signal name="AddFavorite">
+			<arg name="Name" type="s">
+				<doc line="Name of the favorite "/>
+			</arg>
+			<arg name="CountryName" type="s">
+				<doc line="Country of the address. "/>
+			</arg>
+			<arg name="StateName" type="s">
+				<doc line="State of the address (in the case of US). "/>
+			</arg>
+			<arg name="CityName" type="s">
+				<doc line="City of the address. "/>
+			</arg>
+			<arg name="StreetName" type="s">
+				<doc line="Street name and house number of the address. "/>
+			</arg>
+			<arg name="ZipCode" type="s">
+				<doc line="City of the address. "/>
+			</arg>
+			<arg name="Latitude" type="d">
+				<doc line="Latitude in degrees. "/>
+			</arg>
+			<arg name="Longitude" type="d">
+				<doc line="Longitude in degrees. "/>
+			</arg>
+			<doc line=" This signal requests the NNG engine to add the address and the name to the favorite list."/>
+		</signal>
+		<signal name="ReplaceFavoriteWithAddress">
+			<arg name="ID" type="u">
+				<doc line=" The id of the favorite that should be replaced. "/>
+			</arg>
+			<arg name="Name" type="s">
+				<doc line="Name of the favorite "/>
+			</arg>
+			<arg name="CountryName" type="s">
+				<doc line="Country of the address. "/>
+			</arg>
+			<arg name="StateName" type="s">
+				<doc line="State of the address (in the case of US). "/>
+			</arg>
+			<arg name="CityName" type="s">
+				<doc line="City of the address. "/>
+			</arg>
+			<arg name="StreetName" type="s">
+				<doc line="Street name and house number of the address. "/>
+			</arg>
+			<arg name="ZipCode" type="s">
+				<doc line="City of the address. "/>
+			</arg>
+			<arg name="Latitude" type="d">
+				<doc line="Latitude in degrees. "/>
+			</arg>
+			<arg name="Longitude" type="d">
+				<doc line="Longitude in degrees. "/>
+			</arg>
+			<doc line=" This signal requests the NNG engine to add the address and the name to the favorite list in place of another favorite"/>
+		</signal>
+	</interface>
+</node>

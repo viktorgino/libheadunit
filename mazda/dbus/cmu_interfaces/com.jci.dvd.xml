@@ -1,0 +1,54 @@
+<node>
+	<interface name="com.jci.dvd">
+		<annotation name="with_error_string" value="yes"/>
+		<annotation name="com.jci.force_interface_visibility" value="client"/>
+		<annotation name="def_struct_names.dvdStatus_st" value="statusProgress,deviceType,lastError,diskType,subtitles,multiangles,parentalCheck,parentalPin,parentalRating,aspectRatio,avoidSpeedRestrict"/>
+		<annotation name="def_struct_types.dvdStatus_st" value="u, u, u, u, u, u, u, i, i, u, y"/>
+		<annotation name="def_struct_names.PlayingStatus_desc" value="Track,Angle,Total_Hours,Total_Minutes,Total_Seconds,Elapsed_Hours,Elapsed_Minutes,Elapsed_Seconds"/>
+		<annotation name="def_struct_types.PlayingStatus_desc" value="q, y, y, y, y, y, y, y"/>
+		<method name="SwitchState">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="state" type="u"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="ChangeSetting">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="setting" type="u"/>
+			<arg direction="in" name="value" type="i"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="GetSetting">
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="setting" type="u"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="PinOperation">
+			<annotation name="async" value="both"/>
+			<arg direction="in" name="cmd" type="u"/>
+			<arg direction="in" name="pin" type="u"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="DeviceCommand">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="cmd" type="u"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="ScrubberBarControl">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="percentage" type="u"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="GetDvdStatus">
+			<annotation name="type_ref.dvdStatusData" value="dvdStatus_st"/>
+			<annotation name="async" value="both"/>
+			<arg direction="out" name="dvdStatusData" type="(uuuuuuuiiuy)"/>
+		</method>
+		<signal name="DeviceStatusEvent">
+			<arg name="event" type="u"/>
+		</signal>
+		<signal name="PlayingStatusEvent">
+			<annotation name="type_ref.PlayingStatusData" value="PlayingStatus_desc"/>
+			<arg name="PlayingStatusData" type="(qyyyyyyy)"/>
+		</signal>
+	</interface>
+</node>

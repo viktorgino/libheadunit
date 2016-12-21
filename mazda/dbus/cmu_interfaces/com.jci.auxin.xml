@@ -1,0 +1,20 @@
+<node>
+	<interface name="com.jci.auxin">
+		<method name="Mode_Req">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="mode" type="y"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="DeviceStatus_Req">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<method name="GetAuxinStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="i"/>
+		</method>
+		<signal name="Status">
+			<arg name="status_value" type="y"/>
+		</signal>
+	</interface>
+</node>

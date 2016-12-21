@@ -1,0 +1,708 @@
+<node>
+	<interface name="com.jci.vbs.radio">
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_Tune_Req_s_t" value="TuneDirection,StepValue"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_Tune_Req_s_t" value="            y,        y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_DirectControl_Req_s_t" value="Frequency_Step, PICode, sps_no"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_DirectControl_Req_s_t" value="             d,      q,      y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_SubTunerControl_Req_s_t" value="SubTuner,Frequency_Step"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_SubTunerControl_Req_s_t" value="       y,             q"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_Mute_Req_e_t" value="Direction,Mutetype"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_Mute_Req_e_t" value="        y,       y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_AudioSettings_Req_s_t" value="audioSettingsParameter,stepValue"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_AudioSettings_Req_s_t" value="                     y,        y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_Test_Req_s_t" value="testMode,testVariation,testPageSelection,testAntenna"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_Test_Req_s_t" value="       y,            y,                y,          y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_TunerPICode_Resp_s_t" value=" tunerStatus, piCode"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_TunerPICode_Resp_s_t" value="          ay,      q"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_HD_tuner_status_Resp_s_t" value="trnsmon_type, channel_type, SPS_Rece_Fault, curr_playing, avail_channels, ErrorState"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_HD_tuner_status_Resp_s_t" value="           y,            y,              y,            y,             ay,          y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_AudioSettingsResponse_s_t" value="audioSettingsRespParameter, stepValue"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_AudioSettingsResponse_s_t" value="                         y,         y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_Text_Resp_s_t" value="textRespActl, textRespData"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_Text_Resp_s_t" value="           y,          ay"/>
+		<annotation name="com.jci.def_struct_names.VBS_HDRadioSIS_Status_Resp_s_t" value="SISTypeB, SISResB, ADBnd, HDRadio_SIS_CharSet, HDRadio_SIS_Data"/>
+		<annotation name="com.jci.def_struct_types.VBS_HDRadioSIS_Status_Resp_s_t" value="       y,       y,     y,                   y,               ay"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_AMPStatus_Resp_s_t" value="Volume, Bass, Treble, Balance, Fader, ASL, TAVolume, AUXVolume, BTHFVolume, RingToneVolume, NaviVolume, autoPilot, centerPoint, status, muteType, AMPTypes"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_AMPStatus_Resp_s_t" value="     y,    y,      y,       y,     y,   y,        y,         y,          y,              y,          y,         y,           y,      y,        y,        y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_TAUSoftwareVersion_Resp_s_t" value="SYSSoftwareVersion,LSISoftwareVersion"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_TAUSoftwareVersion_Resp_s_t" value="                 u,                 u"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_XM_RadioGrpStatus_Resp_s_t" value="RadioStatus, OperationMode, ErrorStatus, ReceivingCh, ReceivingSID, ReceivingCAT"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_XM_RadioGrpStatus_Resp_s_t" value="          y,             y,           y,           y,            y,            y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_ModeChangeSrc_Response_s_t" value="modeChangeSrc, modeResp"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_ModeChangeSrc_Response_s_t" value="            y,       ay"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_Metadata_Resp_s_t" value="radioType, metadataResp"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_Metadata_Resp_s_t" value="        y,           ay"/>
+		<annotation name="com.jci.def_struct_names.VBS_XM_Signal_Info_Response_s_t" value="XM_Signal_InfoData"/>
+		<annotation name="com.jci.def_struct_types.VBS_XM_Signal_Info_Response_s_t" value="                ay"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_TAU_TestModeStat_Resp_s_t" value="electric_strength, offSet, contiguity, multiPath, quality_Test, auto_Gain, pilot"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_TAU_TestModeStat_Resp_s_t" value="                y,      y,          y,         y,            y,         y,     y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_XM_SongGrpInfo_Resp_s_t" value="SongChange, ArtistChange, CATNameChange, CHNameChange"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_XM_SongGrpInfo_Resp_s_t" value="         y,            y,             y,            y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_HD_Metadata_Info_Resp_s_t" value="HD_BCTL, HD_SIS, HD_Track, HD_Artist, HD_Album, HD_Genre, HD_UFID_URL, HD_UFID_ID, HD_ID3_XHDR, HD_BER, HD_NumBlend"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_HD_Metadata_Info_Resp_s_t" value="      y,      y,        y,         y,        y,        y,           y,          y,           y,      y,           q"/>
+		<annotation name="com.jci.def_struct_names.VBS_HD_Radio_Tuner2_Status_Resp_s_t" value="Tuner2_Mode_Status, Tuner2_FM_ReceivedFreq"/>
+		<annotation name="com.jci.def_struct_types.VBS_HD_Radio_Tuner2_Status_Resp_s_t" value="                 y,                      q"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_PSD_Status_Resp_s_t" value="psd_name"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_PSD_Status_Resp_s_t" value="      ay"/>
+		<annotation name="com.jci.def_struct_names.VBS_XM_Module_Data_Resp_s_t" value="DSP_SW_Ver, DSP_SW_Date, Service_Authorization_Code, Receiver_Authorization_Code, XM_Stack_SW, XM_Stack_Date"/>
+		<annotation name="com.jci.def_struct_types.VBS_XM_Module_Data_Resp_s_t" value="         y,          ay,                          y,                          y,           y,            ay"/>
+		<annotation name="com.jci.def_struct_names.VBS_XM_Serial_Number_Resp_s_t" value="XM_ESNSerialNumber_High, XM_ESNSerialNumber_Low"/>
+		<annotation name="com.jci.def_struct_types.VBS_XM_Serial_Number_Resp_s_t" value="                      u,                      u"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_HD_ErrorStatus_Resp_s_t" value="Number_of_PIDS_BlockError, Number_of_PIDS_BlockTested, Number_of_PIDS_BitsError, Number_of_PIDS_BitsTested, Number_of_P3_BitsError, Number_of_P3_BitsTested, Number_of_P2_BitsError, Number_of_P2_BitsTested, Number_of_P1_BitsError, Number_of_P1_BitsTested, U8 HD_Error_CN_Integer, U8 HD_Error_CN_Decimal, PIDS_BlockPage_Number"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_HD_ErrorStatus_Resp_s_t" value="                       ay,                         ay,                       ay,                        ay,                     ay,                      ay,                     ay,                      ay,                     ay,                      ay,                      y,                      y,                     y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_DAB_Command_Req_s_t" value="cmd_type,cmd_req,parameter1,parameter2"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_DAB_Command_Req_s_t" value="       y,      y,         q,         q"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_DAB_Control_Req_s_t" value="dabCtrlCmdType,dabCtrlCmdValue"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_DAB_Control_Req_s_t" value="             y,              y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_DAB_ChStatus_s_t" value="ChInfoValidity, ChNum, eid, sid, scids"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_DAB_ChStatus_s_t" value="             y,    ay,   q,   q,     y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_DAB_ModeStatus_s_t" value="mode, errorStatus"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_DAB_ModeStatus_s_t" value="   y,           y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_DAB_EnsembleListMgmtInfoResp_s_t" value="enslistInfoMgmtStatus, ensCount"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_DAB_EnsembleListMgmtInfoResp_s_t" value="                    y,        y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_DAB_EnsembleInfoListResp_s_t" value="ensInfoListStatus, charSet, eid, chNumber, ensInfoListData"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_DAB_EnsembleInfoListResp_s_t" value="                y,      y,    q,       ay,             ay"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_DAB_CompoListMgmtInfoResp_s_t" value="compolistMgmtInfoStatus, numOfSVCS, ensID"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_DAB_CompoListMgmtInfoResp_s_t" value="                      y,         q,     q"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_DAB_CompoInfoListResp_s_t" value="compoInfoListStatus, charSet, index, sid, scids, compoInfoData"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_DAB_CompoInfoListResp_s_t" value="                y,         y,     q,   q,     y,            ay"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_DAB_LabelResp_s_t" value="labelResp, validity, charSet, labelRespData"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_DAB_LabelResp_s_t" value="        y,        y,       y,            ay"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_DAB_TAUStatus_s_t" value="tauDestinationCode, tauConfigStatus"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_DAB_TAUStatus_s_t" value="   y,           y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_DAB_Info_Status_s_t" value="isEnsLabelChanged, isSvcLabelChanged, isCompoLabelChanged"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_DAB_Info_Status_s_t" value="                b,                 b,                   b"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_DAB_DiagStat_s_t" value="hwVerion, swVerion, moduleVersion, chNum, signalStrength, audioBer,                                                                                       sid, broadcastFormat, noOfEns, sumCompoCurEns, sumCompoAllEns,                                                                                       fmLInkPIcode, fmlinkSignalStrength, signalStrengthRead, audioBerRead"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_DAB_DiagStat_s_t" value="       y,        q,             u,   ay,               y,        q,                                                                                         q,               y,       y,              y,              q,                                                                                                 q,                    y,                  y,            y"/>
+		<annotation name="com.jci.def_struct_names.VBS_RADIO_DAB_DirectControl_Req_s_t" value="directChNum, directEID, directSID, directSCIDS"/>
+		<annotation name="com.jci.def_struct_types.VBS_RADIO_DAB_DirectControl_Req_s_t" value="         ay,         q,         q,           y"/>
+		<method name="Tune_Request">
+			<annotation name="com.jci.type_ref.Tune" value="VBS_RADIO_Tune_Req_s_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="Tune" type="(yy)"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="Seek_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="Seek" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="QuickSeek_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="QuickSeek" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="Scan_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="Scan" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="DirectControl">
+			<annotation name="com.jci.type_ref.DirectControl" value="VBS_RADIO_DirectControl_Req_s_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="DirectControl" type="(dqy)"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="Control1_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="HARWrite" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="PTY_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="pty" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="RDS_AF_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="AF" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="RDS_REG_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="REG" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="HD_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="HD" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="TA_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="TA" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="SubTunerControl_Request">
+			<annotation name="com.jci.type_ref.SubTunerReq" value="VBS_RADIO_SubTunerControl_Req_s_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="SubTunerReq" type="(yq)"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="HD_ChannelUp_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="HDChannelUp" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="HD_ErrorRateDisplayMode_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="HDErrorRateDisplayMode" type="y"/>
+			<arg direction="in" name="HDTunerType" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="HD_PageNumber_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="HDPageNumber" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="HD_DiagTestNum_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="HDDiagTestNum" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="HD_Parameter1_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="HDParameter1" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="HD_Parameter2_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="HDParameter2" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="HD_RadioErrorStatus_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="HDRadioErrorStatus" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="Mute_Request">
+			<annotation name="com.jci.type_ref.Mute" value="VBS_RADIO_Mute_Req_e_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="Mute" type="(yy)"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="Vol_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="Vol" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="AudioSettings_Request">
+			<annotation name="com.jci.type_ref.AudioSettings" value="VBS_RADIO_AudioSettings_Req_s_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="AudioSettings" type="(yy)"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="ACUInitialization_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="ACUIn" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="ACUAudioPilot_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="AudioPilot" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="ACUCenterPoint_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="CenterPoint" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="StationListCreation_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="request" type="y"/>
+			<arg direction="in" name="Dest_id" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="Text_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="TextReq" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="HD_SISStatus_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="SISReq" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="HD_PSD_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="PSDRequest" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="HD_ErrorStatus_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="ErrorStatusReq" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="AUTO_M_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="AutoM" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="XM_DirectType_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="DirectType" type="y"/>
+			<arg direction="in" name="StepCH" type="y"/>
+			<arg direction="in" name="StepSID" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="XM_RelativeTune_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="Step" type="y"/>
+			<arg direction="in" name="TuneDirection" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="XM_Diag_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="DiagRequest" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="XM_ExpandedDiagMode_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="ExpDiagMode" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="XM_Mute_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="MuteReq" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="ElectricField_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="SignalStrength" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="Test_Mode_Variation_Page_Antenna_Request">
+			<annotation name="com.jci.type_ref.testMode_Variation_Page_Antenna" value="VBS_RADIO_Test_Req_s_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="testMode_Variation_Page_Antenna" type="(yyyy)"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="AutoStore_Request">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="Autostore" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="GetConnStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="AUX_GetConnStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="XM_Config_GetStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="GetRadioID">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="GetHDOnOffStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="returnHDOnOffStatus" type="y"/>
+		</method>
+		<method name="GetTAOnOffStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="returnTAOnOffStatus" type="y"/>
+		</method>
+		<method name="GetHARFreqSetting">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="returnHARFreqSetting" type="y"/>
+		</method>
+		<method name="GetCurrentGenreSetting">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="returnCurrentGenreSetting" type="y"/>
+		</method>
+		<method name="GetAlternateFreqOnOffStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="returnAlternateFreqOnOffStatus" type="y"/>
+		</method>
+		<method name="GetRegionLockOnOffStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="returnRegionLockOnOffStatus" type="y"/>
+		</method>
+		<method name="XM_SendSignalInfoRequest">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="XMSignalInfoReqType" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="HD_GetTunerResponse">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="GetTunerResponse">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="XM_GetRadioStatusResponse">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="Get4ARegionInfo">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="return_4A_Region" type="y"/>
+		</method>
+		<method name="DAB_Command_Request">
+			<annotation name="com.jci.type_ref.dabCmdReq" value="VBS_RADIO_DAB_Command_Req_s_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="dabCmdReq" type="(yyqq)"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="DAB_Control_Request">
+			<annotation name="com.jci.type_ref.dabCtrlReq" value="VBS_RADIO_DAB_Control_Req_s_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="dabCtrlReq" type="(yy)"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="DAB_Get_InfoStatus">
+			<annotation name="com.jci.type_ref.dabInfoStatus" value="VBS_RADIO_DAB_Info_Status_s_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="dabInfoStatus" type="(bbb)"/>
+		</method>
+		<method name="DAB_Get_SignalStrength">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="signalStrength" type="y"/>
+		</method>
+		<method name="DAB_Get_ChStatus">
+			<annotation name="com.jci.type_ref.chStatus" value="VBS_RADIO_DAB_ChStatus_s_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="chStatus" type="(yayqqy)"/>
+		</method>
+		<method name="DAB_Get_ModeStatus">
+			<annotation name="com.jci.type_ref.modeStatus" value="VBS_RADIO_DAB_ModeStatus_s_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="modeStatus" type="(yy)"/>
+		</method>
+		<method name="DAB_Get_ListUpdateStatus">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="dabListUpdateStatus" type="y"/>
+		</method>
+		<method name="DAB_DirectControl">
+			<annotation name="com.jci.type_ref.directCtrl" value="VBS_RADIO_DAB_DirectControl_Req_s_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="directCtrl" type="(ayqqy)"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="DAB_Get_Link_Status">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="dabLinkStatus" type="y"/>
+		</method>
+		<method name="DAB_Get_FMLink_Status">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="dabFMLinkStatus" type="y"/>
+		</method>
+		<method name="DAB_Get_BandSelect_Status">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="dabBandSelectStatus" type="y"/>
+		</method>
+		<method name="DAB_Get_TAUStatus">
+			<annotation name="com.jci.type_ref.tauStatus" value="VBS_RADIO_DAB_TAUStatus_s_t"/>
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="tauStatus" type="(yy)"/>
+		</method>
+		<method name="DAB_InterruptNotification">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="notify" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="XM_SxiPowerSts">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="SxiPowerSts" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="XM_SxiBaudRate">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="SxiBaudRate" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="XM_XmModuleResetReq">
+			<annotation name="async" value="client"/>
+			<arg direction="in" name="XmModuleResetReq" type="y"/>
+			<arg direction="out" name="return_value" type="y"/>
+		</method>
+		<method name="TauXmhSts_getIsValid_TAU">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="IsValid_TAU" type="y"/>
+		</method>
+		<method name="TauXmhSts_getXmModulePowerSts">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="XmModulePowerSts" type="y"/>
+		</method>
+		<method name="TauXmhSts_getSxiCommandReq">
+			<annotation name="async" value="client"/>
+			<arg direction="out" name="SxiCommandReq" type="y"/>
+		</method>
+		<signal name="Tuner_Response">
+			<annotation name="com.jci.type_ref.TunerStatus" value="VBS_RADIO_TunerPICode_Resp_s_t"/>
+			<arg direction="in" name="TunerStatus" type="(ayq)"/>
+		</signal>
+		<signal name="FrequencyLastKeep_Response">
+			<arg direction="in" name="LastKeepFrequency" type="y"/>
+		</signal>
+		<signal name="HARWrite_Response">
+			<arg direction="in" name="Frequency" type="y"/>
+		</signal>
+		<signal name="PTY_Response">
+			<arg direction="in" name="RecPTYResponse" type="y"/>
+			<arg direction="in" name="SelPTYResponse" type="y"/>
+		</signal>
+		<signal name="PTYChange_Notification">
+			<arg direction="in" name="radioPTY" type="y"/>
+		</signal>
+		<signal name="AF_Response">
+			<arg direction="in" name="AFResponse" type="y"/>
+		</signal>
+		<signal name="REG_Response">
+			<arg direction="in" name="REGResponse" type="y"/>
+		</signal>
+		<signal name="HD_Response">
+			<arg direction="in" name="HDResponse" type="y"/>
+		</signal>
+		<signal name="HD_Tuner_Response">
+			<annotation name="com.jci.type_ref.HDTunerResponse" value="VBS_RADIO_HD_tuner_status_Resp_s_t"/>
+			<arg direction="in" name="HDTunerResponse" type="(yyyyayy)"/>
+		</signal>
+		<signal name="HD_PSD_Response">
+			<arg direction="in" name="HDPSDResponse" type="y"/>
+		</signal>
+		<signal name="TA_Response">
+			<arg direction="in" name="TAResponse" type="y"/>
+		</signal>
+		<signal name="RDS_Response">
+			<arg direction="in" name="RDSResponse" type="y"/>
+		</signal>
+		<signal name="Metadata_Response">
+			<arg direction="in" name="Metadata" type="y"/>
+		</signal>
+		<signal name="AudioSetting_Response">
+			<annotation name="com.jci.type_ref.AudioSettings" value="VBS_RADIO_AudioSettingsResponse_s_t"/>
+			<arg direction="in" name="AudioSettings" type="(yy)"/>
+		</signal>
+		<signal name="ACU_Response">
+			<arg direction="in" name="ACUResponse" type="y"/>
+		</signal>
+		<signal name="StationList_Response">
+			<arg direction="in" name="stationListResp" type="y"/>
+		</signal>
+		<signal name="PresetInfo_Response">
+			<arg direction="in" name="PresetInfoResponse" type="y"/>
+		</signal>
+		<signal name="Text_Response">
+			<annotation name="com.jci.type_ref.TextResponse" value="VBS_RADIO_Text_Resp_s_t"/>
+			<arg direction="in" name="TextResponse" type="(yay)"/>
+		</signal>
+		<signal name="HD_SISStatus_Response">
+			<annotation name="com.jci.type_ref.HDStatusResponse" value="VBS_HDRadioSIS_Status_Resp_s_t"/>
+			<arg direction="in" name="HDStatusResponse" type="(yyyyay)"/>
+		</signal>
+		<signal name="TAUSourceIndex_Response">
+			<arg direction="in" name="sourceIndex" type="y"/>
+			<arg direction="in" name="tauSourceStatus" type="y"/>
+		</signal>
+		<signal name="AMP_Response">
+			<annotation name="com.jci.type_ref.AMPStatus" value="VBS_RADIO_AMPStatus_Resp_s_t"/>
+			<arg direction="in" name="AMPStatus" type="(yyyyyyyyyyyyyyyy)"/>
+		</signal>
+		<signal name="TAControl_Interrupt_Response">
+			<arg direction="in" name="Interrupt" type="y"/>
+		</signal>
+		<signal name="TAUSoftwareVersion_Response">
+			<annotation name="com.jci.type_ref.SoftwareVersion" value="VBS_RADIO_TAUSoftwareVersion_Resp_s_t"/>
+			<arg direction="in" name="SoftwareVersion" type="(uu)"/>
+		</signal>
+		<signal name="XM_RefreshStatus_Response">
+			<arg direction="in" name="XMRefreshStatus" type="y"/>
+		</signal>
+		<signal name="XM_RadioStatus_Response">
+			<annotation name="com.jci.type_ref.XMRadioStatus" value="VBS_RADIO_XM_RadioGrpStatus_Resp_s_t"/>
+			<arg direction="in" name="XMRadioStatus" type="(yyyyyy)"/>
+		</signal>
+		<signal name="XM_Mute_Status_Response">
+			<arg direction="in" name="XMMuteStatus" type="y"/>
+		</signal>
+		<signal name="AUX_Status_Response">
+			<arg direction="in" name="AUXStatus" type="y"/>
+		</signal>
+		<signal name="TrackChange">
+			<arg direction="in" name="trackChangeStatus" type="y"/>
+		</signal>
+		<signal name="StationChange">
+			<arg direction="in" name="stationChangeStatus" type="d"/>
+		</signal>
+		<signal name="ModeChange">
+			<annotation name="com.jci.type_ref.modeChangeStatus" value="VBS_RADIO_ModeChangeSrc_Response_s_t"/>
+			<arg direction="in" name="modeChangeStatus" type="(yay)"/>
+		</signal>
+		<signal name="OffOnNotification">
+			<arg direction="in" name="radioOnOffStatus" type="y"/>
+		</signal>
+		<signal name="DestinationCode">
+			<arg direction="in" name="radioDestinationCode" type="y"/>
+		</signal>
+		<signal name="XM_ConfigStatus">
+			<arg direction="in" name="radioXMConfigStat" type="y"/>
+		</signal>
+		<signal name="ConnectionStatus">
+			<arg direction="in" name="radioConnectionStatus" type="y"/>
+		</signal>
+		<signal name="RsesConnectStatus">
+			<arg direction="in" name="radioReesConnStat" type="y"/>
+		</signal>
+		<signal name="iTunes_TaggingInfo">
+			<annotation name="com.jci.type_ref.iTunesTaggingData" value="VBS_RADIO_Metadata_Resp_s_t"/>
+			<arg direction="in" name="iTunesTaggingData" type="(yay)"/>
+		</signal>
+		<signal name="XM_MAP_Info">
+			<arg direction="in" name="xmMapInfo" type="y"/>
+		</signal>
+		<signal name="XM_Signal_Info">
+			<annotation name="com.jci.type_ref.xmSignalInfo" value="VBS_XM_Signal_Info_Response_s_t"/>
+			<arg direction="in" name="xmSignalInfo" type="(ay)"/>
+		</signal>
+		<signal name="RDS_HAR_Response">
+			<arg direction="in" name="HARfrequency" type="y"/>
+			<arg direction="in" name="HAROnStatus" type="y"/>
+		</signal>
+		<signal name="RDS_TAInterrupt_Response">
+			<arg direction="in" name="TAinterrupt" type="y"/>
+		</signal>
+		<signal name="TAU_TestMode_Response">
+			<annotation name="com.jci.type_ref.TestMode" value="VBS_RADIO_TAU_TestModeStat_Resp_s_t"/>
+			<arg direction="in" name="TestMode" type="(yyyyyyy)"/>
+		</signal>
+		<signal name="XM_Title_Response">
+			<arg direction="in" name="XMTitleResponse" type="y"/>
+		</signal>
+		<signal name="XM_Metadata_Notification">
+			<annotation name="com.jci.type_ref.xmMetadataNotification" value="VBS_RADIO_XM_SongGrpInfo_Resp_s_t"/>
+			<arg direction="in" name="xmMetadataNotification" type="(yyyy)"/>
+		</signal>
+		<signal name="HD_MetadataChange_Notification">
+			<annotation name="com.jci.type_ref.HDMetadataChangeNotification" value="VBS_RADIO_HD_Metadata_Info_Resp_s_t"/>
+			<arg direction="in" name="HDMetadataChangeNotification" type="(yyyyyyyyyyq)"/>
+		</signal>
+		<signal name="HD_Tuner2_Status_Response">
+			<annotation name="com.jci.type_ref.HDRadioTuner2Status" value="VBS_HD_Radio_Tuner2_Status_Resp_s_t"/>
+			<arg direction="in" name="HDRadioTuner2Status" type="(yq)"/>
+		</signal>
+		<signal name="Text_Notification">
+			<arg direction="in" name="textNotification" type="y"/>
+		</signal>
+		<signal name="HD_ID3_XHDR_Response">
+			<annotation name="com.jci.type_ref.hd_ID3_XHDR" value="VBS_RADIO_PSD_Status_Resp_s_t"/>
+			<arg direction="in" name="hd_ID3_XHDR" type="(ay)"/>
+		</signal>
+		<signal name="XM_ModuleData_Response">
+			<annotation name="com.jci.type_ref.xmModuleData" value="VBS_XM_Module_Data_Resp_s_t"/>
+			<arg direction="in" name="xmModuleData" type="(yayyyyay)"/>
+		</signal>
+		<signal name="XM_SerialNumber_Response">
+			<annotation name="com.jci.type_ref.xmSerialNumber" value="VBS_XM_Serial_Number_Resp_s_t"/>
+			<arg direction="in" name="xmSerialNumber" type="(uu)"/>
+		</signal>
+		<signal name="HD_ErrorStatusResponse">
+			<annotation name="com.jci.type_ref.hdErrorStatus" value="VBS_RADIO_HD_ErrorStatus_Resp_s_t"/>
+			<arg direction="in" name="hdErrorStatus" type="(ayayayayayayayayayayyyy)"/>
+		</signal>
+		<signal name="HD_RadioNumBlend_Response">
+			<arg direction="in" name="HDRadioNumBlend" type="q"/>
+		</signal>
+		<signal name="SignalInfoChange_Response">
+			<arg direction="in" name="SignalInfoChange" type="y"/>
+		</signal>
+		<signal name="XM_MAP_DuplicateChannelNotification">
+			<arg direction="in" name="sid" type="y"/>
+			<arg direction="in" name="channelNumber" type="y"/>
+		</signal>
+		<signal name="HD_BER_Status">
+			<arg direction="in" name="berStatus" type="y"/>
+		</signal>
+		<signal name="HD_BCTL_Status">
+			<arg direction="in" name="bctlStatus" type="y"/>
+		</signal>
+		<signal name="RDS_AlarmInterrupt_Response">
+			<arg direction="in" name="AlarmInterrupt" type="y"/>
+		</signal>
+		<signal name="New4ARegionInfo">
+			<arg direction="in" name="region" type="y"/>
+		</signal>
+		<signal name="DAB_ChStatus_Response">
+			<annotation name="com.jci.type_ref.dabChStatus" value="VBS_RADIO_DAB_ChStatus_s_t"/>
+			<arg direction="in" name="dabChStatus" type="(yayqqy)"/>
+		</signal>
+		<signal name="DAB_Mode_Status">
+			<annotation name="com.jci.type_ref.dabModeStatus" value="VBS_RADIO_DAB_ModeStatus_s_t"/>
+			<arg direction="in" name="dabModeStatus" type="(yy)"/>
+		</signal>
+		<signal name="DAB_FMLinkSetting_Status">
+			<arg direction="in" name="dabFMLink" type="y"/>
+		</signal>
+		<signal name="DAB_LinkSetting_Status">
+			<arg direction="in" name="dabLink" type="y"/>
+		</signal>
+		<signal name="DAB_List_Status">
+			<arg direction="in" name="listStatus" type="y"/>
+		</signal>
+		<signal name="DAB_BandSelectSetting_Status">
+			<arg direction="in" name="dabBandSelecting" type="y"/>
+		</signal>
+		<signal name="DAB_RadioText_Status">
+			<arg direction="in" name="dabRadioText" type="y"/>
+		</signal>
+		<signal name="DAB_SignalStrength_Status">
+			<arg direction="in" name="dabSigStrgth" type="y"/>
+		</signal>
+		<signal name="DAB_DiagMode_Status">
+			<arg direction="in" name="dabDiagMode" type="y"/>
+		</signal>
+		<signal name="DAB_EnsembleListMgmtInfo_Response">
+			<annotation name="com.jci.type_ref.ensListMgmtInfo" value="VBS_RADIO_DAB_EnsembleListMgmtInfoResp_s_t"/>
+			<arg direction="in" name="ensListMgmtInfo" type="(yy)"/>
+		</signal>
+		<signal name="DAB_EnsembleInfoList_Response">
+			<annotation name="com.jci.type_ref.ensInfoList" value="VBS_RADIO_DAB_EnsembleInfoListResp_s_t"/>
+			<arg direction="in" name="ensInfoList" type="(yyqayay)"/>
+		</signal>
+		<signal name="DAB_CompoListMgmtInfo_Response">
+			<annotation name="com.jci.type_ref.compoListMgmtInfo" value="VBS_RADIO_DAB_CompoListMgmtInfoResp_s_t"/>
+			<arg direction="in" name="compoListMgmtInfo" type="(yqq)"/>
+		</signal>
+		<signal name="DAB_CompoInfoList_Response">
+			<annotation name="com.jci.type_ref.compoInfoList" value="VBS_RADIO_DAB_CompoInfoListResp_s_t"/>
+			<arg direction="in" name="compoInfoList" type="(yyqqyay)"/>
+		</signal>
+		<signal name="DAB_Label_Response">
+			<annotation name="com.jci.type_ref.labelResp" value="VBS_RADIO_DAB_LabelResp_s_t"/>
+			<arg direction="in" name="labelResp" type="(yyyay)"/>
+		</signal>
+		<signal name="DAB_TAUConfig_Status">
+			<annotation name="com.jci.type_ref.configStatus" value="VBS_RADIO_DAB_TAUStatus_s_t"/>
+			<arg direction="in" name="configStatus" type="(yy)"/>
+		</signal>
+		<signal name="DAB_Info_Status">
+			<arg direction="in" name="dabInfoStatus" type="y"/>
+		</signal>
+		<signal name="DAB_Diag_Status">
+			<annotation name="com.jci.type_ref.diagResp" value="VBS_RADIO_DAB_DiagStat_s_t"/>
+			<arg direction="in" name="diagResp" type="(yquayyqqyyyqqyyy)"/>
+		</signal>
+		<signal name="DAB_List_Current_State">
+			<arg direction="in" name="dabListCurrentState" type="y"/>
+			<arg direction="in" name="dabListType" type="y"/>
+		</signal>
+		<signal name="DAB_Text_Info_Status">
+			<arg direction="in" name="dabTextInfoStatus" type="y"/>
+			<arg direction="in" name="dabContentType" type="y"/>
+		</signal>
+		<signal name="TauXmhSts_IsValid_TAU">
+			<arg direction="in" name="IsValid_TAU" type="y"/>
+		</signal>
+		<signal name="TauXmhSts_XmModulePowerSts">
+			<arg direction="in" name="XmModulePowerSts" type="y"/>
+		</signal>
+		<signal name="TauXmhSts_SxiCommandReq">
+			<arg direction="in" name="SxiCommandReq" type="y"/>
+		</signal>
+	</interface>
+</node>

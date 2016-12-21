@@ -1,0 +1,16 @@
+<node>
+	<interface name="com.jci.cpp.service.Service">
+		<method name="ping">
+			<arg direction="in" name="timeout" type="u"/>
+		</method>
+		<method name="save">
+			<arg direction="in" name="timeout" type="u"/>
+		</method>
+		<method name="start">
+			<arg direction="in" name="timeout" type="u"/>
+		</method>
+		<method name="stop">
+			<arg direction="in" name="timeout" type="u"/>
+		</method>
+	</interface>
+</node>
