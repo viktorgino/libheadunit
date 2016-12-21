@@ -8,12 +8,12 @@ CXX=$(M3TOOLCHAIN)/bin/arm-cortexa9_neon-linux-gnueabi-g++
 LD=$(M3TOOLCHAIN)/bin/arm-cortexa9_neon-linux-gnueabi-ld
 SYSROOT=$(M3TOOLCHAIN)/arm-cortexa9_neon-linux-gnueabi/sysroot
 
-INCLUDES=$(shell ./pkg-config-wrapper $(SYSROOT) --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0  libcrypto openssl) -I$(TOP)/hu -I$(TOP)/hu/generated.arm -Imazda-connector -I$(PROTOTOOLCHAIN)/include -I$(LIBUNWIND)/include -Igps/nematode/include
+INCLUDES=$(shell ./pkg-config-wrapper $(SYSROOT) --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0  libcrypto openssl glib-2.0 gio-unix-2.0) -I$(TOP)/hu -I$(TOP)/hu/generated.arm -Imazda-connector -I$(PROTOTOOLCHAIN)/include -I$(LIBUNWIND)/include -Igps/nematode/include
 
 CFLAGS=-O3 -g -rdynamic -pthread --sysroot=$(SYSROOT) -DCMU=1 -D__STDC_FORMAT_MACROS -march=armv7-a -mtune=cortex-a9 -mfpu=neon 
 CXXFLAGS=$(CFLAGS) -std=c++11 -static-libstdc++
 
-LFLAGS= --sysroot=$(SYSROOT) -g -rdynamic -pthread -ldl -static-libstdc++ $(shell ./pkg-config-wrapper $(SYSROOT) --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0 libcrypto openssl) -L$(PROTOTOOLCHAIN)/lib -lprotobuf -L$(LIBUNWIND)/lib -lunwind
+LFLAGS= --sysroot=$(SYSROOT) -g -rdynamic -pthread -ldl -static-libstdc++ $(shell ./pkg-config-wrapper $(SYSROOT) --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0 libcrypto openssl glib-2.0 gio-unix-2.0) -L$(PROTOTOOLCHAIN)/lib -lprotobuf -L$(LIBUNWIND)/lib -lunwind
 LFLAGS_IF= --sysroot=$(SYSROOT) -static-libstdc++ $(shell ./pkg-config-wrapper $(SYSROOT) --libs dbus-1)
 
 #headunit binary
@@ -24,6 +24,7 @@ SRCS += $(TOP)/hu/hu_usb.cpp
 SRCS += $(TOP)/hu/hu_uti.cpp
 SRCS += $(TOP)/hu/hu_tcp.cpp
 SRCS += $(TOP)/hu/generated.arm/hu.pb.cc
+SRCS += dbus/generated.c
 SRCS += nm/mzd_nightmode.cpp
 SRCS += gps/nematode/src/GPSFix.cpp
 SRCS += gps/nematode/src/GPSService.cpp
@@ -46,9 +47,11 @@ DEPS_IF = $(addsuffix .arm.d, $(basename $(SRCS_IF)))
 #input_filter binary
 APP_IF = input_filter
 
-all: proto $(APP) $(APP_IF)
+all: proto gdbus $(APP) $(APP_IF)
 
 proto: $(TOP)/hu/generated.arm/hu.pb.cc
+
+gdbus: dbus/generated.c dbus/generated.h
 
 $(APP): $(OBJS)
 	$(CXX) -MD -g -o $(APP) $(OBJS) $(LFLAGS)
@@ -58,6 +61,9 @@ $(APP_IF): $(OBJS_IF)
 
 $(TOP)/hu/generated.arm/hu.pb.cc $(TOP)/hu/generated.arm/hu.pb.h: $(TOP)/hu/hu.proto
 	$(PROTOTOOLCHAIN)/bin/protoc $< --proto_path=$(TOP)/hu/ --cpp_out=$(TOP)/hu/generated.arm/
+
+dbus/generated.c dbus/generated.h: dbus/cmu_interfaces/*.xml dbus/hu_interfaces/*.xml
+	cd dbus ; gdbus-codegen --generate-c-code=generated $(realpath $^)
 
 %.arm.o : %.c
 	$(CC) -MD -g $(CFLAGS) $(INCLUDES) -c $<  -o $@
@@ -69,7 +75,7 @@ $(TOP)/hu/generated.arm/hu.pb.cc $(TOP)/hu/generated.arm/hu.pb.h: $(TOP)/hu/hu.p
 	$(CXX) -MD -g $(CXXFLAGS) $(INCLUDES) -c $<  -o $@
 
 clean:
-	rm -f *~ $(TOP)/hu/generated.arm/* $(OBJS) $(OBJS_IF) $(APP) $(APP_IF) $(DEPS) $(DEPS_IF)
+	rm -f *~ $(TOP)/hu/generated.arm/* dbus/generated.* $(OBJS) $(OBJS_IF) $(APP) $(APP_IF) $(DEPS) $(DEPS_IF)
 
 install: all
 	cp -a -f input_filter installer/config/androidauto/data_persist/dev/bin/
