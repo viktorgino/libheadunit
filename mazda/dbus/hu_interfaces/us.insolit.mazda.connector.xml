@@ -1,0 +1,7 @@
+<node>
+	<interface name="us.insolit.mazda.connector">
+		<signal name="KeyEvent">
+			<arg name="value" type="((tt)qqi)"/>
+		</signal>
+	</interface>
+</node>
