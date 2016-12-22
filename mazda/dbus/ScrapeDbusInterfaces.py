@@ -34,7 +34,10 @@ def scanFile(filename, destDir):
             if nextStart < 0:
                 break
             endTag = b"</interface>"
-            curPos = filedata.find(endTag, nextStart) + len(endTag)
+            lastTagStart = filedata.find(endTag, nextStart)
+            if lastTagStart <= nextStart:
+                break
+            curPos = lastTagStart + len(endTag)
             xmlStr = filedata[nextStart:curPos].decode("utf-8")
             try:
                 xmlData = xml.dom.minidom.parseString(xmlStr)
@@ -53,13 +56,15 @@ def scanFile(filename, destDir):
             except Exception as e:
                 print(e)
                 print(xmlStr)
+    print("Done")
 
 startDir = sys.argv[1]
 destDir = sys.argv[2]
 print(startDir)
 for root, dirnames, filenames in os.walk(startDir):
-    for filename in fnmatch.filter(filenames, '*.so'):
-        scanFile(os.path.join(root, filename), destDir)
+    for filename in filenames:
+        if filename.endswith(".so") or filename.find(".") == -1:
+            scanFile(os.path.join(root, filename), destDir)
 
 
 
