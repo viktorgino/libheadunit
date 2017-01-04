@@ -63,7 +63,7 @@ destDir = sys.argv[2]
 print(startDir)
 for root, dirnames, filenames in os.walk(startDir):
     for filename in filenames:
-        if filename.endswith(".so") or filename.find(".") == -1:
+        if filename.endswith(".lua") or filename.endswith(".so") or filename.find(".") == -1:
             scanFile(os.path.join(root, filename), destDir)
 
 
