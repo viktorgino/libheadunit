@@ -24,7 +24,6 @@ SRCS += $(TOP)/hu/hu_usb.cpp
 SRCS += $(TOP)/hu/hu_uti.cpp
 SRCS += $(TOP)/hu/hu_tcp.cpp
 SRCS += $(TOP)/hu/generated.arm/hu.pb.cc
-SRCS += dbus/generated.c
 SRCS += nm/mzd_nightmode.cpp
 SRCS += gps/nematode/src/GPSFix.cpp
 SRCS += gps/nematode/src/GPSService.cpp
@@ -47,11 +46,11 @@ DEPS_IF = $(addsuffix .arm.d, $(basename $(SRCS_IF)))
 #input_filter binary
 APP_IF = input_filter
 
-all: proto gdbus $(APP) $(APP_IF)
+all: proto dbusxx $(APP) $(APP_IF)
 
 proto: $(TOP)/hu/generated.arm/hu.pb.cc
 
-gdbus: dbus/generated.c dbus/generated.h
+dbusxx: dbus/generated_hu.h dbus/generated_cmu.h
 
 $(APP): $(OBJS)
 	$(CXX) -MD -g -o $(APP) $(OBJS) $(LFLAGS)
@@ -62,8 +61,9 @@ $(APP_IF): $(OBJS_IF)
 $(TOP)/hu/generated.arm/hu.pb.cc $(TOP)/hu/generated.arm/hu.pb.h: $(TOP)/hu/hu.proto
 	$(PROTOTOOLCHAIN)/bin/protoc $< --proto_path=$(TOP)/hu/ --cpp_out=$(TOP)/hu/generated.arm/
 
-dbus/generated.c dbus/generated.h: dbus/cmu_interfaces/*.xml dbus/hu_interfaces/*.xml
-	cd dbus ; gdbus-codegen --generate-c-code=generated $(realpath $^)
+dbus/generated_cmu.h dbus/generated_hu.h: dbus/cmu_interfaces.xml dbus/hu_interfaces.xml
+	cd dbus ; dbusxx-xml2cpp cmu_interfaces.xml --proxy=generated_cmu.h
+	cd dbus ; dbusxx-xml2cpp hu_interfaces.xml --proxy=generated_hu.h
 
 %.arm.o : %.c
 	$(CC) -MD -g $(CFLAGS) $(INCLUDES) -c $<  -o $@
@@ -75,7 +75,7 @@ dbus/generated.c dbus/generated.h: dbus/cmu_interfaces/*.xml dbus/hu_interfaces/
 	$(CXX) -MD -g $(CXXFLAGS) $(INCLUDES) -c $<  -o $@
 
 clean:
-	rm -f *~ $(TOP)/hu/generated.arm/* dbus/generated.* $(OBJS) $(OBJS_IF) $(APP) $(APP_IF) $(DEPS) $(DEPS_IF)
+	rm -f *~ $(TOP)/hu/generated.arm/* dbus/generated_*.* $(OBJS) $(OBJS_IF) $(APP) $(APP_IF) $(DEPS) $(DEPS_IF)
 
 install: all
 	cp -a -f input_filter installer/config/androidauto/data_persist/dev/bin/

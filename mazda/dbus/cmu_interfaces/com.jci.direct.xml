@@ -1,7 +1,0 @@
-<node>
-	<interface name="com.jci.direct">
-		<method name="GetDirectConnection">
-			<arg direction="out" name="server" type="s"/>
-		</method>
-	</interface>
-</node>

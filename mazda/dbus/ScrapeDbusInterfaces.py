@@ -22,8 +22,10 @@ def fixInvalidAttrs(parent):
             child.setAttribute("value", "")
 
 seenInterfaces = set()
+outputDoc = xml.dom.minidom.Document()
+outputNode = outputDoc.createElement("node")
 
-def scanFile(filename, destDir):
+def scanFile(filename):
     print("Reading {0}".format(filename))
     with open(filename, "rb") as f:
         filedata = f.read()
@@ -45,26 +47,25 @@ def scanFile(filename, destDir):
                 if ifaceName not in seenInterfaces:
                     print("Found {0}".format(ifaceName))
                     seenInterfaces.add(ifaceName)
-                    xmlName = os.path.join(destDir, "{0}.xml".format(ifaceName))
                     removeEmptyNodes(xmlData)
                     fixInvalidAttrs(xmlData)
-                    newNode = xmlData.createElement("node")
-                    newNode.appendChild(xmlData.documentElement)
-                    prettyString = newNode.toprettyxml();
-                    with open(xmlName, "w") as o:
-                        o.write(prettyString)
+                    outputNode.appendChild(xmlData.documentElement)
             except Exception as e:
                 print(e)
                 print(xmlStr)
     print("Done")
 
 startDir = sys.argv[1]
-destDir = sys.argv[2]
 print(startDir)
 for root, dirnames, filenames in os.walk(startDir):
     for filename in filenames:
         if filename.endswith(".lua") or filename.endswith(".so") or filename.find(".") == -1:
-            scanFile(os.path.join(root, filename), destDir)
+            scanFile(os.path.join(root, filename))
+
+prettyString = outputNode.toprettyxml();
+with open(sys.argv[2], "w") as o:
+    o.write(prettyString)
+
 
 
 

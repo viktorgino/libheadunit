@@ -1,7 +1,0 @@
-<node>
-	<interface name="org.freedesktop.DBus.Introspectable">
-		<method name="Introspect">
-			<arg direction="out" name="Introspection" type="s"/>
-		</method>
-	</interface>
-</node>
