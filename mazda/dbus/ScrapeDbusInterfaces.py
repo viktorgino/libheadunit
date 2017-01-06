@@ -17,11 +17,20 @@ def removeEmptyNodes(parent):
 
 #annotations with no value crash gdbus-codegen
 def fixInvalidAttrs(parent):
-   for child in parent.getElementsByTagName("annotation"):
+    for child in parent.getElementsByTagName("annotation"):
         if not child.hasAttribute("value"):
             child.setAttribute("value", "")
 
-seenInterfaces = set()
+def fixConflictingArgNames(parent):
+    def uncap(s):
+        return s[0].lower() + s[1:]
+
+    for child in parent.getElementsByTagName("arg"):
+        if child.hasAttribute("name"):
+            child.setAttribute("name", uncap(child.getAttribute("name")))
+
+#skip this interface since is has a struct with >16 params
+seenInterfaces = { "com.jci.msgs.Client", "com.jci.vbs.vwm", "com.jci.vbs.settings", "com.jci.obs.aha.hmi" }
 outputDoc = xml.dom.minidom.Document()
 outputNode = outputDoc.createElement("node")
 
@@ -49,6 +58,7 @@ def scanFile(filename):
                     seenInterfaces.add(ifaceName)
                     removeEmptyNodes(xmlData)
                     fixInvalidAttrs(xmlData)
+                    fixConflictingArgNames(xmlData)
                     outputNode.appendChild(xmlData.documentElement)
             except Exception as e:
                 print(e)
