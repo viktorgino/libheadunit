@@ -108,11 +108,11 @@ static int gst_pipeline_init(gst_app_t *app)
 
     gst_init(NULL, NULL);
 
-    const char* vid_launch_str = "appsrc name=mysrc is-live=true block=false max-latency=100000 do-timestamp=true ! video/x-h264, width=800,height=480,framerate=30/1 ! h264parse ! avdec_h264 "
-#if ASPECT_RATIO_FIX
+    const char* vid_launch_str = "appsrc name=mysrc is-live=true block=false max-latency=1000000 do-timestamp=true stream-type=stream typefind=true ! video/x-h264, width=800,height=400,framerate=30/1 ! h264parse ! avdec_h264 "
+    #if ASPECT_RATIO_FIX
     " ! videocrop top=16 bottom=15 "
-#endif
-    " ! videoscale name=myconvert ! xvimagesink name=mysink";
+    #endif
+    " ! videoscale name=myconvert ! videoconvert ! xvimagesink name=mysink";
     vid_pipeline = gst_parse_launch(vid_launch_str, &error);
 
     bus = gst_pipeline_get_bus(GST_PIPELINE(vid_pipeline));
@@ -129,7 +129,7 @@ static int gst_pipeline_init(gst_app_t *app)
     g_assert(app->convert);
     g_assert(app->sink);
 
-
+    
     
     aud_pipeline = gst_parse_launch("appsrc name=audsrc is-live=true block=false max-latency=100000 do-timestamp=true ! audio/x-raw, signed=true, endianness=1234, depth=16, width=16, rate=48000, channels=2 ! volume volume=0.5 ! alsasink buffer-time=400000", &error);
 
@@ -525,8 +525,9 @@ public:
 
         if (gst_src)
         {            
-            GstBuffer * buffer = gst_buffer_new_wrapped ((byte*) buf,(unsigned int)len);
-            int ret = gst_app_src_push_buffer(gst_src, buffer);
+            GstBuffer * buffer = gst_buffer_new_and_alloc(len);
+            gst_buffer_fill(buffer, 0, buf, len);
+            int ret = gst_app_src_push_buffer((GstAppSrc *)gst_src, buffer);
         if(ret !=  GST_FLOW_OK){
                 printf("push buffer returned %d for %d bytes \n", ret, len);
             }
