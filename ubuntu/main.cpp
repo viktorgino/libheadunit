@@ -3,6 +3,7 @@
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
 #include <gst/video/videooverlay.h>
+#define GDK_VERSION_MIN_REQUIRED (GDK_VERSION_3_10)
 #include <gdk/gdk.h>
 #include <SDL/SDL.h>
 #include <SDL/SDL_syswm.h>
@@ -581,6 +582,8 @@ int main (int argc, char *argv[])
     hu_log_library_versions();
     hu_install_crash_handler();
 
+#if defined GDK_VERSION_3_10
+    printf("GTK VERSION 3.10.0 or higher\n");
     //Assuming we are on Gnome, what's the DPI scale factor?
     gdk_init(&argc, &argv);
 
@@ -591,6 +594,10 @@ int main (int argc, char *argv[])
         printf("Got gdk_screen_get_monitor_scale_factor() == %f\n", g_dpi_scalefactor);
     }
 
+#else
+    printf("Using hard coded scalefactor\n");
+    g_dpi_scalefactor = 1;
+#endif
     gst_app_t *app = &gst_app;
     int ret = 0;
     errno = 0;
