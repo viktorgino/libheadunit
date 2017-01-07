@@ -110,9 +110,9 @@ static int gst_pipeline_init(gst_app_t *app)
 
     gst_init(NULL, NULL);
 
-    const char* vid_launch_str = "appsrc name=mysrc is-live=true block=false max-latency=1000000 do-timestamp=true stream-type=stream typefind=true ! video/x-h264, width=800,height=400,framerate=30/1 ! h264parse ! avdec_h264 "
+    const char* vid_launch_str = "appsrc name=mysrc is-live=true block=false max-latency=100000 do-timestamp=true stream-type=stream typefind=true ! h264parse ! avdec_h264 "
     #if ASPECT_RATIO_FIX
-    " ! videocrop top=16 bottom=15 "
+    //" ! videocrop top=16 bottom=15 "
     #endif
     " ! videoscale name=myconvert ! videoconvert ! xvimagesink name=mysink";
     vid_pipeline = gst_parse_launch(vid_launch_str, &error);
@@ -251,7 +251,7 @@ static void read_mic_data (GstElement * sink)
 
             uint64_t bufTimestamp = GST_BUFFER_TIMESTAMP(gstbuf);
             uint64_t timestamp = GST_CLOCK_TIME_IS_VALID(bufTimestamp) ? (bufTimestamp / 1000) : get_cur_timestamp();
-            g_hu->hu_queue_command([timestamp, gstbuf, &mapInfo](IHUConnectionThreadInterface& s)
+            g_hu->hu_queue_command([timestamp, gstbuf, mapInfo](IHUConnectionThreadInterface& s)
             {
                 int ret = s.hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaDataWithTimestamp, timestamp, mapInfo.data, mapInfo.size);
 
@@ -259,9 +259,9 @@ static void read_mic_data (GstElement * sink)
                     printf("read_mic_data(): hu_aap_enc_send() failed with (%d)\n", ret);
                 }
 
+                gst_buffer_unmap(gstbuf, const_cast<GstMapInfo*> (&mapInfo));
                 gst_buffer_unref(gstbuf);
             });
-                gst_buffer_unmap(gstbuf, &mapInfo);
         }
     }
 }
