@@ -130,25 +130,13 @@ show_message "INSTALL ANDROID AUTO HEADUNIT APP ..."
 cp -a ${MYDIR}/config/androidauto/data_persist/dev/* /tmp/mnt/data_persist/dev/
 cp -a ${MYDIR}/config/androidauto/jci/gui/apps/_androidauto /jci/gui/apps/
 cp -a ${MYDIR}/config/androidauto/jci/opera/opera_dir/userjs/additionalApps.* /jci/opera/opera_dir/userjs/
-if [ ! -e /jci/opera/opera_dir/userjs/fps.js.bak ]
-	then
-		mv /jci/opera/opera_dir/userjs/fps.js /jci/opera/opera_dir/userjs/fps.js.bak
-fi
 cp -a ${MYDIR}/config/androidauto/usr/lib/gstreamer-0.10/libgsth264parse.so /usr/lib/gstreamer-0.10
 cp -a ${MYDIR}/config/androidauto/usr/lib/gstreamer-0.10/libgstalsa.so /usr/lib/gstreamer-0.10
 
-cp -a ${MYDIR}/config/androidauto/jci/sm/* /jci/sm/
 log_message "=== Copied Android Auto Headunit App files ==="
 chmod 755 /tmp/mnt/data_persist/dev/bin/websocketd
 chmod 755 /tmp/mnt/data_persist/dev/bin/headunit
 chmod 755 /tmp/mnt/data_persist/dev/bin/headunit-wrapper
-chmod 755 /tmp/mnt/data_persist/dev/bin/input_filter
-
-#once you are sure you are not in a boot loop, make this 2, putting it in data_persist doesn't work since it's not writable normally
-show_message "Setting /tmp/mnt/data/enable_input_filter to 1"
-echo "1" > /tmp/mnt/data/enable_input_filter
-#echo "2" > /tmp/mnt/data/enable_input_filter
-chmod 755 /tmp/mnt/data/enable_input_filter
 
 #add androidauto.js to stage_wifi
 if [ -e "/jci/scripts/stage_wifi.sh" ]

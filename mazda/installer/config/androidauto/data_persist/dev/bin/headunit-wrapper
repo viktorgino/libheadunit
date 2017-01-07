@@ -4,8 +4,4 @@ export LD_LIBRARY_PATH="/tmp/mnt/data_persist/dev/androidauto/custlib:/jci/lib:/
 export LD_PRELOAD=/tmp/mnt/data_persist/dev/androidauto/custlib/libmfw_gst_isink.so
 echo 3 > /proc/sys/vm/drop_caches
 
-kill -SIGUSR1 $(pgrep input_filter)
-
 taskset 3 /data_persist/dev/bin/headunit
-
-kill -SIGUSR2 $(pgrep input_filter)

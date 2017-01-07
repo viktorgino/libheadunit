@@ -29,13 +29,13 @@
 #include "gps/mzd_gps.h"
 
 #define EVENT_DEVICE_TS	"/dev/input/filtered-touchscreen0"
-#define EVENT_DEVICE_CMD   "/dev/input/event1"
-#define EVENT_TYPE	  EV_ABS
-#define EVENT_CODE_X	ABS_X
-#define EVENT_CODE_Y	ABS_Y
+#define EVENT_DEVICE_KBD "/dev/input/filtered-keyboard0"
 
 #define HMI_BUS_ADDRESS "unix:path=/tmp/dbus_hmi_socket"
 #define SERVICE_BUS_ADDRESS "unix:path=/tmp/dbus_service_socket"
+
+#define AUDIO_AA 13
+#define AUDIO_RADIO 6
 
 __asm__(".symver realpath1,realpath1@GLIBC_2.11.1");
 
@@ -315,6 +315,24 @@ static void read_mic_data (GstElement * sink)
 }
 
 
+static gboolean delayedShouldDisplayTrue(gpointer data)
+{
+    set_display_status(true);
+    return FALSE;
+}
+
+static gboolean delayedShouldDisplayFalse(gpointer data)
+{
+    set_display_status(false);
+    return FALSE;
+}
+
+static gboolean delayedToggleShouldDisplay(gpointer data)
+{
+    set_display_status(!display_status);
+    return FALSE;
+}
+
 struct TouchScreenState {
 	int x;
 	int y;
@@ -322,115 +340,218 @@ struct TouchScreenState {
 	int action_recvd;
 };
 
-bool touch_poll_event(TouchScreenState& mTouch, int touchfd, int quitfd)
+
+static void input_thread_func(int touchfd, int kbdfd, int quitfd) 
 {
+    TouchScreenState mTouch {0,0,(HU::TouchInfo::TOUCH_ACTION)0,0};
+    int maxfdPlus1 = std::max(std::max(touchfd, kbdfd), quitfd) + 1;
+    while (true)
+    {
+        fd_set set;
+        int unblocked;
 
-	struct input_event event[64];
-	const size_t ev_size = sizeof(struct input_event);
-	const size_t buffer_size = ev_size * 64;
-	ssize_t size;
-	gst_app_t *app = &gst_app;
-	
-	fd_set set;
-	int unblocked;
+        FD_ZERO(&set);
+        FD_SET(touchfd, &set);
+        FD_SET(kbdfd, &set);
+        FD_SET(quitfd, &set);
+        
+        unblocked = select(maxfdPlus1, &set, NULL, NULL, NULL);
 
-	FD_ZERO(&set);
-	FD_SET(touchfd, &set);
-	FD_SET(quitfd, &set);
-	
-	unblocked = select(std::max(touchfd, quitfd) + 1, &set, NULL, NULL, NULL);
+        if (unblocked == -1)
+        {
+            printf("Error in read...\n");
+            g_main_loop_quit(gst_app.loop);
+            break;
+        }
+        else if (unblocked > 0 && FD_ISSET(quitfd, &set))
+        {
+            break;
+        }
+        
+        struct input_event events[64];
+        const size_t buffer_size = sizeof(events);
 
-	if (unblocked == -1) {
-		printf("Error in read...\n");
-		g_main_loop_quit(app->loop);
-		return false;
+        if (FD_ISSET(touchfd, &set))
+        {
+            ssize_t size = read(touchfd, &events, buffer_size);
+            
+            if (size == 0 || size == -1)
+                break;
+            
+            if (size < sizeof(input_event)) {
+                printf("Error size when reading\n");
+                g_main_loop_quit(gst_app.loop);
+                break;
+            }
+            
+            int num_chars = size / sizeof(input_event);
+            for (int i=0;i < num_chars;i++)
+            {
+                auto& event = events[i];
+                switch (event.type)
+                {
+                    case EV_ABS:
+                        switch (event.code) {
+                            case ABS_MT_POSITION_X:
+                                mTouch.x = event.value * 800 /4095;
+                                break;
+                            case ABS_MT_POSITION_Y:
+                                #if ASPECT_RATIO_FIX
+                                mTouch.y = event.value * 450/4095 + 15;
+                                #else
+                                mTouch.y = event.value * 480/4095;
+                                #endif
+                                break;
+                        }
+                        break;
+                    case EV_KEY:
+                        if (event.code == BTN_TOUCH) {
+                            mTouch.action_recvd = 1;
+                            if (event.value == 1) {
+                                mTouch.action = HU::TouchInfo::TOUCH_ACTION_PRESS;
+                            }
+                            else {
+                                mTouch.action = HU::TouchInfo::TOUCH_ACTION_RELEASE;
+                            }
+                        }
+                        break;
+                    case EV_SYN:
+                        if (mTouch.action_recvd == 0) {
+                            mTouch.action = HU::TouchInfo::TOUCH_ACTION_DRAG;
+                            aa_touch_event(mTouch.action, mTouch.x, mTouch.y);
+                        } else {
+                            aa_touch_event(mTouch.action, mTouch.x, mTouch.y);
+                            mTouch.action_recvd = 0;
+                        }
+                        break;
+                }
+            }
+        }
+
+        if (FD_ISSET(kbdfd, &set))
+        {
+            ssize_t size = read(kbdfd, &events, buffer_size);
+
+            if (size == 0 || size == -1)
+                break;
+
+            if (size < sizeof(input_event)) {
+                printf("Error size when reading\n");
+                g_main_loop_quit(gst_app.loop);
+                break;
+            }
+
+            int num_chars = size / sizeof(input_event);
+            for (int i=0;i < num_chars;i++)
+            {
+                auto& event = events[i];
+                if (event.type == EV_KEY && (event.value == 1 || event.value == 0))
+                {
+                    uint64_t timeStamp = get_cur_timestamp();
+                    uint32_t scanCode = 0;
+                    int32_t scrollAmount = 0;
+                    bool isPressed = (event.value == 1);
+
+                    printf("Key code %i value %i\n", (int)event.code, (int)event.value);
+                    switch (event.code)
+                    {
+                    case KEY_G:
+                        printf("KEY_G\n");
+                        scanCode = HUIB_MIC;
+                        break;
+                    //Make the music button play/pause
+                    case KEY_E:
+                        printf("KEY_E\n");
+                        scanCode = HUIB_PLAYPAUSE;
+                        break;
+                    case KEY_LEFTBRACE:
+                        printf("KEY_LEFTBRACE\n");
+                        scanCode = HUIB_NEXT;
+                        break;
+                    case KEY_RIGHTBRACE:
+                        printf("KEY_RIGHTBRACE\n");
+                        scanCode = HUIB_PREV;
+                        break;
+                    case KEY_BACKSPACE:
+                        printf("KEY_BACKSPACE\n");
+                        scanCode = HUIB_BACK;
+                        break;
+                    case KEY_ENTER:
+                        printf("KEY_ENTER\n");
+                        scanCode = HUIB_ENTER;
+                        break;
+                    case KEY_LEFT:
+                        printf("KEY_LEFT\n");
+                        scanCode = HUIB_LEFT;
+                        break;
+                    case KEY_N:
+                        printf("KEY_N\n");
+                        if (isPressed)
+                        {
+                            scrollAmount = -1;
+                        }
+                        break;
+                    case KEY_RIGHT:
+                        printf("KEY_RIGHT\n");
+                        scanCode = HUIB_RIGHT;
+                        break;
+                    case KEY_M:
+                        printf("KEY_M\n");
+                        if (isPressed)
+                        {
+                            scrollAmount = 1;
+                        }
+                        break;
+                    case KEY_UP:
+                        printf("KEY_UP\n");
+                        scanCode = HUIB_UP;
+                        break;
+                    case KEY_DOWN:
+                        printf("KEY_DOWN\n");
+                        scanCode = HUIB_DOWN;
+                        break;
+                    case KEY_HOME:
+                        printf("KEY_HOME\n");
+                        if (isPressed)
+                        {
+                            g_main_loop_quit (gst_app.loop);
+                        }
+                        break;
+                    case KEY_R:
+                        printf("KEY_R\n");
+                        if (isPressed)
+                        {
+                            g_timeout_add(1, delayedToggleShouldDisplay, NULL);
+                        }
+                        break;
+                    }
+                    if (scanCode != 0 || scrollAmount != 0)
+                    {
+                        g_hu->hu_queue_command([timeStamp, scanCode, scrollAmount, isPressed](IHUConnectionThreadInterface& s)
+                        {
+                            HU::InputEvent inputEvent;
+                            inputEvent.set_timestamp(timeStamp);
+                            if (scanCode != 0)
+                            {
+                                HU::ButtonInfo* buttonInfo = inputEvent.mutable_button()->add_button();
+                                buttonInfo->set_is_pressed(isPressed);
+                                buttonInfo->set_meta(0);
+                                buttonInfo->set_long_press(false);
+                                buttonInfo->set_scan_code(scanCode);
+                            }
+                            if (scrollAmount != 0)
+                            {
+                                HU::RelativeInputEvent* rel = inputEvent.mutable_rel_event()->mutable_event();
+                                rel->set_delta(scrollAmount);
+                                rel->set_scan_code(HUIB_SCROLLWHEEL);
+                            }
+                            s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
+                        });
+                    }
+                }
+            }
+        } 
 	}
-	else if (unblocked > 0 && FD_ISSET(quitfd, &set)) {
-		return false;
-	}
-	
-	size = read(touchfd, &event, buffer_size);
-	
-	if (size == 0 || size == -1)
-		return false;
-	
-	if (size < ev_size) {
-		printf("Error size when reading\n");
-		g_main_loop_quit(app->loop);
-		return false;
-	}
-	
-	int num_chars = size / ev_size;
-	
-	int i;
-	for (i=0;i < num_chars;i++) {
-		switch (event[i].type) {
-			case EV_ABS:
-				switch (event[i].code) {
-					case ABS_MT_POSITION_X:
-						mTouch.x = event[i].value * 800 /4095;
-						break;
-					case ABS_MT_POSITION_Y:
-						#if ASPECT_RATIO_FIX
-                        mTouch.y = event[i].value * 450/4095 + 15;
-						#else
-						mTouch.y = event[i].value * 480/4095;
-						#endif
-						break;
-				}
-				break;
-			case EV_KEY:
-				if (event[i].code == BTN_TOUCH) {
-					mTouch.action_recvd = 1;
-					if (event[i].value == 1) {
-						mTouch.action = HU::TouchInfo::TOUCH_ACTION_PRESS;
-					}
-					else {
-						mTouch.action = HU::TouchInfo::TOUCH_ACTION_RELEASE;
-					}
-				}
-				break;
-			case EV_SYN:
-				if (mTouch.action_recvd == 0) {
-					mTouch.action = HU::TouchInfo::TOUCH_ACTION_DRAG;
-					aa_touch_event(mTouch.action, mTouch.x, mTouch.y);
-				} else {
-					aa_touch_event(mTouch.action, mTouch.x, mTouch.y);
-					mTouch.action_recvd = 0;
-				}
-				break;
-		}
-	} 
-
-	
-	return true;
-}
-
-static void input_thread_func(int touchfd, int quitfd) 
-{
-
-	TouchScreenState mTouch {0,0,(HU::TouchInfo::TOUCH_ACTION)0,0};
-	while (touch_poll_event(mTouch, touchfd, quitfd)) {
-
-	}
-}
-
-static gboolean delayedShouldDisplayTrue(gpointer data)
-{
-	set_display_status(true);
-	return FALSE;
-}
-
-static gboolean delayedShouldDisplayFalse(gpointer data)
-{
-	set_display_status(false);
-	return FALSE;
-}
-
-static gboolean delayedToggleShouldDisplay(gpointer data)
-{
-	set_display_status(!display_status);
-	return FALSE;
 }
 
 class BUCPSAClient : public com::jci::bucpsa_proxy,
@@ -458,130 +579,6 @@ public:
     virtual void PSMInstallStatusChanged(const uint8_t& psmInstalled) override {}
 };
 
-class InputFilterClient : public us::insolit::mazda::connector_proxy,
-                          public DBus::ObjectProxy
-{
-public:
-    InputFilterClient(DBus::Connection &connection, const char *path, const char *name)
-        : DBus::ObjectProxy(connection, path, name)
-    {
-    }
-
-    virtual void KeyEvent(const ::DBus::Struct< ::DBus::Struct< uint64_t, uint64_t >, uint16_t, uint16_t, int32_t >& value) override
-    {
-        struct input_event event;
-        event.time.tv_sec = value._1._1;
-        event.time.tv_usec = value._1._2;
-
-        event.type = value._2;
-        event.code = value._3;
-        event.value = value._4;
-
-        //key press
-        if (event.type == EV_KEY && (event.value == 1 || event.value == 0)) {
-
-            uint64_t timeStamp = get_cur_timestamp();
-            uint32_t scanCode = 0;
-            int32_t scrollAmount = 0;
-            bool isPressed = (event.value == 1);
-
-            printf("Key code %i value %i\n", (int)event.code, (int)event.value);
-            switch (event.code) {
-            case KEY_G:
-                printf("KEY_G\n");
-                scanCode = HUIB_MIC;
-                break;
-            //Make the music button play/pause
-            case KEY_E:
-                printf("KEY_E\n");
-                scanCode = HUIB_PLAYPAUSE;
-                break;
-            case KEY_LEFTBRACE:
-                printf("KEY_LEFTBRACE\n");
-                scanCode = HUIB_NEXT;
-                break;
-            case KEY_RIGHTBRACE:
-                printf("KEY_RIGHTBRACE\n");
-                scanCode = HUIB_PREV;
-                break;
-            case KEY_BACKSPACE:
-                printf("KEY_BACKSPACE\n");
-                scanCode = HUIB_BACK;
-                break;
-            case KEY_ENTER:
-                printf("KEY_ENTER\n");
-                scanCode = HUIB_ENTER;
-                break;
-            case KEY_LEFT:
-                printf("KEY_LEFT\n");
-                scanCode = HUIB_LEFT;
-                break;
-            case KEY_N:
-                printf("KEY_N\n");
-                if (isPressed)
-                {
-                    scrollAmount = -1;
-                }
-                break;
-            case KEY_RIGHT:
-                printf("KEY_RIGHT\n");
-                scanCode = HUIB_RIGHT;
-                break;
-            case KEY_M:
-                printf("KEY_M\n");
-                if (isPressed)
-                {
-                    scrollAmount = 1;
-                }
-                break;
-            case KEY_UP:
-                printf("KEY_UP\n");
-                scanCode = HUIB_UP;
-                break;
-            case KEY_DOWN:
-                printf("KEY_DOWN\n");
-                scanCode = HUIB_DOWN;
-                break;
-            case KEY_HOME:
-                printf("KEY_HOME\n");
-                if (isPressed)
-                {
-                    g_main_loop_quit (gst_app.loop);
-                }
-                break;
-            case KEY_R:
-                printf("KEY_R\n");
-                if (isPressed)
-                {
-                    g_timeout_add(1, delayedToggleShouldDisplay, NULL);
-                }
-                break;
-            }
-            if (scanCode != 0 || scrollAmount != 0) {
-                g_hu->hu_queue_command([timeStamp, scanCode, scrollAmount, isPressed](IHUConnectionThreadInterface& s)
-                {
-                    HU::InputEvent inputEvent;
-                    inputEvent.set_timestamp(timeStamp);
-                    if (scanCode != 0)
-                    {
-                        HU::ButtonInfo* buttonInfo = inputEvent.mutable_button()->add_button();
-                        buttonInfo->set_is_pressed(isPressed);
-                        buttonInfo->set_meta(0);
-                        buttonInfo->set_long_press(false);
-                        buttonInfo->set_scan_code(scanCode);
-                    }
-                    if (scrollAmount != 0)
-                    {
-                        HU::RelativeInputEvent* rel = inputEvent.mutable_rel_event()->mutable_event();
-                        rel->set_delta(scrollAmount);
-                        rel->set_scan_code(HUIB_SCROLLWHEEL);
-                    }
-                    s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
-                });
-            }
-        }
-    }
-};
 
 static void nightmode_thread_func(std::condition_variable& quitcv, std::mutex& quitmutex) 
 {
@@ -734,6 +731,29 @@ void gps_location_handler(uint64_t timestamp, double lat, double lng, double bea
 	});
 }
 
+class ServiceProviderClient : public com::xsembedded::ServiceProvider_proxy,
+                     public DBus::ObjectProxy
+{
+public:
+    ServiceProviderClient(DBus::Connection &connection, const char *path, const char *name)
+        : DBus::ObjectProxy(connection, path, name)
+    {
+    }
+
+    //calling requestAudioFocus directly doesn't work on the audio mgr
+    std::string audioMgrRequestAudioFocus(int sessionID)
+    {
+        std::ostringstream argsStream;
+        argsStream << "{ \"sessionId\":" << sessionID << "}";
+        return Request("requestAudioFocus", argsStream.str());
+    }
+
+    virtual void Notify(const std::string& signalName, const std::string& payload) override
+    {
+        printf("ServiceProviderClient::Notify signalName=%s payload=%s\n", signalName.c_str(), payload.c_str());
+    }
+};
+
 DBus::Glib::BusDispatcher dispatcher;
 
 int main (int argc, char *argv[])
@@ -791,6 +811,25 @@ int main (int argc, char *argv[])
 		return -3;
 	}
 
+    if (ioctl(touchfd, EVIOCGRAB, 1) < 0)
+    {
+        fprintf(stderr, "EVIOCGRAB failed on %s\n", EVENT_DEVICE_TS);
+        return -3;   
+    }
+
+    int kbdfd = open(EVENT_DEVICE_KBD, O_RDONLY);
+
+    if (kbdfd < 0) {
+        fprintf(stderr, "%s is not a vaild device\n", EVENT_DEVICE_KBD);
+        return -3;
+    }
+
+    if (ioctl(kbdfd, EVIOCGRAB, 1) < 0)
+    {
+        fprintf(stderr, "EVIOCGRAB failed on %s\n", EVENT_DEVICE_TS);
+        return -3;   
+    }
+
 	int quitpiperw[2];
 	if (pipe(quitpiperw) < 0) {
 		fprintf(stderr, "Pipe failed");
@@ -802,7 +841,7 @@ int main (int argc, char *argv[])
 	std::condition_variable quitcv;
 	std::mutex quitmutex;
 	
-	std::thread input_thread([touchfd, quitp_read](){ input_thread_func(touchfd, quitp_read); } );
+	std::thread input_thread([touchfd, kbdfd, quitp_read](){ input_thread_func(touchfd, kbdfd, quitp_read); } );
 	std::thread nm_thread([&quitcv, &quitmutex](){ nightmode_thread_func(quitcv, quitmutex); } );
 
 	/* Start gstreamer pipeline and main loop */
@@ -823,16 +862,26 @@ int main (int argc, char *argv[])
         DBus::Connection hmiBus(HMI_BUS_ADDRESS, false);
         hmiBus.register_bus();
 
+        DBus::Connection serviceBus(SERVICE_BUS_ADDRESS, false);
+        serviceBus.register_bus();
+
         BUCPSAClient bucpsaClient(hmiBus, "/com/jci/bucpsa", "com.jci.bucpsa");
         printf("Created BUCPSAClient\n");
-        InputFilterClient ifClient(hmiBus, "/us/insolit/mazda/connector", "us.insolit.mazda.connector");
-        printf("Created InputFilterClient\n");
+
+        ServiceProviderClient audioMgr(serviceBus, "/com/xse/service/AudioManagement/AudioApplication", "com.xsembedded.service.AudioManagement");
+        printf("Created ServiceProviderClient\n");
+
+        auto response = audioMgr.audioMgrRequestAudioFocus(AUDIO_AA);
+        printf("requestAudioFocus(AUDIO_AA, 0) response:\n %s\n", response.c_str());
 
         g_main_loop_run (gst_app.loop);
+
+        auto response2 = audioMgr.audioMgrRequestAudioFocus(AUDIO_RADIO);
+        printf("requestAudioFocus(AUDIO_RADIO, 0) response:\n %s\n", response2.c_str());
     }
     catch(DBus::Error& error)
     {
-        loge("DBUS: Failed to connect to HMI bus %s: %s", error.name(), error.message());
+        loge("DBUS Error: %s: %s", error.name(), error.message());
     }
 
     gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_NULL);
@@ -860,6 +909,7 @@ int main (int argc, char *argv[])
     printf("shutting down\n");
 
 	close(touchfd);
+    close(kbdfd);
 
     g_main_loop_unref(gst_app.loop);
     gst_app.loop = nullptr;

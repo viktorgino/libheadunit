@@ -118,7 +118,6 @@ function androidauto() {
 		debugTxt = debugTxt + event.data + '\n';
 		
 		if ( event.data.indexOf("END") > -1) {
-			ws.send("kill -SIGUSR2 $(pgrep input_filter)");
 			var psconsole = $('#aaStatusText');
 			psconsole.focus();
 			psconsole.append(debugTxt);
