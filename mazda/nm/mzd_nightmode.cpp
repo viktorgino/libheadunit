@@ -69,7 +69,8 @@ void mzd_nightmode_start() {
 
     try
     {
-        service_bus = new DBus::Connection(SERVICE_BUS_ADDRESS);
+        service_bus = new DBus::Connection(SERVICE_BUS_ADDRESS, false);
+        service_bus->register_bus();
         navi_client = new Navi2NNGClient(*service_bus, "/com/jci/navi2NNG", "com.jci.navi2NNG");
     }
     catch(DBus::Error& error)

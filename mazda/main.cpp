@@ -734,6 +734,8 @@ void gps_location_handler(uint64_t timestamp, double lat, double lng, double bea
 	});
 }
 
+DBus::Glib::BusDispatcher dispatcher;
+
 int main (int argc, char *argv[])
 {	
 	//Force line-only buffering so we can see the output during hangs
@@ -745,7 +747,11 @@ int main (int argc, char *argv[])
 	hu_log_library_versions();
 	hu_install_crash_handler();
 
+    DBus::default_dispatcher = &dispatcher;
     DBus::_init_threading();
+
+    dispatcher.attach(nullptr);
+    printf("DBus::Glib::BusDispatcher attached\n");
 
 	//signal (SIGTERM, signals_handler);
 
@@ -804,27 +810,29 @@ int main (int argc, char *argv[])
 	// GPS processing
 	mzd_gps_start(&gps_location_handler);
 
-   gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_PLAYING);
-   gst_element_set_state((GstElement*)aud_pipeline, GST_STATE_PLAYING);
-   gst_element_set_state((GstElement*)au1_pipeline, GST_STATE_PLAYING);
+    gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_PLAYING);
+    gst_element_set_state((GstElement*)aud_pipeline, GST_STATE_PLAYING);
+    gst_element_set_state((GstElement*)au1_pipeline, GST_STATE_PLAYING);
 
     gst_app.loop = g_main_loop_new (NULL, FALSE);
     //	g_timeout_add_full(G_PRIORITY_HIGH, 1, myMainLoop, (gpointer)app, NULL);
 
     printf("Starting Android Auto...\n");
+    try
     {
-        DBus::Glib::BusDispatcher dispatcher;
-        DBus::default_dispatcher = &dispatcher;
-        dispatcher.attach(nullptr);
-
-        DBus::Connection hmiBus(HMI_BUS_ADDRESS);
+        DBus::Connection hmiBus(HMI_BUS_ADDRESS, false);
+        hmiBus.register_bus();
 
         BUCPSAClient bucpsaClient(hmiBus, "/com/jci/bucpsa", "com.jci.bucpsa");
+        printf("Created BUCPSAClient\n");
         InputFilterClient ifClient(hmiBus, "/us/insolit/mazda/connector", "us.insolit.mazda.connector");
+        printf("Created InputFilterClient\n");
 
         g_main_loop_run (gst_app.loop);
-
-        DBus::default_dispatcher = nullptr;
+    }
+    catch(DBus::Error& error)
+    {
+        loge("DBUS: Failed to connect to HMI bus %s: %s", error.name(), error.message());
     }
 
     gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_NULL);
