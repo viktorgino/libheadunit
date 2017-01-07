@@ -16,6 +16,12 @@
 #include <sstream>
 #include <fstream>
 
+#include <dbus-c++/dbus.h>
+#include <dbus-c++/glib-integration.h>
+
+#include "dbus/generated_cmu.h"
+#include "dbus/generated_hu.h"
+
 #include "hu_uti.h"
 #include "hu_aap.h"
 
@@ -56,6 +62,7 @@ GstElement *vid_sink = nullptr;
 #define ASPECT_RATIO_FIX 1
 
 IHUAnyThreadInterface* g_hu = nullptr;
+
 
 bool display_status = true;
 static void set_display_status(bool st)
@@ -408,73 +415,6 @@ static void input_thread_func(int touchfd, int quitfd)
 	}
 }
 
-
-inline int dbus_message_decode_timeval(DBusMessageIter *iter, struct timeval *time)
-{
-	DBusMessageIter sub;
-	uint64_t tv_sec = 0;
-	uint64_t tv_usec = 0;
-
-	if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_STRUCT) {
-		return TRUE;
-	}
-
-	dbus_message_iter_recurse(iter, &sub);
-
-	if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_UINT64) {
-		return FALSE;
-	}
-	dbus_message_iter_get_basic(&sub, &tv_sec);
-	dbus_message_iter_next(&sub);
-
-	if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_UINT64) {
-		return FALSE;
-	}
-	dbus_message_iter_get_basic(&sub, &tv_usec);
-
-	dbus_message_iter_next(iter);
-
-	time->tv_sec = tv_sec;
-	time->tv_usec = tv_usec;
-
-	return TRUE;
-}
-inline int dbus_message_decode_input_event(DBusMessageIter *iter, struct input_event *event)
-{
-	DBusMessageIter sub;
-
-	if (dbus_message_iter_get_arg_type(iter) != DBUS_TYPE_STRUCT) {
-		return TRUE;
-	}
-
-	dbus_message_iter_recurse(iter, &sub);
-
-	if (!dbus_message_decode_timeval(&sub, &event->time)) {
-		return FALSE;
-	}
-
-	if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_UINT16) {
-		return FALSE;
-	}
-	dbus_message_iter_get_basic(&sub, &event->type);
-	dbus_message_iter_next(&sub);
-
-	if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_UINT16) {
-		return FALSE;
-	}
-	dbus_message_iter_get_basic(&sub, &event->code);
-	dbus_message_iter_next(&sub);
-
-	if (dbus_message_iter_get_arg_type(&sub) != DBUS_TYPE_INT32) {
-		return FALSE;
-	}
-	dbus_message_iter_get_basic(&sub, &event->value);
-
-	dbus_message_iter_next(iter);
-
-	return TRUE;
-}
-
 static gboolean delayedShouldDisplayTrue(gpointer data)
 {
 	set_display_status(true);
@@ -493,176 +433,155 @@ static gboolean delayedToggleShouldDisplay(gpointer data)
 	return FALSE;
 }
 
-
-static DBusHandlerResult handle_dbus_message(DBusConnection *c, DBusMessage *message, void *p)
+class BUCPSAClient : public com::jci::bucpsa_proxy,
+                     public DBus::ObjectProxy
 {
-	DBusMessageIter iter;
+public:
+    BUCPSAClient(DBus::Connection &connection, const char *path, const char *name)
+        : DBus::ObjectProxy(connection, path, name)
+    {
+    }
 
-	if (strcmp("KeyEvent", dbus_message_get_member(message)) == 0)
-	{
-		struct input_event event;
+    virtual void CommandResponse(const uint32_t& cmdResponse) override {}
+    virtual void DisplayMode(const uint32_t& currentDisplayMode) override
+    {
+        if (currentDisplayMode)
+        {
+            g_timeout_add(1, delayedShouldDisplayFalse, NULL);
+        }
+        else
+        {
+            g_timeout_add(750, delayedShouldDisplayTrue, NULL);
+        }
+    }
+    virtual void ReverseStatusChanged(const int32_t& reverseStatus) override {}
+    virtual void PSMInstallStatusChanged(const uint8_t& psmInstalled) override {}
+};
 
-		dbus_message_iter_init(message, &iter);
-		dbus_message_decode_input_event(&iter, &event);
+class InputFilterClient : public us::insolit::mazda::connector_proxy,
+                          public DBus::ObjectProxy
+{
+public:
+    InputFilterClient(DBus::Connection &connection, const char *path, const char *name)
+        : DBus::ObjectProxy(connection, path, name)
+    {
+    }
 
-		//key press
-		if (event.type == EV_KEY && (event.value == 1 || event.value == 0)) {
+    virtual void KeyEvent(const ::DBus::Struct< ::DBus::Struct< uint64_t, uint64_t >, uint16_t, uint16_t, int32_t >& value) override
+    {
+        struct input_event event;
+        event.time.tv_sec = value._1._1;
+        event.time.tv_usec = value._1._2;
 
-			uint64_t timeStamp = get_cur_timestamp();
-			uint32_t scanCode = 0;
-			int32_t scrollAmount = 0;
-			bool isPressed = (event.value == 1);
+        event.type = value._2;
+        event.code = value._3;
+        event.value = value._4;
 
-			printf("Key code %i value %i\n", (int)event.code, (int)event.value);
-			switch (event.code) {
-			case KEY_G:
-				printf("KEY_G\n");
-				scanCode = HUIB_MIC;
-				break;
-			//Make the music button play/pause
-			case KEY_E:
-				printf("KEY_E\n");
-				scanCode = HUIB_PLAYPAUSE;
-				break;
-			case KEY_LEFTBRACE:
-				printf("KEY_LEFTBRACE\n");
-				scanCode = HUIB_NEXT;
-				break;
-			case KEY_RIGHTBRACE:
-				printf("KEY_RIGHTBRACE\n");
-				scanCode = HUIB_PREV;
-				break;
-			case KEY_BACKSPACE:
-				printf("KEY_BACKSPACE\n");
-				scanCode = HUIB_BACK;
-				break;
-			case KEY_ENTER:
-				printf("KEY_ENTER\n");
-				scanCode = HUIB_ENTER;
-				break;
-			case KEY_LEFT:
-				printf("KEY_LEFT\n");
-				scanCode = HUIB_LEFT;
-				break;
-			case KEY_N:
-				printf("KEY_N\n");
-				if (isPressed)
-				{
-					scrollAmount = -1;
-				}
-				break;
-			case KEY_RIGHT:
-				printf("KEY_RIGHT\n");
-				scanCode = HUIB_RIGHT;
-				break;
-			case KEY_M:
-				printf("KEY_M\n");
-				if (isPressed)
-				{
-					scrollAmount = 1;
-				}
-				break;
-			case KEY_UP:
-				printf("KEY_UP\n");
-				scanCode = HUIB_UP;				
-				break;
-			case KEY_DOWN:
-				printf("KEY_DOWN\n");
-				scanCode = HUIB_DOWN;
-				break;
-			case KEY_HOME:
-				printf("KEY_HOME\n");
-				if (isPressed)
-				{
-					g_main_loop_quit (gst_app.loop);
-				}
-				break;
-			case KEY_R:
-				printf("KEY_R\n");
-				if (isPressed)
-				{
+        //key press
+        if (event.type == EV_KEY && (event.value == 1 || event.value == 0)) {
+
+            uint64_t timeStamp = get_cur_timestamp();
+            uint32_t scanCode = 0;
+            int32_t scrollAmount = 0;
+            bool isPressed = (event.value == 1);
+
+            printf("Key code %i value %i\n", (int)event.code, (int)event.value);
+            switch (event.code) {
+            case KEY_G:
+                printf("KEY_G\n");
+                scanCode = HUIB_MIC;
+                break;
+            //Make the music button play/pause
+            case KEY_E:
+                printf("KEY_E\n");
+                scanCode = HUIB_PLAYPAUSE;
+                break;
+            case KEY_LEFTBRACE:
+                printf("KEY_LEFTBRACE\n");
+                scanCode = HUIB_NEXT;
+                break;
+            case KEY_RIGHTBRACE:
+                printf("KEY_RIGHTBRACE\n");
+                scanCode = HUIB_PREV;
+                break;
+            case KEY_BACKSPACE:
+                printf("KEY_BACKSPACE\n");
+                scanCode = HUIB_BACK;
+                break;
+            case KEY_ENTER:
+                printf("KEY_ENTER\n");
+                scanCode = HUIB_ENTER;
+                break;
+            case KEY_LEFT:
+                printf("KEY_LEFT\n");
+                scanCode = HUIB_LEFT;
+                break;
+            case KEY_N:
+                printf("KEY_N\n");
+                if (isPressed)
+                {
+                    scrollAmount = -1;
+                }
+                break;
+            case KEY_RIGHT:
+                printf("KEY_RIGHT\n");
+                scanCode = HUIB_RIGHT;
+                break;
+            case KEY_M:
+                printf("KEY_M\n");
+                if (isPressed)
+                {
+                    scrollAmount = 1;
+                }
+                break;
+            case KEY_UP:
+                printf("KEY_UP\n");
+                scanCode = HUIB_UP;
+                break;
+            case KEY_DOWN:
+                printf("KEY_DOWN\n");
+                scanCode = HUIB_DOWN;
+                break;
+            case KEY_HOME:
+                printf("KEY_HOME\n");
+                if (isPressed)
+                {
+                    g_main_loop_quit (gst_app.loop);
+                }
+                break;
+            case KEY_R:
+                printf("KEY_R\n");
+                if (isPressed)
+                {
                     g_timeout_add(1, delayedToggleShouldDisplay, NULL);
-				}
-				break;
-			}
-			if (scanCode != 0 || scrollAmount != 0) {
-			 	g_hu->hu_queue_command([timeStamp, scanCode, scrollAmount, isPressed](IHUConnectionThreadInterface& s)
-			 	{
-			 		HU::InputEvent inputEvent;
-					inputEvent.set_timestamp(timeStamp);
-					if (scanCode != 0)
-					{
-						HU::ButtonInfo* buttonInfo = inputEvent.mutable_button()->add_button();
-						buttonInfo->set_is_pressed(isPressed);
-						buttonInfo->set_meta(0);
-						buttonInfo->set_long_press(false);
-						buttonInfo->set_scan_code(scanCode);
-					}
-					if (scrollAmount != 0)
-					{
-						HU::RelativeInputEvent* rel = inputEvent.mutable_rel_event()->mutable_event();
-						rel->set_delta(scrollAmount);
-						rel->set_scan_code(HUIB_SCROLLWHEEL);
-					}
-					s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
-				});
-			}
-		}
-		//key release
-		//else if (event.type == EV_KEY && event.value == 1)
-
-	}
-	else if (strcmp("DisplayMode", dbus_message_get_member(message)) == 0)
-	{
-		int displayMode;
-		if (dbus_message_iter_init(message, &iter) && dbus_message_iter_get_arg_type(&iter) == DBUS_TYPE_UINT32)
-		{
-			dbus_message_iter_get_basic(&iter, &displayMode);
-			if (displayMode)
-			{
-                g_timeout_add(1, delayedShouldDisplayFalse, NULL);
-			}
-			else
-			{
-				g_timeout_add(750, delayedShouldDisplayTrue, NULL);
-			}
-		}
-
-	}
-
-	dbus_message_unref(message);
-	return DBUS_HANDLER_RESULT_HANDLED;
-
-}
-
-static void dbus_listener_thread_func(volatile int* keep_going) {
-
-	DBusConnection *hmi_bus;
-	DBusError error;
-
-	hmi_bus = dbus_connection_open(HMI_BUS_ADDRESS, &error);
-
-	if (!hmi_bus) {
-		printf("DBUS: failed to connect to HMI bus: %s: %s\n", error.name, error.message);
-	}
-
-	if (!dbus_bus_register(hmi_bus, &error)) {
-		printf("DBUS: failed to register with HMI bus: %s: %s\n", error.name, error.message);
-	}
-
-	int quit_thread = 0;
-	dbus_connection_add_filter(hmi_bus, handle_dbus_message, &quit_thread, NULL);
-	dbus_bus_add_match(hmi_bus, "type='signal',interface='us.insolit.mazda.connector',member='KeyEvent'", &error);
-	dbus_bus_add_match(hmi_bus, "type='signal',interface='com.jci.bucpsa',member='DisplayMode'", &error);
-	
-	while (*keep_going && dbus_connection_read_write_dispatch(hmi_bus, 1000)) 
-	{
-		//loop
-	}
-
-	dbus_connection_unref(hmi_bus);
-}
-
+                }
+                break;
+            }
+            if (scanCode != 0 || scrollAmount != 0) {
+                g_hu->hu_queue_command([timeStamp, scanCode, scrollAmount, isPressed](IHUConnectionThreadInterface& s)
+                {
+                    HU::InputEvent inputEvent;
+                    inputEvent.set_timestamp(timeStamp);
+                    if (scanCode != 0)
+                    {
+                        HU::ButtonInfo* buttonInfo = inputEvent.mutable_button()->add_button();
+                        buttonInfo->set_is_pressed(isPressed);
+                        buttonInfo->set_meta(0);
+                        buttonInfo->set_long_press(false);
+                        buttonInfo->set_scan_code(scanCode);
+                    }
+                    if (scrollAmount != 0)
+                    {
+                        HU::RelativeInputEvent* rel = inputEvent.mutable_rel_event()->mutable_event();
+                        rel->set_delta(scrollAmount);
+                        rel->set_scan_code(HUIB_SCROLLWHEEL);
+                    }
+                    s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
+                });
+            }
+        }
+    }
+};
 
 static void nightmode_thread_func(std::condition_variable& quitcv, std::mutex& quitmutex) 
 {
@@ -815,6 +734,8 @@ void gps_location_handler(uint64_t timestamp, double lat, double lng, double bea
 	});
 }
 
+DBus::Glib::BusDispatcher dispatcher;
+
 int main (int argc, char *argv[])
 {	
 	//Force line-only buffering so we can see the output during hangs
@@ -826,7 +747,11 @@ int main (int argc, char *argv[])
 	hu_log_library_versions();
 	hu_install_crash_handler();
 
-	dbus_threads_init_default();
+    DBus::default_dispatcher = &dispatcher;
+    DBus::_init_threading();
+
+    dispatcher.attach(nullptr);
+    printf("DBus::Glib::BusDispatcher attached\n");
 
 	//signal (SIGTERM, signals_handler);
 
@@ -880,26 +805,35 @@ int main (int argc, char *argv[])
 	std::thread input_thread([touchfd, quitp_read](){ input_thread_func(touchfd, quitp_read); } );
 	std::thread nm_thread([&quitcv, &quitmutex](){ nightmode_thread_func(quitcv, quitmutex); } );
 
-	//this is kind of ugly but it's only used to quit
-	volatile int keep_going = 1;
-	volatile int* keep_going_ptr = &keep_going;
-
-	std::thread dbus_thread([keep_going_ptr](){ dbus_listener_thread_func(keep_going_ptr); } );
-
 	/* Start gstreamer pipeline and main loop */
 
 	// GPS processing
 	mzd_gps_start(&gps_location_handler);
 
-   gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_PLAYING);
-   gst_element_set_state((GstElement*)aud_pipeline, GST_STATE_PLAYING);
-   gst_element_set_state((GstElement*)au1_pipeline, GST_STATE_PLAYING);
+    gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_PLAYING);
+    gst_element_set_state((GstElement*)aud_pipeline, GST_STATE_PLAYING);
+    gst_element_set_state((GstElement*)au1_pipeline, GST_STATE_PLAYING);
 
     gst_app.loop = g_main_loop_new (NULL, FALSE);
     //	g_timeout_add_full(G_PRIORITY_HIGH, 1, myMainLoop, (gpointer)app, NULL);
 
     printf("Starting Android Auto...\n");
-    g_main_loop_run (gst_app.loop);
+    try
+    {
+        DBus::Connection hmiBus(HMI_BUS_ADDRESS, false);
+        hmiBus.register_bus();
+
+        BUCPSAClient bucpsaClient(hmiBus, "/com/jci/bucpsa", "com.jci.bucpsa");
+        printf("Created BUCPSAClient\n");
+        InputFilterClient ifClient(hmiBus, "/us/insolit/mazda/connector", "us.insolit.mazda.connector");
+        printf("Created InputFilterClient\n");
+
+        g_main_loop_run (gst_app.loop);
+    }
+    catch(DBus::Error& error)
+    {
+        loge("DBUS: Failed to connect to HMI bus %s: %s", error.name(), error.message());
+    }
 
     gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_NULL);
     gst_element_set_state((GstElement*)aud_pipeline, GST_STATE_NULL);
@@ -915,14 +849,10 @@ int main (int argc, char *argv[])
 	//wake up night mode polling thread
 	quitcv.notify_all();
 
-	keep_going = 0;
-
     printf("waiting for input_thread\n");
 	input_thread.join();
     printf("waiting for nm_thread\n");
 	nm_thread.join();
-    printf("waiting for dbus_thread\n");
-	dbus_thread.join();
 
 	printf("waiting for gps_thread\n");
 	mzd_gps_stop();
