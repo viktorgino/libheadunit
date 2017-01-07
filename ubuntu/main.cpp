@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <gst/gst.h>
 #include <gst/app/gstappsrc.h>
+#include <gst/app/gstappsink.h>
 #include <gst/video/videooverlay.h>
 #define GDK_VERSION_MIN_REQUIRED (GDK_VERSION_3_10)
 #include <gdk/gdk.h>
@@ -132,7 +133,7 @@ static int gst_pipeline_init(gst_app_t *app)
 
     
     
-    aud_pipeline = gst_parse_launch("appsrc name=audsrc is-live=true block=false max-latency=100000 do-timestamp=true ! audio/x-raw, signed=true, endianness=1234, depth=16, width=16, rate=48000, channels=2 ! volume volume=0.5 ! alsasink buffer-time=400000", &error);
+    aud_pipeline = gst_parse_launch("appsrc name=audsrc is-live=true block=false max-latency=100000 do-timestamp=true ! audio/x-raw, signed=true, endianness=1234, depth=16, width=16, rate=48000, channels=2, format=S16LE ! alsasink buffer-time=400000 sync=false", &error);
 
     if (error != NULL) {
         printf("could not construct pipeline: %s\n", error->message);
@@ -145,7 +146,7 @@ static int gst_pipeline_init(gst_app_t *app)
     gst_app_src_set_stream_type(aud_src, GST_APP_STREAM_TYPE_STREAM);
 
 
-    au1_pipeline = gst_parse_launch("appsrc name=au1src is-live=true block=false max-latency=100000 do-timestamp=true ! audio/x-raw, signed=true, endianness=1234, depth=16, width=16, rate=16000, channels=1 ! volume volume=0.5 ! alsasink buffer-time=400000 ", &error);
+    au1_pipeline = gst_parse_launch("appsrc name=au1src is-live=true block=false max-latency=100000 do-timestamp=true ! audio/x-raw, signed=true, endianness=1234, depth=16, width=16, rate=16000, channels=1, format=S16LE  ! alsasink buffer-time=400000  sync=false", &error);
 
     if (error != NULL) {
         printf("could not construct pipeline: %s\n", error->message);
@@ -221,11 +222,11 @@ static void aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, u
 
 static void read_mic_data (GstElement * sink)
 {
-
+    GstSample *gstsample;
     GstBuffer *gstbuf;
-    int ret;
-
-    g_signal_emit_by_name (sink, "pull-buffer", &gstbuf,NULL);
+    
+    gstsample = gst_app_sink_pull_sample((GstAppSink *)sink);
+    gstbuf = gst_sample_get_buffer(gstsample);
 
     if (gstbuf) {
 
@@ -241,11 +242,8 @@ static void read_mic_data (GstElement * sink)
         GstMapInfo mapInfo;
         if (gst_buffer_map(gstbuf, &mapInfo, GST_MAP_READ))
         {
-            gint mic_buf_sz = gst_buffer_get_size(gstbuf);
 
-            int idx;
-
-            if (mic_buf_sz <= 64) {
+            if (mapInfo.size <= 64) {
                 printf("Mic data < 64 \n");
                 gst_buffer_unref(gstbuf);
                 return;
@@ -253,9 +251,9 @@ static void read_mic_data (GstElement * sink)
 
             uint64_t bufTimestamp = GST_BUFFER_TIMESTAMP(gstbuf);
             uint64_t timestamp = GST_CLOCK_TIME_IS_VALID(bufTimestamp) ? (bufTimestamp / 1000) : get_cur_timestamp();
-            g_hu->hu_queue_command([timestamp, gstbuf, mic_buf_sz, mapInfo](IHUConnectionThreadInterface& s)
+            g_hu->hu_queue_command([timestamp, gstbuf, &mapInfo](IHUConnectionThreadInterface& s)
             {
-                int ret = s.hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaDataWithTimestamp, timestamp, mapInfo.data, mic_buf_sz);
+                int ret = s.hu_aap_enc_send_media_packet(1, AA_CH_MIC, HU_PROTOCOL_MESSAGE::MediaDataWithTimestamp, timestamp, mapInfo.data, mapInfo.size);
 
                 if (ret < 0) {
                     printf("read_mic_data(): hu_aap_enc_send() failed with (%d)\n", ret);
@@ -263,6 +261,7 @@ static void read_mic_data (GstElement * sink)
 
                 gst_buffer_unref(gstbuf);
             });
+                gst_buffer_unmap(gstbuf, &mapInfo);
         }
     }
 }
@@ -581,7 +580,6 @@ int main (int argc, char *argv[])
 
     hu_log_library_versions();
     hu_install_crash_handler();
-
 #if defined GDK_VERSION_3_10
     printf("GTK VERSION 3.10.0 or higher\n");
     //Assuming we are on Gnome, what's the DPI scale factor?
@@ -593,7 +591,6 @@ int main (int argc, char *argv[])
         g_dpi_scalefactor = (float)gdk_screen_get_monitor_scale_factor(primaryDisplay, 0);
         printf("Got gdk_screen_get_monitor_scale_factor() == %f\n", g_dpi_scalefactor);
     }
-
 #else
     printf("Using hard coded scalefactor\n");
     g_dpi_scalefactor = 1;
