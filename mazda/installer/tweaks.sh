@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# some usefull things (thanks to oz_paulb from mazda3revolution.com - your code is awesome! I wish, I could understand everything ...)
+# some usefull things (thanks to oz_paulb from mazda3revolution.com)
 
 get_cmu_sw_version()
 {
@@ -31,16 +31,14 @@ log_message()
 
 show_message()
 {
-	sleep 1
 	killall jci-dialog
 	log_message "= POPUP: $* "
-	/jci/tools/jci-dialog --info --title="MESSAGE" --text="$*" --no-cancel &
+	/jci/tools/jci-dialog --info --title="MESSAGE" --text="$*" --no-cancel
 }
 
 
 show_message_OK()
 {
-	sleep 4
 	killall jci-dialog
 	log_message "= POPUP: $* "
 	/jci/tools/jci-dialog --confirm --title="CONTINUE INSTALLATION?" --text="$*" --ok-label="YES - GO ON" --cancel-label="NO - ABORT"
@@ -90,11 +88,6 @@ fi
 
 show_message_OK "Version = ${CMU_SW_VER} : To continue installation press OK"
 
-
-# a window will appear for 4 seconds to show the beginning of installation
-show_message "START OF TWEAK INSTALLATION ..."
-
-
 # disable watchdogs in /jci/sm/sm.conf to avoid boot loops if somthing goes wrong
 if [ ! -e /jci/sm/sm.conf.org ]
 	then
@@ -130,6 +123,12 @@ show_message "INSTALL ANDROID AUTO HEADUNIT APP ..."
 cp -a ${MYDIR}/config/androidauto/data_persist/dev/* /tmp/mnt/data_persist/dev/
 cp -a ${MYDIR}/config/androidauto/jci/gui/apps/_androidauto /jci/gui/apps/
 cp -a ${MYDIR}/config/androidauto/jci/opera/opera_dir/userjs/additionalApps.* /jci/opera/opera_dir/userjs/
+#Rename this since once we turn on userJs we don't want a FPS indicator everywhere
+if [ ! -e /jci/opera/opera_dir/userjs/fps.js.bak ]
+	then
+		mv /jci/opera/opera_dir/userjs/fps.js /jci/opera/opera_dir/userjs/fps.js.bak
+fi
+
 cp -a ${MYDIR}/config/androidauto/usr/lib/gstreamer-0.10/libgsth264parse.so /usr/lib/gstreamer-0.10
 cp -a ${MYDIR}/config/androidauto/usr/lib/gstreamer-0.10/libgstalsa.so /usr/lib/gstreamer-0.10
 
@@ -158,15 +157,9 @@ if [ -e "/jci/scripts/stage_wifi.sh" ]
 log_message "=== END INSTALLATION OF ANDROID AUTO HEADUNIT APP ==="
 
 
-# a window will appear for asking to reboot automatically
-sleep 4
-killall jci-dialog
-sleep 3
 /jci/tools/jci-dialog --confirm --title="SELECTED ALL-IN-ONE TWEAKS APPLIED" --text="Click OK to reboot the system"
 		if [ $? != 1 ]
 		then
 			reboot
 			exit
 		fi
-sleep 10
-killall jci-dialog
