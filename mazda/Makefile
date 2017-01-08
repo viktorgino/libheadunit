@@ -42,7 +42,7 @@ all: proto dbusxx $(APP)
 
 proto: $(TOP)/hu/generated.arm/hu.pb.cc
 
-dbusxx: dbus/generated_hu.h dbus/generated_cmu.h
+dbusxx: dbus/generated_cmu.h
 
 $(APP): $(OBJS)
 	$(CXX) -MD -g -o $(APP) $(OBJS) $(LFLAGS)
@@ -50,9 +50,8 @@ $(APP): $(OBJS)
 $(TOP)/hu/generated.arm/hu.pb.cc $(TOP)/hu/generated.arm/hu.pb.h: $(TOP)/hu/hu.proto
 	$(PROTOTOOLCHAIN)/bin/protoc $< --proto_path=$(TOP)/hu/ --cpp_out=$(TOP)/hu/generated.arm/
 
-dbus/generated_cmu.h dbus/generated_hu.h: dbus/cmu_interfaces.xml dbus/hu_interfaces.xml
+dbus/generated_cmu.h: dbus/cmu_interfaces.xml
 	cd dbus ; ./dbusxx-xml2cpp cmu_interfaces.xml --proxy=generated_cmu.h
-	cd dbus ; ./dbusxx-xml2cpp hu_interfaces.xml --proxy=generated_hu.h
 
 %.arm.o : %.c
 	$(CC) -MD -g $(CFLAGS) $(INCLUDES) -c $<  -o $@

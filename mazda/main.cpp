@@ -20,7 +20,6 @@
 #include <dbus-c++/glib-integration.h>
 
 #include "dbus/generated_cmu.h"
-#include "dbus/generated_hu.h"
 
 #include "hu_uti.h"
 #include "hu_aap.h"
