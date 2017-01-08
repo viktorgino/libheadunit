@@ -279,7 +279,10 @@ static void crash_handler(int sig, siginfo_t * info, void * ucontext)
   printf("Error: signal %s context %p :\n", strsignal(sig), context);
 
   print_backtrace(context);
-
+#if CMU
+  //JS code looks for this to flush the log
+  printf("END \n");
+#endif
   abort();
 }
 
@@ -289,7 +292,10 @@ static void crash_handler_terminate()
   printf("Error: c++ exception\n");
 
   print_backtrace(nullptr);
-
+#if CMU
+  //JS code looks for this to flush the log
+  printf("END \n");
+#endif
   abort();
 }
 

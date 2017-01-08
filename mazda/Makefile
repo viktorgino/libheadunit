@@ -15,7 +15,6 @@ CXXFLAGS=$(CFLAGS) -std=c++11 -static-libstdc++
 
 #static link  dbus-c++-glib-1 since it's not on the car
 LFLAGS= --sysroot=$(SYSROOT) -g -rdynamic -pthread -ldl -static-libstdc++ $(shell ./pkg-config-wrapper $(SYSROOT) --libs gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0 libcrypto openssl glib-2.0 dbus-c++-1) -l:libdbus-c++-glib-1.a -L$(PROTOTOOLCHAIN)/lib -lprotobuf -L$(LIBUNWIND)/lib -lunwind 
-LFLAGS_IF= --sysroot=$(SYSROOT) -static-libstdc++ $(shell ./pkg-config-wrapper $(SYSROOT) --libs dbus-1)
 
 #headunit binary
 SRCS = $(TOP)/hu/hu_aad.cpp
@@ -39,32 +38,20 @@ DEPS = $(addsuffix .arm.d, $(basename $(SRCS)))
 
 APP = headunit
 
-SRCS_IF = mazda-connector/src/input_filter/input_filter.cpp
-
-OBJS_IF = $(addsuffix .arm.o, $(basename $(SRCS_IF)))
-DEPS_IF = $(addsuffix .arm.d, $(basename $(SRCS_IF)))
-
-#input_filter binary
-APP_IF = input_filter
-
-all: proto dbusxx $(APP) $(APP_IF)
+all: proto dbusxx $(APP)
 
 proto: $(TOP)/hu/generated.arm/hu.pb.cc
 
-dbusxx: dbus/generated_hu.h dbus/generated_cmu.h
+dbusxx: dbus/generated_cmu.h
 
 $(APP): $(OBJS)
 	$(CXX) -MD -g -o $(APP) $(OBJS) $(LFLAGS)
 
-$(APP_IF): $(OBJS_IF)
-	$(CXX) -MD -g -o $(APP_IF) $(OBJS_IF) $(LFLAGS_IF)
-
 $(TOP)/hu/generated.arm/hu.pb.cc $(TOP)/hu/generated.arm/hu.pb.h: $(TOP)/hu/hu.proto
 	$(PROTOTOOLCHAIN)/bin/protoc $< --proto_path=$(TOP)/hu/ --cpp_out=$(TOP)/hu/generated.arm/
 
-dbus/generated_cmu.h dbus/generated_hu.h: dbus/cmu_interfaces.xml dbus/hu_interfaces.xml
+dbus/generated_cmu.h: dbus/cmu_interfaces.xml
 	cd dbus ; ./dbusxx-xml2cpp cmu_interfaces.xml --proxy=generated_cmu.h
-	cd dbus ; ./dbusxx-xml2cpp hu_interfaces.xml --proxy=generated_hu.h
 
 %.arm.o : %.c
 	$(CC) -MD -g $(CFLAGS) $(INCLUDES) -c $<  -o $@
@@ -76,13 +63,11 @@ dbus/generated_cmu.h dbus/generated_hu.h: dbus/cmu_interfaces.xml dbus/hu_interf
 	$(CXX) -MD -g $(CXXFLAGS) $(INCLUDES) -c $<  -o $@
 
 clean:
-	rm -f *~ $(TOP)/hu/generated.arm/* dbus/generated_*.* $(OBJS) $(OBJS_IF) $(APP) $(APP_IF) $(DEPS) $(DEPS_IF)
+	rm -f *~ $(TOP)/hu/generated.arm/* dbus/generated_*.* $(OBJS) $(APP) $(DEPS)
 
 install: all
-	cp -a -f input_filter installer/config/androidauto/data_persist/dev/bin/
 	cp -a -f headunit installer/config/androidauto/data_persist/dev/bin/
 
 -include $(DEPS)
--include $(DEPS_IF)
 
 .PHONY: clean
