@@ -429,7 +429,7 @@ int HUTransportStreamUSB::Start(byte ep_in_addr, byte ep_out_addr) {
         {
             logw("Wating for the device to reconnect");
             //Give it some time to reconnect
-            ms_sleep(1000);
+            ms_sleep(2000);
         }
     }
     else
