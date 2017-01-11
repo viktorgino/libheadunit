@@ -15,11 +15,15 @@
 #include <condition_variable>
 #include <sstream>
 #include <fstream>
+#include <algorithm>
 
 #include <dbus-c++/dbus.h>
 #include <dbus-c++/glib-integration.h>
 
 #include "dbus/generated_cmu.h"
+
+#include "json.hpp"
+using json = nlohmann::json;
 
 #include "hu_uti.h"
 #include "hu_aap.h"
@@ -32,9 +36,6 @@
 
 #define HMI_BUS_ADDRESS "unix:path=/tmp/dbus_hmi_socket"
 #define SERVICE_BUS_ADDRESS "unix:path=/tmp/dbus_service_socket"
-
-#define AUDIO_AA 13
-#define AUDIO_RADIO 6
 
 __asm__(".symver realpath1,realpath1@GLIBC_2.11.1");
 
@@ -73,16 +74,13 @@ static void set_display_status(bool st)
         {
             g_object_set(G_OBJECT(vid_sink), "should-display", st ? TRUE : FALSE, NULL);
             #if ASPECT_RATIO_FIX
-            if (st)
-            {
-            	//This gets forgotten for some reason
-            	g_object_set(G_OBJECT(vid_sink), 
-            		"axis-left", 0,
-            		"axis-top", -20,
-            		"disp-width", 800,
-            		"disp-height", 520,
-            		NULL);
-    		}
+            //This gets forgotten for some reason
+            g_object_set(G_OBJECT(vid_sink),
+                "axis-left", 0,
+                "axis-top", -20,
+                "disp-width", 800,
+                "disp-height", 520,
+                NULL);
 			#endif
         }
 		display_status = st;
@@ -557,8 +555,8 @@ class BUCPSAClient : public com::jci::bucpsa_proxy,
                      public DBus::ObjectProxy
 {
 public:
-    BUCPSAClient(DBus::Connection &connection, const char *path, const char *name)
-        : DBus::ObjectProxy(connection, path, name)
+    BUCPSAClient(DBus::Connection &connection)
+        : DBus::ObjectProxy(connection, "/com/jci/bucpsa", "com.jci.bucpsa")
     {
     }
 
@@ -576,6 +574,48 @@ public:
     }
     virtual void ReverseStatusChanged(const int32_t& reverseStatus) override {}
     virtual void PSMInstallStatusChanged(const uint8_t& psmInstalled) override {}
+};
+
+class NativeGUICtrlClient : public com::jci::nativeguictrl_proxy,
+                     public DBus::ObjectProxy
+{
+public:
+    NativeGUICtrlClient(DBus::Connection &connection)
+        : DBus::ObjectProxy(connection, "/com/jci/nativeguictrl", "com.jci.nativeguictrl")
+    {
+    }
+
+    enum SURFACES
+    {
+        NNG_NAVI_ID = 0,
+        TV_TOUCH_SURFACE,
+        NATGUI_SURFACE,
+        LOOPLOGO_SURFACE,
+        TRANLOGOEND_SURFACE,
+        TRANLOGO_SURFACE,
+        QUICKTRANLOGO_SURFACE,
+        EXITLOGO_SURFACE,
+        JCI_OPERA_PRIMARY,
+        JCI_OPERA_SECONDARY,
+        lvdsSurface,
+        SCREENREP_IVI_NAME,
+        NNG_NAVI_MAP1,
+        NNG_NAVI_MAP2,
+        NNG_NAVI_HMI,
+        NNG_NAVI_TWN,
+    };
+
+    void SetRequiredSurfacesByEnum(const std::vector<SURFACES>& surfaces, bool fadeOpera)
+    {
+        std::ostringstream idString;
+        for (size_t i = 0; i < surfaces.size(); i++)
+        {
+            if (i > 0)
+                idString << ",";
+            idString << surfaces[i];
+        }
+        SetRequiredSurfaces(idString.str(), fadeOpera ? 1 : 0);
+    }
 };
 
 
@@ -730,26 +770,158 @@ void gps_location_handler(uint64_t timestamp, double lat, double lng, double bea
 	});
 }
 
-class ServiceProviderClient : public com::xsembedded::ServiceProvider_proxy,
+class AudioManagerClient : public com::xsembedded::ServiceProvider_proxy,
                      public DBus::ObjectProxy
 {
-public:
-    ServiceProviderClient(DBus::Connection &connection, const char *path, const char *name)
-        : DBus::ObjectProxy(connection, path, name)
+    std::map<std::string, int> streamToSessionIds;
+    //"USB" as far as the audio manager cares is the normal ALSA sound output
+    int usbSessionID = -1;
+    int previousSessionID = -1;
+    bool waitingForFocusLostEvent = false;
+
+    //These IDs are usually the same, but they depend on the startup order of the services on the car so we can't assume them 100% reliably
+    void populateStreamTable()
     {
+        streamToSessionIds.clear();
+        json requestArgs = {
+            { "svc", "SRCS" },
+            { "pretty", false }
+        };
+        std::string resultString = Request("dumpState", requestArgs.dump());
+        printf("dumpState(%s)\n%s\n", requestArgs.dump().c_str(), resultString.c_str());
+        /*
+         * An example resonse:
+         *
+        {
+          "HMI": {
+
+          },
+          "APP": [
+            "1.Media.Pandora.granted.NotPlaying",
+            "2.Media.AM..NotPlaying"
+          ]
+        }
+        */
+        //Row format:
+        //"%d.%s.%s.%s.%s", obj.sessionId, obj.stream.streamType, obj.stream.streamName, obj.focus, obj.stream.playing and "playing" or "NotPlaying")
+
+        try
+        {
+            auto result = json::parse(resultString);
+            for (auto& sessionRecord : result["APP"].get_ref<json::array_t&>())
+            {
+                std::string sessionStr = sessionRecord.get<std::string>();
+                //Stream names have no spaces so it's safe to do this
+                std::replace(sessionStr.begin(), sessionStr.end(), '.', ' ');
+                std::istringstream sessionIStr(sessionStr);
+
+                int sessionId;
+                std::string streamName, streamType;
+
+                if (!(sessionIStr >> sessionId >> streamType >> streamName))
+                {
+                    logw("Can't parse line \"%s\"", sessionRecord.get<std::string>().c_str());
+                    continue;
+                }
+
+                printf("Found stream %s session id %i\n", streamName.c_str(), sessionId);
+                streamToSessionIds[streamName] = sessionId;
+
+                if (streamName == "USB")
+                {
+                    usbSessionID = sessionId;
+                }
+            }
+        }
+        catch (const std::domain_error& ex)
+        {
+            loge("Failed to parse state json: %s", ex.what());
+            printf("%s\n", resultString.c_str());
+        }
+        catch (const std::invalid_argument& ex)
+        {
+            loge("Failed to parse state json: %s", ex.what());
+            printf("%s\n", resultString.c_str());
+        }
+    }
+public:
+    AudioManagerClient(DBus::Connection &connection)
+        : DBus::ObjectProxy(connection, "/com/xse/service/AudioManagement/AudioApplication", "com.xsembedded.service.AudioManagement")
+    {
+        populateStreamTable();
+        if (usbSessionID < 0)
+        {
+            loge("Can't find USB stream. Audio will not work");
+        }
     }
 
+    bool canSwitchAudio() { return usbSessionID >= 0; }
+
     //calling requestAudioFocus directly doesn't work on the audio mgr
-    std::string audioMgrRequestAudioFocus(int sessionID)
+    void audioMgrRequestAudioFocus()
     {
-        std::ostringstream argsStream;
-        argsStream << "{ \"sessionId\":" << sessionID << "}";
-        return Request("requestAudioFocus", argsStream.str());
+        if (previousSessionID >= 0 || waitingForFocusLostEvent)
+        {
+            //already asked
+            return;
+        }
+
+        waitingForFocusLostEvent = true;
+        previousSessionID = -1;
+        json args = { { "sessionId", usbSessionID } };
+        std::string result = Request("requestAudioFocus", args.dump());
+        printf("requestAudioFocus(%s)\n%s\n", args.dump().c_str(), result.c_str());
+    }
+
+    void audioMgrReleaseAudioFocus()
+    {
+        if (previousSessionID < 0)
+        {
+            //no focus
+            return;
+        }
+
+        json args = { { "sessionId", previousSessionID } };
+        std::string result = Request("requestAudioFocus", args.dump());
+        printf("requestAudioFocus(%s)\n%s\n", args.dump().c_str(), result.c_str());
+        previousSessionID = -1;
     }
 
     virtual void Notify(const std::string& signalName, const std::string& payload) override
     {
-        printf("ServiceProviderClient::Notify signalName=%s payload=%s\n", signalName.c_str(), payload.c_str());
+        printf("AudioManagerClient::Notify signalName=%s payload=%s\n", signalName.c_str(), payload.c_str());
+        if (waitingForFocusLostEvent && signalName == "audioFocusChangeEvent")
+        {
+            try
+            {
+                auto result = json::parse(payload);
+                std::string streamName = result["streamName"].get<std::string>();
+                std::string newFocus = result["newFocus"].get<std::string>();
+                if (newFocus == "lost")
+                {
+                    auto findIt = streamToSessionIds.find(streamName);
+                    if (findIt != streamToSessionIds.end())
+                    {
+                        previousSessionID = findIt->second;
+                        printf("Found previous audio sessionId %i for stream %s\n", previousSessionID, streamName.c_str());
+                    }
+                    else
+                    {
+                        loge("Can't find previous audio sessionId for stream %s\n", streamName.c_str());
+                        previousSessionID = -1;
+                    }
+                    waitingForFocusLostEvent = false;
+                }
+            }
+            catch (const std::domain_error& ex)
+            {
+                loge("Failed to parse state json: %s", ex.what());
+            }
+            catch (const std::invalid_argument& ex)
+            {
+                loge("Failed to parse state json: %s", ex.what());
+            }
+        }
     }
 };
 
@@ -864,19 +1036,30 @@ int main (int argc, char *argv[])
         DBus::Connection serviceBus(SERVICE_BUS_ADDRESS, false);
         serviceBus.register_bus();
 
-        BUCPSAClient bucpsaClient(hmiBus, "/com/jci/bucpsa", "com.jci.bucpsa");
+        BUCPSAClient bucpsaClient(hmiBus);
         printf("Created BUCPSAClient\n");
 
-        ServiceProviderClient audioMgr(serviceBus, "/com/xse/service/AudioManagement/AudioApplication", "com.xsembedded.service.AudioManagement");
-        printf("Created ServiceProviderClient\n");
+        NativeGUICtrlClient guiClient(hmiBus);
 
-        auto response = audioMgr.audioMgrRequestAudioFocus(AUDIO_AA);
-        printf("requestAudioFocus(AUDIO_AA, 0) response:\n %s\n", response.c_str());
+        AudioManagerClient audioMgr(serviceBus);
+        printf("Created AudioManagerClient\n");
 
-        g_main_loop_run (gst_app.loop);
+        //By setting these manually we can run even when not launched by the JS code
+        guiClient.SetRequiredSurfacesByEnum({NativeGUICtrlClient::TV_TOUCH_SURFACE}, true);
 
-        auto response2 = audioMgr.audioMgrRequestAudioFocus(AUDIO_RADIO);
-        printf("requestAudioFocus(AUDIO_RADIO, 0) response:\n %s\n", response2.c_str());
+        if (audioMgr.canSwitchAudio())
+        {
+            audioMgr.audioMgrRequestAudioFocus();
+        }
+
+                g_main_loop_run (gst_app.loop);
+
+        if (audioMgr.canSwitchAudio())
+        {
+            audioMgr.audioMgrReleaseAudioFocus();
+        }
+
+        guiClient.SetRequiredSurfacesByEnum({NativeGUICtrlClient::JCI_OPERA_PRIMARY}, true);
     }
     catch(DBus::Error& error)
     {
@@ -909,6 +1092,8 @@ int main (int argc, char *argv[])
 
 	close(touchfd);
     close(kbdfd);
+    close(quitp_write);
+    close(quitp_read);
 
     g_main_loop_unref(gst_app.loop);
     gst_app.loop = nullptr;
@@ -932,8 +1117,6 @@ int main (int argc, char *argv[])
     gst_object_unref(mic_sink);
 
 	g_hu = nullptr;
-
-	system("kill -SIGUSR2 $(pgrep input_filter)");
 
 	printf("END \n");
 

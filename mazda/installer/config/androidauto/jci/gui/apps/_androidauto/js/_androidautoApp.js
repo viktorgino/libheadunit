@@ -128,6 +128,9 @@ function androidauto() {
 			var credits = document.getElementsByClassName("TemplateWithStatusLeft AndroidAutoTmplt")[0];
 
 			$('#'+credits.id).children().fadeIn();
+
+            //put these back to what the JS code thinks they are just incase
+            utility.setRequiredSurfaces(framework._visibleSurfaces, true);
 		}
 		else if ( event.data.indexOf("NOT_RUNNING") > -1) {
 			startAA();
@@ -143,13 +146,6 @@ function androidauto() {
 _androidautoApp.prototype._StartContextOut = function ()
 {
 	ws.send("killall headunit \n");
-	ws.send("dbus-send --address=unix:path=/tmp/dbus_service_socket \
-				--type=method_call \
-				--dest=com.xsembedded.service.AudioManagement \
-				/com/xse/service/AudioManagement/AudioApplication \
-				com.xsembedded.ServiceProvider.Request \
-				string:'audioActive' \
-				string:'{\"sessionId\":13,\"playing\": false}' \n");
 	ws.close();
 };
 
