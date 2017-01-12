@@ -2,3 +2,4 @@
 /.codelite/
 *.project
 *.workspace
+/ubuntu/tmp/

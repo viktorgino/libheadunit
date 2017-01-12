@@ -428,8 +428,8 @@ int HUTransportStreamUSB::Start(byte ep_in_addr, byte ep_out_addr) {
         if ((iusb_dev_hndl = find_oap_device()) == nullptr)
         {
             logw("Wating for the device to reconnect");
-            //Give it some time to reconnect
-            ms_sleep(2000);
+            //Give it some time to reconnect            
+            wait_for_device_connection();
         }
     }
     else

@@ -23,6 +23,7 @@
 
 #include <dirent.h>                                                   // For opendir (), readdir (), closedir (), DIR, struct dirent.
 
+#include <libudev.h>
 // Enables for hex_dump:
 extern int ena_hd_hu_aad_dmp;
 extern int ena_hd_tra_send;
@@ -93,6 +94,7 @@ void hu_log_library_versions();
 
 void hu_install_crash_handler();
 
+int wait_for_device_connection();
 #ifndef __ANDROID_API__
   #define strlcpy   strncpy
   #define strlcat   strncat

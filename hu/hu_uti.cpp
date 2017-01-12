@@ -310,3 +310,70 @@ void hu_install_crash_handler()
   sigaction(SIGXFSZ, &sigact, nullptr);
   std::set_terminate (crash_handler_terminate);
 }
+int wait_for_device_connection(){  
+        int ret;
+        
+        struct udev *udev = udev_new();
+        struct udev_device *dev;
+        struct udev_monitor *mon;
+        int fd;
+	/* Set up a monitor to monitor USB devices */
+	mon = udev_monitor_new_from_netlink(udev, "udev");
+        if(mon == NULL) {
+                loge("udev_monitor_new_from_netlink returned NULL\n");
+                return -2;
+        }
+        
+        ret = udev_monitor_filter_add_match_subsystem_devtype(mon, "usb", NULL);
+	if(ret != 0) {
+                loge("udev_monitor_filter_add_match_subsystem_devtype error : %d \n",ret);
+                return -2;
+        }
+        
+	ret = udev_monitor_enable_receiving(mon);
+        if(ret != 0){
+                loge("udev_monitor_enable_receiving error : %d \n",ret);
+                return -2;                
+        }
+        
+	fd = udev_monitor_get_fd(mon);
+        
+	while (1) {
+		fd_set fds;
+		struct timeval tv;
+		int ret;
+		
+		FD_ZERO(&fds);
+		FD_SET(fd, &fds);
+		tv.tv_sec = 0;
+		tv.tv_usec = 0;
+		
+		ret = select(fd+1, &fds, NULL, NULL, &tv);
+		
+		/* Check if our file descriptor has received data. */
+		if (ret > 0 && FD_ISSET(fd, &fds)) {
+			logv("\nselect() says there should be data\n");
+			
+			/* Make the call to receive the device.
+			   select() ensured that this will not block. */
+			dev = udev_monitor_receive_device(mon);
+			if (dev) {
+				logw("udev device %sed | node:%s, subsystem:%s, devtype:%s\n",
+                                        udev_device_get_action(dev),
+                                        udev_device_get_devnode(dev),
+                                        udev_device_get_subsystem(dev),
+                                        udev_device_get_devtype(dev));
+                                
+                                if(strcmp(udev_device_get_action(dev),"add") == 0){
+                                        udev_device_unref(dev);
+                                        return 0;
+                                }
+				udev_device_unref(dev);
+			}
+			else {
+				loge("udev_monitor_receive_device error: no new device\n");
+			}					
+		}
+		usleep(25*1000);
+	}
+}
