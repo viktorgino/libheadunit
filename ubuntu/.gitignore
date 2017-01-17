@@ -1,5 +1,7 @@
 *.x64.d
 headunit
+nbproject/
+*.dot
 /headunit-ubuntu.config
 /headunit-ubuntu.creator
 /headunit-ubuntu.creator.user
