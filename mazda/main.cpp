@@ -159,7 +159,7 @@ static int gst_pipeline_init(gst_app_t *app)
 	gst_init(NULL, NULL);
 
 	//if we have ASPECT_RATIO_FIX, cut off the bottom black bar
-	const char* vid_pipeline_launch = "appsrc name=mysrc is-live=true block=false max-latency=1000000 do-timestamp=true ! h264parse ! vpudec low-latency=true framedrop=true framedrop-level-mask=0x200 ! mfw_isink name=mysink "
+	const char* vid_pipeline_launch = "appsrc name=mysrc is-live=true block=false max-latency=1000000 do-timestamp=true ! queue ! h264parse ! vpudec low-latency=true framedrop=true framedrop-level-mask=0x200 ! mfw_isink name=mysink "
 	#if ASPECT_RATIO_FIX
     "axis-left=0 axis-top=-20 disp-width=800 disp-height=520"
 	#else

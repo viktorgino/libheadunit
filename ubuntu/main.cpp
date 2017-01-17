@@ -112,6 +112,7 @@ gst_pipeline_init(gst_app_t *app) {
         gst_init(NULL, NULL);
 
         const char* vid_launch_str = "appsrc name=mysrc is-live=true block=false max-latency=100000 do-timestamp=true stream-type=stream typefind=true ! "
+                "queue ! "
                 "h264parse ! "
                 "avdec_h264 ! "
 #if ASPECT_RATIO_FIX
