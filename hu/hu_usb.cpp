@@ -334,8 +334,7 @@ int HUTransportStreamUSB::start_usb_recv()
     return iusb_state;
 }
 
-int HUTransportStreamUSB::Start(byte ep_in_addr, byte ep_out_addr) {
-  int ret = 0;
+int HUTransportStreamUSB::Start(bool waitForDevice) {
 
   if (iusb_state == hu_STATE_STARTED) {
     logd ("CHECK: iusb_state: %d (%s)", iusb_state, state_get (iusb_state));
@@ -434,9 +433,17 @@ int HUTransportStreamUSB::Start(byte ep_in_addr, byte ep_out_addr) {
     }
     else
     {
-        loge ("Can't find any OAP devices");
-        Stop();
-        return (-1);
+        if (waitForDevice)
+        {
+            logw("Nothing found, waiting");
+            wait_for_device_connection();
+        }
+        else
+        {
+            loge ("Can't find any OAP devices");
+            Stop();
+            return (-1);
+        }
     }
   }
 

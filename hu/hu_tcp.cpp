@@ -118,8 +118,7 @@
   }
 
 
-  int HUTransportStreamTCP::itcp_init (byte ep_in_addr, byte ep_out_addr) {
-    logd ("ep_in_addr: %d  ep_out_addr: %d", ep_in_addr, ep_out_addr);
+  int HUTransportStreamTCP::itcp_init () {
 
     int net_port = 30515;
 
@@ -194,7 +193,7 @@
   }
 
 
-  int HUTransportStreamTCP::Start(byte ep_in_addr, byte ep_out_addr) {
+  int HUTransportStreamTCP::Start(bool waitForDevice) {
     int ret = 0;
 
     if (itcp_state == hu_STATE_STARTED) {
@@ -209,7 +208,7 @@
     itcp_state = hu_STATE_STARTIN;
     logd ("  SET: itcp_state: %d (%s)", itcp_state, state_get (itcp_state));
 
-    ret = itcp_init (ep_in_addr, ep_out_addr);
+    ret = itcp_init();
     if (ret < 0) {
       loge ("Error itcp_init");
       itcp_deinit ();

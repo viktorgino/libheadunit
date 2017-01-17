@@ -48,20 +48,23 @@
   }
 
 
-  int HUServer::ihu_tra_start (byte ep_in_addr, byte ep_out_addr) {
-    if (ep_in_addr == 255 && ep_out_addr == 255) {
+  int HUServer::ihu_tra_start (HU_TRANSPORT_TYPE transportType, bool waitForDevice) {
+    if (transportType == HU_TRANSPORT_TYPE::WIFI) {
       logd ("AA over Wifi");
       transport = std::unique_ptr<HUTransportStream>(new HUTransportStreamTCP());
       iaap_tra_recv_tmo = 1000;
       iaap_tra_send_tmo = 2000;
     }
-    else { 
+    else if (transportType == HU_TRANSPORT_TYPE::USB) {
       transport = std::unique_ptr<HUTransportStream>(new HUTransportStreamUSB());
       logd ("AA over USB");
       iaap_tra_recv_tmo = 0;//100;
       iaap_tra_send_tmo = 2500;
+    } else {
+      loge("Unknown transport type");
+      return -1;
     }
-    return transport->Start(ep_in_addr, ep_out_addr);
+    return transport->Start(waitForDevice);
   }
 
   int HUServer::ihu_tra_stop() {
@@ -459,7 +462,6 @@
       inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_DRIVING_STATUS);
       inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_NIGHT_DATA);
       inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_LOCATION);
-      inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_UNKNOWN_SHOW_KEYBOARD);
 
       callbacks.CustomizeSensorConfig(*inner);
     }
@@ -608,15 +610,8 @@
     else
       logw ("AudioFocusRequest Focus Request %s: %d", chan_get(chan), request.focus_type());
 
-    HU::AudioFocusResponse response;
-    if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_RELEASE)
-      response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_LOSS); 
-    else if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_GAIN_TRANSIENT)
-      response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_GAIN); 
-    else 
-      response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_GAIN); 
-
-    return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::AudioFocusResponse, response);
+    callbacks.AudioFocusRequest(chan, request);
+    return 0;
   }
 
   int HUServer::hu_handle_ChannelOpenRequest(int chan, byte * buf, int len) {                  // Channel Open Request
@@ -638,7 +633,7 @@
       ms_sleep (2);//20);
 
       HU::SensorEvent sensorEvent;
-      sensorEvent.add_driving_status()->set_is_driving(0);
+      sensorEvent.add_driving_status()->set_status(HU::SensorEvent::DrivingStatus::DRIVE_STATUS_UNRESTRICTED);
       return hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
     } 
     return (ret);
@@ -658,15 +653,12 @@
     response.add_configs(0);
 
     int ret = hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::MediaSetupResponse, response);
-    if (ret)                                                            // If error, done with error
-      return (ret);
 
-    if (chan == AA_CH_VID) {
-      HU::VideoFocus videoFocusGained;
-      videoFocusGained.set_mode(HU::VIDEO_FOCUS_MODE_FOCUSED);
-      videoFocusGained.set_unrequested(true);
-      return hu_aap_enc_send_message(0, AA_CH_VID, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
+    if (!ret)
+    {
+        callbacks.MediaSetupComplete(chan);
     }
+
     return (ret);
   }
 
@@ -677,30 +669,11 @@
     if (!request.ParseFromArray(buf, len))
       loge ("VideoFocusRequest");
     else
-      logd ("VideoFocusRequest: %d", request.disp_index());
+      logw ("VideoFocusRequest: %d", request.disp_index());
 
-    if (request.mode() == HU::VIDEO_FOCUS_MODE_FOCUSED)
-    {
-      HU::VideoFocus videoFocusGained;
-      videoFocusGained.set_mode(HU::VIDEO_FOCUS_MODE_FOCUSED);
-      videoFocusGained.set_unrequested(false);
-      return hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
-    }
-    else
-    {
-      //Tread unfocused as quit (since that's what the "Return to Mazda Connect" button sends)
-      HU::VideoFocus videoFocusGained;
-      videoFocusGained.set_mode(HU::VIDEO_FOCUS_MODE_UNFOCUSED);
-      videoFocusGained.set_unrequested(false);
-      hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
+    callbacks.VideoFocusRequest(chan, request);
 
-      HU::ShutdownRequest request;
-      request.set_reason(HU::ShutdownRequest::REASON_QUIT);
-      hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::ShutdownRequest, request);
-
-      hu_aap_stop ();
-      return 0;
-    }
+    return 0;
   }
 
 
@@ -996,6 +969,10 @@
     if (iaap_state != hu_STATE_STARTED)
       return (0);
 
+    HU::ShutdownRequest shutdownReq;
+    shutdownReq.set_reason(HU::ShutdownRequest::REASON_QUIT);
+    hu_aap_enc_send_message(0, AA_CH_CTR, HU_PROTOCOL_MESSAGE::ShutdownRequest, shutdownReq);
+
     hu_thread_quit_flag = true;
     callbacks.DisconnectionOrError();
 
@@ -1079,7 +1056,7 @@
 
   static_assert(PIPE_BUF >= sizeof(IHUAnyThreadInterface::HUThreadCommand*), "PIPE_BUF is tool small for a pointer?");
 
-  int HUServer::hu_aap_start (byte ep_in_addr, byte ep_out_addr) {                // Starts Transport/USBACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
+  int HUServer::hu_aap_start (HU_TRANSPORT_TYPE transportType, bool waitForDevice) {                // Starts Transport/USBACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
 
     if (iaap_state == hu_STATE_STARTED || iaap_state == hu_STATE_STARTIN) {
       loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
@@ -1091,7 +1068,7 @@
     iaap_state = hu_STATE_STARTIN;
     logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
 
-    int ret = ihu_tra_start (ep_in_addr, ep_out_addr);                   // Start Transport/USBACC/OAP
+    int ret = ihu_tra_start (transportType, waitForDevice);                   // Start Transport/USBACC/OAP
     if (ret) {
       iaap_state = hu_STATE_STOPPED;
       logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));

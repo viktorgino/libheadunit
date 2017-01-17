@@ -48,12 +48,18 @@ protected:
 public:
   virtual ~HUTransportStream() {}
   inline HUTransportStream() {}
-  virtual int Start(byte ep_in_addr, byte ep_out_addr) = 0;
+  virtual int Start(bool waitForDevice) = 0;
   virtual int Stop() = 0;
   virtual int Write(const byte* buf, int len, int tmo) = 0;
 
   inline int GetReadFD() { return readfd; }  
   inline int GetErrorFD() { return errorfd; } 
+};
+
+enum class HU_TRANSPORT_TYPE
+{
+    USB,
+    WIFI
 };
 
 class IHUConnectionThreadInterface;
@@ -122,6 +128,7 @@ public:
   virtual int MediaPacket(int chan, uint64_t timestamp, const byte * buf, int len) = 0;
   virtual int MediaStart(int chan) = 0;
   virtual int MediaStop(int chan) = 0;
+  virtual void MediaSetupComplete(int chan) = 0;
 
   virtual void DisconnectionOrError() = 0;
 
@@ -130,6 +137,9 @@ public:
   virtual void CustomizeSensorConfig(HU::ChannelDescriptor::SensorChannel& sensorChannel) {}
   virtual void CustomizeOutputChannel(int chan, HU::ChannelDescriptor::OutputStreamChannel& streamChannel) {}
   virtual void CustomizeInputChannel(int chan, HU::ChannelDescriptor::InputStreamChannel& streamChannel) {}
+
+  virtual void AudioFocusRequest(int chan, const HU::AudioFocusRequest& request) = 0;
+  virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) = 0;
 };
 
 
@@ -137,7 +147,7 @@ class HUServer : protected IHUConnectionThreadInterface
 {
 public:
   //Must be called from the "main" thread (as defined by the user)
-  int hu_aap_start    (byte ep_in_addr, byte ep_out_addr);                 // Used by          hu_mai,  hu_jni     // Starts USB/ACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
+  int hu_aap_start    (HU_TRANSPORT_TYPE transportType, bool waitForDevice);
   int hu_aap_shutdown ();
 
   HUServer(IHUConnectionThreadEventCallbacks& callbacks);
@@ -177,7 +187,7 @@ protected:
   int hu_ssl_begin_handshake ();
   int hu_handle_SSLHandshake(int chan, byte * buf, int len);
 
-  int ihu_tra_start (byte ep_in_addr, byte ep_out_addr);
+  int ihu_tra_start (HU_TRANSPORT_TYPE transportType, bool waitForDevice);
   int ihu_tra_stop();
   int iaap_msg_process (int chan, uint16_t msg_type, byte * buf, int len);
 

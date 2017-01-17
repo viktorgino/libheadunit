@@ -94,67 +94,186 @@ message SensorEvent
         optional int32 speed = 6;
         optional int32 bearing = 7;
     }
-    
+    message NightMode
+    {
+        required bool is_night = 1;
+    }
     message RPM
     {
         required int32 rpm = 1;
     }
-
     message FuelLevel
     {
         required int32 fuel_level = 1;
         optional int32 range = 2;
         optional bool low_fuel = 3;
     } 
-
-    message NightMode
-    {
-        required bool is_night = 1;
-    }
-
     message DrivingStatus
     {
-        required int32 is_driving = 1;
+        enum STATUS
+        {
+            DRIVE_STATUS_FULLY_RESTRICTED = 31; // 0x1f
+            DRIVE_STATUS_LIMIT_MESSAGE_LEN = 16; // 0x10
+            DRIVE_STATUS_NO_CONFIG = 8; // 0x8
+            DRIVE_STATUS_NO_KEYBOARD_INPUT = 2; // 0x2
+            DRIVE_STATUS_NO_VIDEO = 1; // 0x1
+            DRIVE_STATUS_NO_VOICE_INPUT = 4; // 0x4
+            DRIVE_STATUS_UNRESTRICTED = 0; // 0x0
+        }
+        required int32 status = 1;
     }
-
     message DeadReckoning
     {
         optional int32 steering_angel = 1;
         optional int32 wheel_speed = 2;
     }
+    message CompassData 
+    {
+        optional int32 bearing_e6 =1;
+        optional int32 pitch_e6 =2;
+        optional int32 roll_e6 =3;
+    }
+    message SpeedData 
+    {
+        optional int32 speed_e6 =1;
+        optional bool cruise_engaged=2;
+        optional bool cruise_set_speed=3;
+    }
+    message OdometerData 
+    {
+        optional int32 kms_el = 1;
+        optional int32 trip_kms_el = 2;
+    }
+    message ParkingBreak 
+    {
+        optional bool parking_breake =1;
+    }
+    message Passenger 
+    {
+        optional bool passenger_present =1;
+    }
+    message Diagnostics 
+    {
+        optional bytes diagnostics_byte = 1;
+    }
+    message Environment 
+    {
+        optional int32 temperature_e3 =1;
+        optional int32 pressure_e3 = 2;
+        optional int32 rain = 3;
+    }
+    message HVAC 
+    {
+        optional int32 target_temperature_e3 = 1;
+        optional int32 current_temperature_e3 = 2;
+    }
+    message Accel 
+    {
+        optional int32 acceleration_x_e3 = 1;
+        optional int32 acceleration_y_e3 = 2;
+        optional int32 acceleration_z_e3 = 3;
+    }
+    message Gyro 
+    {
+        optional int32 rotation_speed_x_e3 = 1;
+        optional int32 rotation_speed_y_e3 = 2;
+        optional int32 rotation_speed_z_e3 = 3;
+    }   
+    message Door 
+    {
+        optional bool hood_open=1;
+        optional bool boot_open=2;
+        repeated bool door_open=3;
+    }
+    message Light 
+    {
+        enum HEADLIGHT_STATE 
+        {
+            HEADLIGHT_STATE_0 = 0;
+            HEADLIGHT_STATE_1 = 1;
+            HEADLIGHT_STATE_2 = 2;
+            HEADLIGHT_STATE_3 = 3;
+        }
+        enum TURN_INDICATOR_STATE 
+        {
+            TURN_INDICATOR_STATE_0 = 0;
+            TURN_INDICATOR_STATE_1 = 1;
+            TURN_INDICATOR_STATE_2 = 2;
+            TURN_INDICATOR_STATE_3 = 3;
+        }
+        optional HEADLIGHT_STATE headlight = 1;
+        optional TURN_INDICATOR_STATE turn_indicator = 2;
+        optional bool hazard_light_on = 3;
+    
+    }
+    message GearData 
+    {
+        enum GEAR 
+        {
+            GEAR_DRIVE = 100; // 0x64
+            GEAR_EIGHTH = 8; // 0x8
+            GEAR_FIFTH = 5; // 0x5
+            GEAR_FIRST = 1; // 0x1
+            GEAR_FOURTH = 4; // 0x4
+            GEAR_NEUTRAL = 0; // 0x0
+            GEAR_NINTH = 9; // 0x9
+            GEAR_PARK = 101; // 0x65
+            GEAR_REVERSE = 102; // 0x66
+            GEAR_SECOND = 2; // 0x2
+            GEAR_SEVENTH = 7; // 0x7
+            GEAR_SIXTH = 6; // 0x6
+            GEAR_TENTH = 10; // 0xa
+            GEAR_THIRD = 3; // 0x3
+        }
+        required GEAR gear = 1;
+   }
 
-    repeated LocationData location_data = 1;
-    //repeated Compass = 2;
-    //repeated Speed = 3;
-    repeated RPM rpm = 4;
-    //repeated Odometer = 5;
-    repeated FuelLevel fuel_level = 6;
-    //repeated ParkingBreak = 7;
-    //repeated GearData = 8;
-    //repeated Diagnostics = 9;
-    repeated NightMode night_mode = 10;
-    //repeated Environment = 11;
-    //repeated HVAC = 12;
-    repeated DrivingStatus driving_status = 13;
-    repeated DeadReckoning dead_reckoning = 14;
-    //repeated Passenger = 15;
-    //repeated Door = 16;
-    //repeated Light = 17;
+    repeated LocationData location_data = 1; // Working
+    repeated CompassData compass_data = 2; // Sensor not yet supported
+    repeated SpeedData speed_data = 3; // Working - Aka data is received, but has no effect
+    repeated RPM rpm = 4; //Sensor not yet supported
+    repeated OdometerData odometer_data = 5; //Sensor not yet supported
+    repeated FuelLevel fuel_data = 6; //Sensor not yet supported
+    repeated ParkingBreak parkingbrake_data = 7; // Working
+    repeated GearData gear_data = 8; //Working but need to do the enum definition, and has no effect
+    repeated Diagnostics diagnostics_data = 9; //Sensor not yet supported
+    repeated NightMode night_mode = 10; // Working
+    repeated Environment enviorment_data = 11; //Sensor not yet supported
+    repeated HVAC hvac_data = 12; //Sensor not yet supported
+    repeated DrivingStatus driving_status = 13; //Working
+    repeated DeadReckoning dead_reckoning = 14; //Sensor not yet supported
+    repeated Passenger passenger_data = 15; //Sensor not yet supported
+    repeated Door door_data= 16; //Sensor not yet supported
+    repeated Light light_data= 17;  //Sensor not yet supported
     //repeated Tire = 18;
-    //repeated Accel = 19;
-    //repeated Gyro = 20;
+    repeated Accel accel_data = 19; //Sensor not yet supported
+    repeated Gyro gyro_data = 20; //Sensor not yet supported
     //repeated GPS = 21;
 }
 
 enum SENSOR_TYPE
 {
-    SENSOR_TYPE_UNKNOWN_SHOW_KEYBOARD = 13;
-    SENSOR_TYPE_DRIVING_STATUS = 11;
-    SENSOR_TYPE_NIGHT_DATA = 10;
-    SENSOR_TYPE_RPM = 3;
-    SENSOR_TYPE_DIAGNOSTICS = 8;
-    SENSOR_TYPE_GEAR = 7;
     SENSOR_TYPE_LOCATION = 1;
+    SENSOR_TYPE_COMPASS = 2;
+    SENSOR_TYPE_CAR_SPEED = 3;
+    SENSOR_TYPE_RPM = 4;
+    SENSOR_TYPE_ODOMETER = 5;
+    SENSOR_TYPE_FUEL_LEVEL = 6;
+    SENSOR_TYPE_PARKING_BRAKE = 7;
+    SENSOR_TYPE_GEAR = 8;
+    SENSOR_TYPE_DIAGNOSTICS = 9;
+    SENSOR_TYPE_NIGHT_DATA = 10;
+    SENSOR_TYPE_ENVIRONMENT = 11;
+    SENSOR_TYPE_HVAC = 12;
+    SENSOR_TYPE_DRIVING_STATUS = 13;
+    SENSOR_TYPE_DEAD_RECONING = 14;
+    SENSOR_TYPE_PASSENGER = 15;
+    SENSOR_TYPE_DOOR = 16;
+    SENSOR_TYPE_LIGHT = 17;
+    SENSOR_TYPE_TIRE = 18;
+    SENSOR_TYPE_ACCEL = 19;
+    SENSOR_TYPE_GYRO = 20;
+    SENSOR_TYPE_GPS = 21;
 }
 
 enum AUDIO_TYPE
