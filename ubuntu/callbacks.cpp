@@ -2,6 +2,10 @@
 #include "outputs.h"
 #include "glib_utils.h"
 
+std::atomic<bool> GlobalState::connected(false);
+std::atomic<bool> GlobalState::videoFocus(false);
+std::atomic<bool> GlobalState::audioFocus(false);
+
 DesktopEventCallbacks::DesktopEventCallbacks()  {
 
 }
@@ -64,11 +68,13 @@ void DesktopEventCallbacks::AudioFocusRequest(int chan, const HU::AudioFocusRequ
         if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_RELEASE) {
             audioOutput.reset();
             response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_LOSS);
+            GlobalState::audioFocus = false;
         } else {
             if (!audioOutput) {
                 audioOutput.reset(new AudioOutput());
             }
             response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_GAIN);
+            GlobalState::audioFocus = true;
         }
 
         g_hu->hu_queue_command([chan, response](IHUConnectionThreadInterface & s) {
@@ -84,6 +90,7 @@ void DesktopEventCallbacks::VideoFocusRequest(int chan, const HU::VideoFocusRequ
             if (!videoOutput) {
                 videoOutput.reset(new VideoOutput(this));
             }
+            GlobalState::audioFocus = true;
             g_hu->hu_queue_command([chan](IHUConnectionThreadInterface & s) {
                 HU::VideoFocus videoFocusGained;
                 videoFocusGained.set_mode(HU::VIDEO_FOCUS_MODE_FOCUSED);
@@ -94,18 +101,12 @@ void DesktopEventCallbacks::VideoFocusRequest(int chan, const HU::VideoFocusRequ
         else
         {
             videoOutput.reset();
+            GlobalState::audioFocus = false;
             g_hu->hu_queue_command([chan](IHUConnectionThreadInterface & s) {
                 HU::VideoFocus videoFocusGained;
                 videoFocusGained.set_mode(HU::VIDEO_FOCUS_MODE_UNFOCUSED);
                 videoFocusGained.set_unrequested(false);
                 s.hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
-            });
-
-            printf("Wating 3 seconds...\n");
-            run_on_main_thread_delay(3, [this](){
-                printf("Getting video focus again\n");
-                UnrequestedVideoFocusHappened(true);
-                return false;
             });
         }
         return false;
@@ -117,6 +118,7 @@ void DesktopEventCallbacks::UnrequestedVideoFocusHappened(bool hasFocus) {
         if ((bool)videoOutput != hasFocus) {
             videoOutput.reset(hasFocus ? new VideoOutput(this) : nullptr);
         }
+        GlobalState::videoFocus = hasFocus;
         g_hu->hu_queue_command([hasFocus](IHUConnectionThreadInterface & s) {
             HU::VideoFocus videoFocusGained;
             videoFocusGained.set_mode(hasFocus ? HU::VIDEO_FOCUS_MODE_FOCUSED : HU::VIDEO_FOCUS_MODE_UNFOCUSED);
@@ -125,4 +127,30 @@ void DesktopEventCallbacks::UnrequestedVideoFocusHappened(bool hasFocus) {
         });
         return false;
     });
+}
+
+DesktopCommandServerCallbacks::DesktopCommandServerCallbacks(DesktopEventCallbacks &eventCallbacks)
+    : eventCallbacks(eventCallbacks)
+{
+
+}
+
+bool DesktopCommandServerCallbacks::IsConnected() const
+{
+    return GlobalState::connected;
+}
+
+bool DesktopCommandServerCallbacks::HasAudioFocus() const
+{
+    return GlobalState::audioFocus;
+}
+
+bool DesktopCommandServerCallbacks::HasVideoFocus() const
+{
+    return GlobalState::videoFocus;
+}
+
+void DesktopCommandServerCallbacks::TakeVideoFocus()
+{
+    eventCallbacks.UnrequestedVideoFocusHappened(true);
 }

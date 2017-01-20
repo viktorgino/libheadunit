@@ -74,6 +74,13 @@ main(int argc, char *argv[]) {
         sigaction(SIGINT, &action, NULL);
 
         DesktopEventCallbacks callbacks;
+        DesktopCommandServerCallbacks commandCallbacks(callbacks);
+        CommandServer commandServer(commandCallbacks);
+        if (!commandServer.Start())
+        {
+            loge("Command server failed to start");
+        }
+
         HUServer headunit(callbacks);
 
         /* Start AA processing */
@@ -83,6 +90,7 @@ main(int argc, char *argv[]) {
                 return 0;
         }
 
+        GlobalState::connected = true;
 
         g_hu = &headunit.GetAnyThreadInterface();
 
@@ -91,6 +99,8 @@ main(int argc, char *argv[]) {
         if (ret < 0) {
                 printf("STATUS:gst_loop() ret: %d\n", ret);
         }
+
+        GlobalState::connected = false;
 
         /* Stop AA processing */
         ret = headunit.hu_aap_shutdown();

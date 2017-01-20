@@ -16,6 +16,9 @@ SRCS += $(TOP)/hu/generated.x64/hu.pb.cc
 
 SRCS += $(TOP)/common/audio.cpp
 SRCS += $(TOP)/common/glib_utils.cpp
+SRCS += $(TOP)/common/command_server.cpp
+
+SRCS += $(TOP)/common/web++/web++.cpp
 
 SRCS += main.cpp
 SRCS += outputs.cpp

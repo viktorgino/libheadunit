@@ -1,12 +1,22 @@
 #pragma once
 
+#include <atomic>
+
 #include "main.h"
 #include "audio.h"
+#include "command_server.h"
 
 #include <asoundlib.h>
 
 class VideoOutput;
 class AudioOutput;
+
+struct GlobalState
+{
+    static std::atomic<bool> connected;
+    static std::atomic<bool> videoFocus;
+    static std::atomic<bool> audioFocus;
+};
 
 class DesktopEventCallbacks : public IHUConnectionThreadEventCallbacks {
         std::unique_ptr<VideoOutput> videoOutput;
@@ -27,4 +37,16 @@ public:
         virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) override;
 
         void UnrequestedVideoFocusHappened(bool hasFocus);
+};
+
+class DesktopCommandServerCallbacks : public ICommandServerCallbacks
+{
+    DesktopEventCallbacks& eventCallbacks;
+public:
+    DesktopCommandServerCallbacks(DesktopEventCallbacks& eventCallbacks);
+
+    virtual bool IsConnected() const override;
+    virtual bool HasAudioFocus() const override;
+    virtual bool HasVideoFocus() const override;
+    virtual void TakeVideoFocus() override;
 };
