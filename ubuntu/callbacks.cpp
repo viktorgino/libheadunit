@@ -44,7 +44,7 @@ int DesktopEventCallbacks::MediaStop(int chan) {
 
 void DesktopEventCallbacks::MediaSetupComplete(int chan) {
     if (chan == AA_CH_VID) {
-        UnrequestedVideoFocusHappened(true);
+        VideoFocusHappened(true, true);
     }
 }
 
@@ -85,44 +85,19 @@ void DesktopEventCallbacks::AudioFocusRequest(int chan, const HU::AudioFocusRequ
 }
 
 void DesktopEventCallbacks::VideoFocusRequest(int chan, const HU::VideoFocusRequest &request) {
-    run_on_main_thread([this, chan, request](){
-        if (request.mode() == HU::VIDEO_FOCUS_MODE_FOCUSED) {
-            if (!videoOutput) {
-                videoOutput.reset(new VideoOutput(this));
-            }
-            GlobalState::audioFocus = true;
-            g_hu->hu_queue_command([chan](IHUConnectionThreadInterface & s) {
-                HU::VideoFocus videoFocusGained;
-                videoFocusGained.set_mode(HU::VIDEO_FOCUS_MODE_FOCUSED);
-                videoFocusGained.set_unrequested(false);
-                s.hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
-            });
-        }
-        else
-        {
-            videoOutput.reset();
-            GlobalState::audioFocus = false;
-            g_hu->hu_queue_command([chan](IHUConnectionThreadInterface & s) {
-                HU::VideoFocus videoFocusGained;
-                videoFocusGained.set_mode(HU::VIDEO_FOCUS_MODE_UNFOCUSED);
-                videoFocusGained.set_unrequested(false);
-                s.hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
-            });
-        }
-        return false;
-    });
+    VideoFocusHappened(request.mode() == HU::VIDEO_FOCUS_MODE_FOCUSED, false);
 }
 
-void DesktopEventCallbacks::UnrequestedVideoFocusHappened(bool hasFocus) {
-    run_on_main_thread([this, hasFocus](){
+void DesktopEventCallbacks::VideoFocusHappened(bool hasFocus, bool unrequested) {
+    run_on_main_thread([this, hasFocus, unrequested](){
         if ((bool)videoOutput != hasFocus) {
             videoOutput.reset(hasFocus ? new VideoOutput(this) : nullptr);
         }
         GlobalState::videoFocus = hasFocus;
-        g_hu->hu_queue_command([hasFocus](IHUConnectionThreadInterface & s) {
+        g_hu->hu_queue_command([hasFocus, unrequested](IHUConnectionThreadInterface & s) {
             HU::VideoFocus videoFocusGained;
             videoFocusGained.set_mode(hasFocus ? HU::VIDEO_FOCUS_MODE_FOCUSED : HU::VIDEO_FOCUS_MODE_UNFOCUSED);
-            videoFocusGained.set_unrequested(true);
+            videoFocusGained.set_unrequested(unrequested);
             s.hu_aap_enc_send_message(0, AA_CH_VID, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
         });
         return false;
@@ -152,5 +127,5 @@ bool DesktopCommandServerCallbacks::HasVideoFocus() const
 
 void DesktopCommandServerCallbacks::TakeVideoFocus()
 {
-    eventCallbacks.UnrequestedVideoFocusHappened(true);
+    eventCallbacks.VideoFocusHappened(true, true);
 }

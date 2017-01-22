@@ -36,7 +36,7 @@ public:
         virtual void AudioFocusRequest(int chan, const HU::AudioFocusRequest& request) override;
         virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) override;
 
-        void UnrequestedVideoFocusHappened(bool hasFocus);
+        void VideoFocusHappened(bool hasFocus, bool unrequested);
 };
 
 class DesktopCommandServerCallbacks : public ICommandServerCallbacks
