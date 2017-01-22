@@ -88,17 +88,6 @@ fi
 
 show_message_OK "Version = ${CMU_SW_VER} : To continue installation press OK"
 
-# disable watchdogs in /jci/sm/sm.conf to avoid boot loops if somthing goes wrong
-if [ ! -e /jci/sm/sm.conf.org ]
-	then
-		cp -a /jci/sm/sm.conf /jci/sm/sm.conf.org
-		log_message "=== Backup of /jci/sm/sm.conf to sm.conf.org ==="
-	else log_message "=== Backup of /jci/sm.conf.org already there! ==="
-fi
-sed -i 's/watchdog_enable="true"/watchdog_enable="false"/g' /jci/sm/sm.conf
-sed -i 's|args="-u /jci/gui/index.html"|args="-u /jci/gui/index.html --noWatchdogs"|g' /jci/sm/sm.conf
-log_message "=== WATCHDOG IN SM.CONF PERMANENTLY DISABLED ==="
-
 
 # -- Enable userjs and allow file XMLHttpRequest in /jci/opera/opera_home/opera.ini - backup first - then edit
 if [ ! -e /jci/opera/opera_home/opera.ini.org ]
@@ -129,11 +118,7 @@ if [ ! -e /jci/opera/opera_dir/userjs/fps.js.bak ]
 		mv /jci/opera/opera_dir/userjs/fps.js /jci/opera/opera_dir/userjs/fps.js.bak
 fi
 
-cp -a ${MYDIR}/config/androidauto/usr/lib/gstreamer-0.10/libgsth264parse.so /usr/lib/gstreamer-0.10
-cp -a ${MYDIR}/config/androidauto/usr/lib/gstreamer-0.10/libgstalsa.so /usr/lib/gstreamer-0.10
-
 log_message "=== Copied Android Auto Headunit App files ==="
-chmod 755 /tmp/mnt/data_persist/dev/bin/websocketd
 chmod 755 /tmp/mnt/data_persist/dev/bin/headunit
 chmod 755 /tmp/mnt/data_persist/dev/bin/headunit-wrapper
 
@@ -144,18 +129,33 @@ if [ -e "/jci/scripts/stage_wifi.sh" ]
 			then
 				echo "exist"
 				log_message "=== Modifications already done to /jci/scripts/stage_wifi.sh ==="
+				if grep -Fq "websocketd" /jci/scripts/stage_wifi.sh
+					then
+					log_message "Found old websocketd version"
+					sed -i 's/^websocketd.*/headunit-wrapper &/' /jci/scripts/stage_wifi.sh
+				fi
 			else
 				#first backup
-				cp -a /jci/scripts/stage_wifi.sh /jci/scripts/stage_wifi.sh.org3
-				log_message "=== Backup of /jci/scripts/stage_wifi.sh to stage_wifi.sh.org3==="
+				cp -a /jci/scripts/stage_wifi.sh /jci/scripts/stage_wifi.sh.bak
+				log_message "=== Backup of /jci/scripts/stage_wifi.sh to stage_wifi.sh.bak==="
 				echo "# Android Auto start" >> /jci/scripts/stage_wifi.sh
-				echo "websocketd --port=9999 sh &" >> /jci/scripts/stage_wifi.sh
+				echo "headunit-wrapper &" >> /jci/scripts/stage_wifi.sh
 				log_message "=== Modifications added to /jci/scripts/stage_wifi.sh ==="
 			break
 		fi
 	fi
 log_message "=== END INSTALLATION OF ANDROID AUTO HEADUNIT APP ==="
 
+#make sure it can run this will hopefully generate a more useful log for debugging
+log_message "=== RUNNING TEST RUN ==="
+/tmp/mnt/data_persist/dev/bin/headunit-wrapper test
+log_message $(cat /tmp/mnt/data/headunit.log)
+if grep -Fq "--TESTMODE_OK---" /tmp/mnt/data/headunit.log
+	then
+		log_message "Test looks good"
+	else
+		show_message "Headunit binary can't launch. Check the log"
+fi
 
 /jci/tools/jci-dialog --confirm --title="SELECTED ALL-IN-ONE TWEAKS APPLIED" --text="Click OK to reboot the system"
 		if [ $? != 1 ]

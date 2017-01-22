@@ -73,19 +73,6 @@ static void nightmode_thread_func(std::condition_variable& quitcv, std::mutex& q
 	mzd_nightmode_stop();
 }
 
-
-static void signals_handler (int signum)
-{
-	if (signum == SIGINT)
-	{
-		if (gst_app.loop && g_main_loop_is_running (gst_app.loop))
-		{
-			g_main_loop_quit (gst_app.loop);
-		}
-	}
-}
-
-
 void gps_location_handler(uint64_t timestamp, double lat, double lng, double bearing, double speed, double alt, double accuracy) {
 	logd("[LOC][%" PRIu64 "] - Lat: %f Lng: %f Brng: %f Spd: %f Alt: %f Acc: %f \n", 
 			timestamp, lat, lng, bearing, speed, alt, accuracy);
@@ -134,7 +121,7 @@ int main (int argc, char *argv[])
     dispatcher.attach(nullptr);
     printf("DBus::Glib::BusDispatcher attached\n");
 
-    gst_init(NULL, NULL);
+    gst_init(&argc, &argv);
 
     try
     {
@@ -145,29 +132,33 @@ int main (int argc, char *argv[])
         DBus::Connection serviceBus(SERVICE_BUS_ADDRESS, false);
         serviceBus.register_bus();
 
+        MazdaEventCallbacks callbacks(serviceBus, hmiBus);
+        MazdaCommandServerCallbacks commandCallbacks(callbacks);
+        CommandServer commandServer(commandCallbacks);
+        if (!commandServer.Start())
+        {
+            loge("Command server failed to start");
+            return 1;
+        }
 
-        //signal (SIGTERM, signals_handler);
+        if (argc >= 2 && strcmp(argv[1], "test") == 0)
+        {
+            //test mode from the installer, if we got here it's ok
+            printf("---TESTMODE_OK---\n");
+            return 0;
+        }
 
         printf("Looping\n");
-
         while (true)
         {
-            MazdaEventCallbacks callbacks(serviceBus, hmiBus);
             HUServer headunit(callbacks);
-            MazdaCommandServerCallbacks commandCallbacks(callbacks);
-            CommandServer commandServer(commandCallbacks);
-            if (!commandServer.Start())
-            {
-                loge("Command server failed to start");
-            }
-
             g_hu = &headunit.GetAnyThreadInterface();
 
             //Wait forever for a connection
             int ret = headunit.hu_aap_start(HU_TRANSPORT_TYPE::USB, true);
             if (ret < 0) {
                 loge("Something bad happened");
-                return 0;
+                return 1;
             }
 
             printf("Starting Android Auto...\n");
@@ -191,6 +182,8 @@ int main (int argc, char *argv[])
             g_main_loop_run (gst_app.loop);
 
             GlobalState::connected = false;
+            GlobalState::videoFocus = false;
+            GlobalState::audioFocus = false;
 
             printf("quitting...\n");
             //wake up night mode polling thread
@@ -211,18 +204,17 @@ int main (int argc, char *argv[])
             ret = headunit.hu_aap_shutdown();
             if (ret < 0) {
                 printf("hu_aap_shutdown() ret: %d\n", ret);
-                ret = -6;
+                return ret;
             }
 
 
             g_hu = nullptr;
-
-            printf("END \n");
         }
     }
     catch(DBus::Error& error)
     {
         loge("DBUS Error: %s: %s", error.name(), error.message());
+        return 1;
     }
 
 	return 0;

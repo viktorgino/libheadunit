@@ -59,8 +59,8 @@ _androidautoApp.prototype.appInit = function()
         // haven't yet been able to receive messages from MMUI
     };
     //@formatter:on
-    
-    var ws = null;
+
+    var timerId = null;
 };
 
 /**
@@ -68,85 +68,80 @@ _androidautoApp.prototype.appInit = function()
  * CONTEXT CALLBACKS
  * =========================
  */
+
+function callCommandServer(method, request)
+{
+    var xhttp = new XMLHttpRequest();
+    xhttp.open(method, "http://localhost:8000/" + request, false);
+    xhttp.send();
+
+    if (xhttp.readState == 4 && xhttp.stats == 200)
+    {
+        return JSON.parse(xhttp.responseText);
+    }
+    return null;
+};
+
+function AAlogPoll() {
+	
+    var currentStatus = callCommandServer("GET", "status");
+    //no point updating if not showing this pane
+    if (!currentStatus.videoFocus)
+    {
+        //put these back to what the JS code thinks they are just incase
+        utility.setRequiredSurfaces(framework._visibleSurfaces, true);
+
+        var xhttp = new XMLHttpRequest();
+        xhttp.onreadystatechange = function() 
+        {
+            var debugTxt = "";
+            if (this.readyState == 4 && this.status == 200) 
+            {
+                debugTxt = xmlhttp.responseText;
+            }
+            else 
+            {
+                debugTxt = "HTTP Error";
+            }
+            var psconsole = document.getElementById('aaStatusText');
+            if (psconsole.value != debugTxt)
+            {
+                psconsole.focus();
+                psconsole.value = debugTxt;
+
+                if(psconsole.length)
+                    psconsole.scrollTop(psconsole[0].scrollHeight - psconsole.height());
+            }
+            
+        };
+        xhttp.open("GET", "file:///tmp/mnt/data/headunit.log", true);
+        xhttp.send();
+    }
+
+} 
+
 _androidautoApp.prototype._StartContextReady = function ()
 {
-    // do anything you want here
-	if (!document.getElementById("jquery1-script")) {
-		var docBody = document.getElementsByTagName("body")[0];
-		if (docBody) {
-			var script1 = document.createElement("script");
-			script1.setAttribute("id", "jquery1-script");
-			script1.setAttribute("src", "/jci/gui/apps/_androidauto/js/jquery.min.js");
-			script1.addEventListener('load', function () {
-				androidauto();
-			}, false);
-			docBody.appendChild(script1);
-		}
-	} else {
-		
-		androidauto();
-	}
-};
-function startAA()
-{
-		ws.send("/data_persist/dev/bin/headunit-wrapper; echo 'END' \n");	
+    AAlogPoll();
+    if (timerId == null)
+    {
+        timerId = window.setInterval(AAlogPoll, 1000);
+    }
 
-}
-
-function androidauto() {
-	
-	ws = new WebSocket('ws://localhost:9999/');
-	
-	debugTxt = '';
-	
-	var credits = document.getElementsByClassName("TemplateWithStatusLeft AndroidAutoTmplt")[0];
-
-	if (!window.aaHasStartedOnce)
-		$('#'+credits.id).children().fadeIn().delay(3000).fadeOut();
-	else
-		$('#'+credits.id).children().fadeOut(0);
-
-	window.aaHasStartedOnce = true;
- 
-	ws.onopen = function() {
-		ws.send("pgrep headunit && echo 'IS_RUNNING' || echo 'NOT_RUNNING' \n");
-	};
-
-	
-	ws.onmessage = function(event) {
-		
-		debugTxt = debugTxt + event.data + '\n';
-		
-		if ( event.data.indexOf("END") > -1) {
-			var psconsole = $('#aaStatusText');
-			psconsole.focus();
-			psconsole.append(debugTxt);
-
-			if(psconsole.length)
-				psconsole.scrollTop(psconsole[0].scrollHeight - psconsole.height());
-
-			var credits = document.getElementsByClassName("TemplateWithStatusLeft AndroidAutoTmplt")[0];
-
-			$('#'+credits.id).children().fadeIn();
-
-            //put these back to what the JS code thinks they are just incase
-            utility.setRequiredSurfaces(framework._visibleSurfaces, true);
-		}
-		else if ( event.data.indexOf("NOT_RUNNING") > -1) {
-			startAA();
-		}
-		else if ( event.data.indexOf("IS_RUNNING") > -1) {
-			$('#'+credits.id).remove();
-
-			ws.send("kill -SIGUSR1 $(pgrep headunit) \n");
-		}
-	}; 
-}  
+    var currentStatus = callCommandServer("GET", "status");
+    if (!currentStatus.videoFocus && currentStatus.connected)
+    {
+        callCommandServer("POST", "takeVideoFocus");
+    }
+}; 
 
 _androidautoApp.prototype._StartContextOut = function ()
 {
-	ws.send("killall headunit \n");
-	ws.close();
+    if (timerId != null)
+    {
+        window.clearInterval(timerId);
+        timerId = null;
+    }
 };
 
 
