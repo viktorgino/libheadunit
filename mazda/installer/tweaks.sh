@@ -54,10 +54,6 @@ show_message_OK()
 }
 
 
-# disable watchdog and allow write access
-echo 1 > /sys/class/gpio/Watchdog\ Disable/value
-mount -o rw,remount /
-
 
 MYDIR=$(dirname $(readlink -f $0))
 CMU_SW_VER=$(get_cmu_sw_version)
@@ -68,15 +64,11 @@ rm -f "${MYDIR}/AIO_log.txt"
 log_message "=== START LOGGING ... ==="
 # log_message "=== CMU_SW_VER = ${CMU_SW_VER} ==="
 log_message "=== MYDIR = ${MYDIR} ==="
-log_message "=== Watchdog temporary disabeld and write access enabled ==="
-
 
 # first test, if copy from MZD to sd card is working to test correct mount point
-cp /jci/sm/sm.conf ${MYDIR}/config
-if [ -e ${MYDIR}/config/sm.conf ]
+if [ -e "${MYDIR}/AIO_log.txt" ]
 	then
 		log_message "=== Copytest to sd card successful, mount point is OK ==="
-		rm -f ${MYDIR}/config/sm.conf
 	else
 		log_message "=== Copytest to sd card not successful, mount point not found! ==="
 		/jci/tools/jci-dialog --title="ERROR!" --text="Mount point not found, have to reboot again" --ok-label='OK' --no-cancel &
@@ -87,6 +79,16 @@ fi
 
 
 show_message_OK "Version = ${CMU_SW_VER} : To continue installation press OK"
+
+# disable watchdog and allow write access
+echo 1 > /sys/class/gpio/Watchdog\ Disable/value
+mount -o rw,remount /
+
+log_message "=== Watchdog temporary disabeld and write access enabled ==="
+
+
+log_message "=== Killing running headunit processes ==="
+killall -q -9 headunit
 
 
 # -- Enable userjs and allow file XMLHttpRequest in /jci/opera/opera_home/opera.ini - backup first - then edit
@@ -129,10 +131,10 @@ if [ -e "/jci/scripts/stage_wifi.sh" ]
 			then
 				echo "exist"
 				log_message "=== Modifications already done to /jci/scripts/stage_wifi.sh ==="
-				if grep -Fq "websocketd" /jci/scripts/stage_wifi.sh
+				if grep -q "websocketd" /jci/scripts/stage_wifi.sh
 					then
 					log_message "Found old websocketd version"
-					sed -i 's/^websocketd.*/headunit-wrapper &/' /jci/scripts/stage_wifi.sh
+					sed -i 's/.*websocketd.*/headunit-wrapper \&/' /jci/scripts/stage_wifi.sh
 				fi
 			else
 				#first backup
@@ -146,11 +148,11 @@ if [ -e "/jci/scripts/stage_wifi.sh" ]
 	fi
 log_message "=== END INSTALLATION OF ANDROID AUTO HEADUNIT APP ==="
 
-#make sure it can run this will hopefully generate a more useful log for debugging
+#make sure it can run. this will hopefully generate a more useful log for debugging that is easy to get if not
 log_message "=== RUNNING TEST RUN ==="
 /tmp/mnt/data_persist/dev/bin/headunit-wrapper test
-log_message $(cat /tmp/mnt/data/headunit.log)
-if grep -Fq "--TESTMODE_OK---" /tmp/mnt/data/headunit.log
+cat /tmp/mnt/data/headunit.log >> "${MYDIR}/AIO_log.txt"
+if grep -Fq "###TESTMODE_OK###" /tmp/mnt/data/headunit.log
 	then
 		log_message "Test looks good"
 	else
@@ -163,3 +165,6 @@ fi
 			reboot
 			exit
 		fi
+
+log_message "=== TEST RUN ==="
+/tmp/mnt/data_persist/dev/bin/headunit-wrapper >> "${MYDIR}/AIO_log.txt"

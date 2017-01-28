@@ -269,7 +269,8 @@ void VideoOutput::input_thread_func()
                         printf("KEY_HOME\n");
                         if (isPressed)
                         {
-                            g_main_loop_quit (gst_app.loop);
+                            //go back to home screen
+                            callbacks->VideoFocusHappened(false, true);
                         }
                         break;
                     case KEY_R:

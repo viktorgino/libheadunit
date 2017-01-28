@@ -1,6 +1,7 @@
 #pragma once
 
 #include <atomic>
+#include <set>
 #include "hu_aap.h"
 
 #include "command_server.h"
@@ -30,19 +31,23 @@ class AudioManagerClient : public com::xsembedded::ServiceProvider_proxy,
     //"USB" as far as the audio manager cares is the normal ALSA sound output
     int usbSessionID = -1;
     int previousSessionID = -1;
+    bool hasFocus = false;
     bool waitingForFocusLostEvent = false;
     MazdaEventCallbacks& callbacks;
+    std::set<int> channelsWaitingForFocus;
+    std::set<int> channelsWithFocus;
 
     //These IDs are usually the same, but they depend on the startup order of the services on the car so we can't assume them 100% reliably
     void populateStreamTable();
 public:
     AudioManagerClient(MazdaEventCallbacks& callbacks, DBus::Connection &connection);
+    ~AudioManagerClient();
 
     bool canSwitchAudio();
 
     //calling requestAudioFocus directly doesn't work on the audio mgr
-    void audioMgrRequestAudioFocus();
-    void audioMgrReleaseAudioFocus();
+    void audioMgrRequestAudioFocus(int chan);
+    void audioMgrReleaseAudioFocus(int chan);
 
     virtual void Notify(const std::string& signalName, const std::string& payload) override;
 };
@@ -70,14 +75,15 @@ public:
         virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) override;
 
         void VideoFocusHappened(bool hasFocus, bool unrequested);
-        void AudioFocusHappend(bool hasFocus);
+        void AudioFocusHappend(int chan, bool hasFocus);
 };
 
 class MazdaCommandServerCallbacks : public ICommandServerCallbacks
 {
-    MazdaEventCallbacks& eventCallbacks;
 public:
-    MazdaCommandServerCallbacks(MazdaEventCallbacks& eventCallbacks);
+    MazdaCommandServerCallbacks();
+
+    MazdaEventCallbacks* eventCallbacks = nullptr;
 
     virtual bool IsConnected() const override;
     virtual bool HasAudioFocus() const override;

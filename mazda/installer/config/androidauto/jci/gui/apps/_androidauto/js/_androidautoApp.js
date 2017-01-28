@@ -42,7 +42,7 @@ _androidautoApp.prototype.appInit = function()
             "hideHomeBtn" : true,
             "template": "AndroidAutoTmplt",
             "properties" : {
-				"customBgImage" : "common/images/FullTransparent.png",
+                "customBgImage" : "common/images/FullTransparent.png",
                 "keybrdInputSurface" : "TV_TOUCH_SURFACE", 
                 "visibleSurfaces" :  ["TV_TOUCH_SURFACE"]    // Do not include JCI_OPERA_PRIMARY in this list            
             },// end of list of controlProperties
@@ -60,7 +60,7 @@ _androidautoApp.prototype.appInit = function()
     };
     //@formatter:on
 
-    var timerId = null;
+    this.timerId = null;
 };
 
 /**
@@ -69,78 +69,120 @@ _androidautoApp.prototype.appInit = function()
  * =========================
  */
 
-function callCommandServer(method, request)
+function AAcallCommandServer(method, request)
 {
     var xhttp = new XMLHttpRequest();
-    xhttp.open(method, "http://localhost:8000/" + request, false);
+    xhttp.open(method, "http://localhost:9999/" + request, false);
     xhttp.send();
 
-    if (xhttp.readState == 4 && xhttp.stats == 200)
+    if (xhttp.readyState == 4 && xhttp.status == 200)
     {
         return JSON.parse(xhttp.responseText);
     }
     return null;
 };
 
-function AAlogPoll() {
-	
-    var currentStatus = callCommandServer("GET", "status");
-    //no point updating if not showing this pane
-    if (!currentStatus.videoFocus)
+function AAdisplayError(location, err)
+{
+    var psconsole = document.getElementById('aaStatusText');
+    if (psconsole != null)
     {
-        //put these back to what the JS code thinks they are just incase
-        utility.setRequiredSurfaces(framework._visibleSurfaces, true);
+        psconsole.value = psconsole.value + location + ": " + err.toString() + "\n";
+    }
+}
 
-        var xhttp = new XMLHttpRequest();
-        xhttp.onreadystatechange = function() 
+function AAlogPoll() 
+{
+    
+    try
+    {
+        var currentStatus = AAcallCommandServer("GET", "status");
+        //no point updating if not showing this pane
+        if (!currentStatus.videoFocus)
         {
-            var debugTxt = "";
-            if (this.readyState == 4 && this.status == 200) 
-            {
-                debugTxt = xmlhttp.responseText;
-            }
-            else 
-            {
-                debugTxt = "HTTP Error";
-            }
-            var psconsole = document.getElementById('aaStatusText');
-            if (psconsole.value != debugTxt)
-            {
-                psconsole.focus();
-                psconsole.value = debugTxt;
+            //put these back to what the JS code thinks they are just incase
+            utility.setRequiredSurfaces(framework._visibleSurfaces, true);
 
-                if(psconsole.length)
-                    psconsole.scrollTop(psconsole[0].scrollHeight - psconsole.height());
-            }
-            
-        };
-        xhttp.open("GET", "file:///tmp/mnt/data/headunit.log", true);
-        xhttp.send();
+            var xhttp = new XMLHttpRequest();
+            xhttp.onreadystatechange = function() 
+            {
+                var debugTxt = "";
+                if (this.readyState == 4 && this.status == 200) 
+                {
+                    debugTxt = xmlhttp.responseText;
+                }
+                else 
+                {
+                    debugTxt = "HTTP Error";
+                }
+                var psconsole = document.getElementById('aaStatusText');
+                if (psconsole != null && psconsole.value != debugTxt)
+                {
+                    psconsole.focus();
+                    psconsole.value = debugTxt;
+
+                    if(psconsole.length)
+                        psconsole.scrollTop = (psconsole[0].scrollHeight - psconsole.height());
+                }
+                
+            };
+            xhttp.open("GET", "file://localhost/tmp/mnt/data/headunit.log", true);
+            xhttp.send();
+        }
+    }
+    catch(err)
+    {
+        AAdisplayError("AAlogPoll", err);
     }
 
 } 
 
 _androidautoApp.prototype._StartContextReady = function ()
 {
-    AAlogPoll();
-    if (timerId == null)
+    AAdisplayError("Test", "No error");
+    try
     {
-        timerId = window.setInterval(AAlogPoll, 1000);
-    }
+        AAlogPoll();
+        if (this.timerId == null)
+        {
+            this.timerId = window.setInterval(AAlogPoll, 1000);
+        }
 
-    var currentStatus = callCommandServer("GET", "status");
-    if (!currentStatus.videoFocus && currentStatus.connected)
+        var currentStatus = AAcallCommandServer("GET", "status");
+        if (!currentStatus.videoFocus && currentStatus.connected)
+        {
+            var takeFocus = function() 
+            {
+                callCommandServer("POST", "takeVideoFocus");
+            };
+
+            if (!window.aaHasStartedOnce)
+                window.setTimeout(takeFocus, 3000);
+            else
+                takeFocus();
+
+            window.aaHasStartedOnce = true;
+        }
+    }
+    catch(err)
     {
-        callCommandServer("POST", "takeVideoFocus");
+        AAdisplayError("_StartContextReady", err);
     }
 }; 
 
 _androidautoApp.prototype._StartContextOut = function ()
 {
-    if (timerId != null)
+    try
     {
-        window.clearInterval(timerId);
-        timerId = null;
+        if (this.timerId != null)
+        {
+            window.clearInterval(this.timerId);
+            this.timerId = null;
+        }
+    }
+    catch(err)
+    {
+        AAdisplayError("_StartContextOut", err);
     }
 };
 

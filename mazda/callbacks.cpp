@@ -15,8 +15,8 @@ MazdaEventCallbacks::MazdaEventCallbacks(DBus::Connection& serviceBus, DBus::Con
     : serviceBus(serviceBus)
     , hmiBus(hmiBus)
 {
-    //no need to create/destory this
-    audioOutput.reset(new AudioOutput());
+    //no need to create/destroy this
+    audioOutput.reset(new AudioOutput("default", true));
     audioMgrClient.reset(new AudioManagerClient(*this, serviceBus));
 }
 
@@ -75,11 +75,14 @@ void MazdaEventCallbacks::CustomizeOutputChannel(int chan, HU::ChannelDescriptor
 
 void MazdaEventCallbacks::AudioFocusRequest(int chan, const HU::AudioFocusRequest &request)  {
 
-    if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_RELEASE) {
-        audioMgrClient->audioMgrReleaseAudioFocus();
-    } else {
-        audioMgrClient->audioMgrRequestAudioFocus();
-    }
+    run_on_main_thread([this, chan, request](){
+        if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_RELEASE) {
+            audioMgrClient->audioMgrReleaseAudioFocus(chan);
+        } else {
+            audioMgrClient->audioMgrRequestAudioFocus(chan);
+        }
+        return false;
+    });
 }
 
 void MazdaEventCallbacks::VideoFocusRequest(int chan, const HU::VideoFocusRequest &request) {
@@ -102,25 +105,20 @@ void MazdaEventCallbacks::VideoFocusHappened(bool hasFocus, bool unrequested) {
     });
 }
 
-void MazdaEventCallbacks::AudioFocusHappend(bool hasFocus) {
-    run_on_main_thread([this, hasFocus](){
-        HU::AudioFocusResponse response;
-        GlobalState::audioFocus = hasFocus;
-        if (hasFocus) {
-            response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_GAIN);
-        } else {
-            response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_LOSS);
-        }
-        g_hu->hu_queue_command([response](IHUConnectionThreadInterface & s) {
-            s.hu_aap_enc_send_message(0, AA_CH_AUD, HU_PROTOCOL_MESSAGE::AudioFocusResponse, response);
-            s.hu_aap_enc_send_message(0, AA_CH_AU1, HU_PROTOCOL_MESSAGE::AudioFocusResponse, response);
-        });
-        return false;
+void MazdaEventCallbacks::AudioFocusHappend(int chan, bool hasFocus) {
+    HU::AudioFocusResponse response;
+    if (hasFocus) {
+        response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_GAIN);
+    } else {
+        response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_LOSS);
+    }
+    g_hu->hu_queue_command([chan, response](IHUConnectionThreadInterface & s) {
+        s.hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::AudioFocusResponse, response);
     });
+    printf("Sent channel %i HU_PROTOCOL_MESSAGE::AudioFocusResponse %s\n", chan,  HU::AudioFocusResponse::AUDIO_FOCUS_STATE_Name(response.focus_type()).c_str());
 }
 
-MazdaCommandServerCallbacks::MazdaCommandServerCallbacks(MazdaEventCallbacks &eventCallbacks)
-    : eventCallbacks(eventCallbacks)
+MazdaCommandServerCallbacks::MazdaCommandServerCallbacks()
 {
 
 }
@@ -142,7 +140,10 @@ bool MazdaCommandServerCallbacks::HasVideoFocus() const
 
 void MazdaCommandServerCallbacks::TakeVideoFocus()
 {
-    eventCallbacks.VideoFocusHappened(true, true);
+    if (GlobalState::connected && eventCallbacks)
+    {
+        eventCallbacks->VideoFocusHappened(true, true);
+    }
 }
 
 
@@ -222,10 +223,29 @@ AudioManagerClient::AudioManagerClient(MazdaEventCallbacks& callbacks, DBus::Con
     }
 }
 
+AudioManagerClient::~AudioManagerClient()
+{
+    if (previousSessionID >= 0)
+    {
+        json args = { { "sessionId", previousSessionID } };
+        std::string result = Request("requestAudioFocus", args.dump());
+        printf("requestAudioFocus(%s)\n%s\n", args.dump().c_str(), result.c_str());
+    }
+}
+
 bool AudioManagerClient::canSwitchAudio() { return usbSessionID >= 0; }
 
-void AudioManagerClient::audioMgrRequestAudioFocus()
+void AudioManagerClient::audioMgrRequestAudioFocus(int chan)
 {
+    if (hasFocus)
+    {
+        //no need to do anything
+        callbacks.AudioFocusHappend(chan, true);
+        channelsWithFocus.insert(chan);
+        return;
+    }
+
+    channelsWaitingForFocus.insert(chan);
     if (previousSessionID >= 0 || waitingForFocusLostEvent)
     {
         //already asked
@@ -239,11 +259,20 @@ void AudioManagerClient::audioMgrRequestAudioFocus()
     printf("requestAudioFocus(%s)\n%s\n", args.dump().c_str(), result.c_str());
 }
 
-void AudioManagerClient::audioMgrReleaseAudioFocus()
+void AudioManagerClient::audioMgrReleaseAudioFocus(int chan)
 {
+    if (!hasFocus)
+    {
+        //no need to do anything
+        callbacks.AudioFocusHappend(chan, false);
+        channelsWithFocus.erase(chan);
+        return;
+    }
+
+    channelsWaitingForFocus.insert(chan);
     if (previousSessionID < 0)
     {
-        //no focus
+        //already pending release request
         return;
     }
 
@@ -263,31 +292,53 @@ void AudioManagerClient::Notify(const std::string &signalName, const std::string
             auto result = json::parse(payload);
             std::string streamName = result["streamName"].get<std::string>();
             std::string newFocus = result["newFocus"].get<std::string>();
-            if (newFocus == "lost" || newFocus == "gained")
+
+            auto findIt = streamToSessionIds.find(streamName);
+            int eventSessionID = -1;
+            if (findIt != streamToSessionIds.end())
             {
-                auto findIt = streamToSessionIds.find(streamName);
-                int eventSessionID = -1;
-                if (findIt != streamToSessionIds.end())
+                eventSessionID = findIt->second;
+                printf("Found audio sessionId %i for stream %s\n", eventSessionID, streamName.c_str());
+            }
+            else
+            {
+                loge("Can't find audio sessionId for stream %s\n", streamName.c_str());
+            }
+
+            if (eventSessionID >= 0)
+            {
+                if (waitingForFocusLostEvent && newFocus == "lost")
                 {
-                    eventSessionID = findIt->second;
-                    printf("Found audio sessionId %i for stream %s\n", eventSessionID, streamName.c_str());
-                }
-                else
-                {
-                    loge("Can't find audio sessionId for stream %s\n", streamName.c_str());
+                    previousSessionID = eventSessionID;
+                    waitingForFocusLostEvent = false;
                 }
 
-                if (eventSessionID >= 0)
+                if (eventSessionID == usbSessionID)
                 {
-                    if (waitingForFocusLostEvent)
+                    hasFocus = newFocus != "lost";
+                    GlobalState::audioFocus = hasFocus;
+                    for (int chan : channelsWaitingForFocus)
                     {
-                        previousSessionID = eventSessionID;
-                        waitingForFocusLostEvent = false;
+                        callbacks.AudioFocusHappend(chan, hasFocus);
+                        if (hasFocus)
+                        {
+                            channelsWithFocus.insert(chan);
+                        }
+                        else
+                        {
+                            channelsWithFocus.erase(chan);
+                        }
                     }
+                    channelsWaitingForFocus.clear();
 
-                    if (eventSessionID == usbSessionID)
+                    //If we lost focus, tell the other channels which we previously were focused
+                    if (!hasFocus)
                     {
-                        callbacks.AudioFocusHappend(newFocus == "gained");
+                        for (int chan : channelsWithFocus)
+                        {
+                            callbacks.AudioFocusHappend(chan, false);
+                        }
+                        channelsWithFocus.clear();;
                     }
                 }
             }

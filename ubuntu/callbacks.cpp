@@ -104,8 +104,7 @@ void DesktopEventCallbacks::VideoFocusHappened(bool hasFocus, bool unrequested) 
     });
 }
 
-DesktopCommandServerCallbacks::DesktopCommandServerCallbacks(DesktopEventCallbacks &eventCallbacks)
-    : eventCallbacks(eventCallbacks)
+DesktopCommandServerCallbacks::DesktopCommandServerCallbacks()
 {
 
 }
@@ -127,5 +126,8 @@ bool DesktopCommandServerCallbacks::HasVideoFocus() const
 
 void DesktopCommandServerCallbacks::TakeVideoFocus()
 {
-    eventCallbacks.VideoFocusHappened(true, true);
+    if (GlobalState::connected && eventCallbacks)
+    {
+        eventCallbacks->VideoFocusHappened(true, true);
+    }
 }

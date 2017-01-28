@@ -73,44 +73,50 @@ main(int argc, char *argv[]) {
         SDL_Init(SDL_INIT_EVERYTHING);
         sigaction(SIGINT, &action, NULL);
 
-        DesktopEventCallbacks callbacks;
-        DesktopCommandServerCallbacks commandCallbacks(callbacks);
+        DesktopCommandServerCallbacks commandCallbacks;
         CommandServer commandServer(commandCallbacks);
         if (!commandServer.Start())
         {
             loge("Command server failed to start");
         }
 
-        HUServer headunit(callbacks);
+        //loop to emulate the caar
+        while(true)
+        {
+            DesktopEventCallbacks callbacks;
+            HUServer headunit(callbacks);
 
-        /* Start AA processing */
-        ret = headunit.hu_aap_start(HU_TRANSPORT_TYPE::USB, true);
-        if (ret < 0) {
-                printf("Phone is not connected. Connect a supported phone and restart.\n");
-                return 0;
+            /* Start AA processing */
+            ret = headunit.hu_aap_start(HU_TRANSPORT_TYPE::USB, true);
+            if (ret < 0) {
+                    printf("Phone is not connected. Connect a supported phone and restart.\n");
+                    return 0;
+            }
+
+            GlobalState::connected = true;
+
+            g_hu = &headunit.GetAnyThreadInterface();
+            commandCallbacks.eventCallbacks = &callbacks;
+
+              /* Start gstreamer pipeline and main loop */
+            ret = gst_loop(app);
+            if (ret < 0) {
+                    printf("STATUS:gst_loop() ret: %d\n", ret);
+            }
+
+            GlobalState::connected = false;
+            commandCallbacks.eventCallbacks = nullptr;
+
+            /* Stop AA processing */
+            ret = headunit.hu_aap_shutdown();
+            if (ret < 0) {
+                    printf("STATUS:hu_aap_stop() ret: %d\n", ret);
+                    SDL_Quit();
+                    return (ret);
+            }
+
+            g_hu = nullptr;
         }
-
-        GlobalState::connected = true;
-
-        g_hu = &headunit.GetAnyThreadInterface();
-
-          /* Start gstreamer pipeline and main loop */
-        ret = gst_loop(app);
-        if (ret < 0) {
-                printf("STATUS:gst_loop() ret: %d\n", ret);
-        }
-
-        GlobalState::connected = false;
-
-        /* Stop AA processing */
-        ret = headunit.hu_aap_shutdown();
-        if (ret < 0) {
-                printf("STATUS:hu_aap_stop() ret: %d\n", ret);
-                SDL_Quit();
-                return (ret);
-        }
-
-        g_hu = nullptr;
 
         SDL_Quit();
 

@@ -1,9 +1,12 @@
 #include "audio.h"
 
-AudioOutput::AudioOutput()
+AudioOutput::AudioOutput(const char *outDev, bool halfVolume)
+    : halfVolume(halfVolume)
 {
+    printf("snd_asoundlib_version: %s\n", snd_asoundlib_version());
+    logd("Device name %s\n", outDev);
     int err = 0;
-    if ((err = snd_pcm_open(&aud_handle, "default", SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
+    if ((err = snd_pcm_open(&aud_handle, outDev, SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
         loge("Playback open error: %s\n", snd_strerror(err));
     }
     if ((err = snd_pcm_set_params(aud_handle, SND_PCM_FORMAT_S16_LE, SND_PCM_ACCESS_RW_INTERLEAVED, 2,48000, 1, 500000)) < 0) {   /* 0.5sec */
@@ -14,7 +17,7 @@ AudioOutput::AudioOutput()
         loge("snd_pcm_prepare error: %s\n", snd_strerror(err));
     }
 
-    if ((err = snd_pcm_open(&au1_handle, "default", SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
+    if ((err = snd_pcm_open(&au1_handle, outDev, SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
         loge("Playback open error: %s\n", snd_strerror(err));
     }
     if ((err = snd_pcm_set_params(au1_handle, SND_PCM_FORMAT_S16_LE, SND_PCM_ACCESS_RW_INTERLEAVED, 1, 16000, 1, 500000)) < 0) {   /* 0.5sec */
@@ -51,18 +54,36 @@ void AudioOutput::MediaPacketAU1(uint64_t timestamp, const byte *buf, int len)
 
 void AudioOutput::MediaPacket(snd_pcm_t *pcm, const byte *buf, int len)
 {
+    //The output is super-loud on the car
+    if (halfVolume)
+    {
+        const int intCount = len / sizeof(int16_t);
+        if (audio_temp.size() < intCount)
+            audio_temp.resize(intCount);
+
+        int16_t* temp = audio_temp.data();
+        memcpy(temp, buf, intCount * sizeof(int16_t));
+        int16_t* tempEnd = temp + intCount;
+        while(temp < tempEnd)
+        {
+            //halve the volume
+            *temp >>= 1;
+            temp++;
+        }
+        buf = reinterpret_cast<byte*>(audio_temp.data());
+    }
     snd_pcm_sframes_t framecount = snd_pcm_bytes_to_frames(pcm, len);
     snd_pcm_sframes_t frames = snd_pcm_writei(pcm, buf, framecount);
     if (frames < 0) {
         frames = snd_pcm_recover(pcm, frames, 1);
         if (frames < 0) {
-            printf("snd_pcm_recover failed: %s\n", snd_strerror(frames));
+            loge("snd_pcm_recover failed: %s\n", snd_strerror(frames));
         } else {
             frames = snd_pcm_writei(pcm, buf, framecount);
         }
     }
     if (frames >= 0 && frames < framecount) {
-        printf("Short write (expected %i, wrote %i)\n", (int)framecount, (int)frames);
+        loge("Short write (expected %i, wrote %i)\n", (int)framecount, (int)frames);
     }
 }
 

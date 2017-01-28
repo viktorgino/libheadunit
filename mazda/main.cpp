@@ -132,8 +132,7 @@ int main (int argc, char *argv[])
         DBus::Connection serviceBus(SERVICE_BUS_ADDRESS, false);
         serviceBus.register_bus();
 
-        MazdaEventCallbacks callbacks(serviceBus, hmiBus);
-        MazdaCommandServerCallbacks commandCallbacks(callbacks);
+        MazdaCommandServerCallbacks commandCallbacks;
         CommandServer commandServer(commandCallbacks);
         if (!commandServer.Start())
         {
@@ -144,24 +143,28 @@ int main (int argc, char *argv[])
         if (argc >= 2 && strcmp(argv[1], "test") == 0)
         {
             //test mode from the installer, if we got here it's ok
-            printf("---TESTMODE_OK---\n");
+            printf("###TESTMODE_OK###\n");
             return 0;
         }
+
+        gst_app.loop = g_main_loop_new (NULL, FALSE);
 
         printf("Looping\n");
         while (true)
         {
+            //Recreate this each time, it makes the error handling logic simpler
+            MazdaEventCallbacks callbacks(serviceBus, hmiBus);
             HUServer headunit(callbacks);
             g_hu = &headunit.GetAnyThreadInterface();
+            commandCallbacks.eventCallbacks = &callbacks;
 
             //Wait forever for a connection
             int ret = headunit.hu_aap_start(HU_TRANSPORT_TYPE::USB, true);
             if (ret < 0) {
                 loge("Something bad happened");
-                return 1;
+                continue;
             }
 
-            printf("Starting Android Auto...\n");
             GlobalState::connected = true;
 
             std::condition_variable quitcv;
@@ -174,12 +177,11 @@ int main (int argc, char *argv[])
             // GPS processing
             mzd_gps_start(&gps_location_handler);
 
-            gst_app.loop = g_main_loop_new (NULL, FALSE);
-            //	g_timeout_add_full(G_PRIORITY_HIGH, 1, myMainLoop, (gpointer)app, NULL);
-
             printf("Starting Android Auto...\n");
 
             g_main_loop_run (gst_app.loop);
+
+            commandCallbacks.eventCallbacks = nullptr;
 
             GlobalState::connected = false;
             GlobalState::videoFocus = false;
@@ -196,10 +198,6 @@ int main (int argc, char *argv[])
             mzd_gps_stop();
 
             printf("shutting down\n");
-
-            g_main_loop_unref(gst_app.loop);
-            gst_app.loop = nullptr;
-
                 /* Stop AA processing */
             ret = headunit.hu_aap_shutdown();
             if (ret < 0) {
@@ -210,6 +208,9 @@ int main (int argc, char *argv[])
 
             g_hu = nullptr;
         }
+
+        g_main_loop_unref(gst_app.loop);
+        gst_app.loop = nullptr;
     }
     catch(DBus::Error& error)
     {

@@ -7,4 +7,4 @@ export LD_LIBRARY_PATH="${SCRIPTPATH}/headunit_libs:/jci/lib:/jci/opera/3rdparty
 #override some GST plugins with these
 export GST_PLUGIN_PATH="${SCRIPTPATH}/headunit_libs"
 
-taskset 0xFFFFFFFF "${SCRIPTPATH}/headunit" "$@" &> /tmp/mnt/data/headunit.log
+taskset 0xFFFFFFFF "${SCRIPTPATH}/headunit" "$@" 2>&1 | tee /tmp/mnt/data/headunit.log

@@ -26,5 +26,5 @@ CommandServer::CommandServer(ICommandServerCallbacks &callbacks)
 
 bool CommandServer::Start()
 {
-    return server.start(8000);
+    return server.start(9999);
 }

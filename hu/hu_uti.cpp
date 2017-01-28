@@ -330,7 +330,7 @@ int wait_for_device_connection(){
                 return -2;
         }
         
-        ret = udev_monitor_filter_add_match_subsystem_devtype(mon, "usb", NULL);
+        ret = udev_monitor_filter_add_match_subsystem_devtype(mon, "usb", "usb_device");
 	if(ret != 0) {
                 loge("udev_monitor_filter_add_match_subsystem_devtype error : %d \n",ret);
                 return -2;

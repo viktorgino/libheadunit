@@ -234,10 +234,8 @@ gboolean VideoOutput::sdl_poll_event() {
 
         case SDL_QUIT:
             {
-                g_hu->hu_queue_command([](IHUConnectionThreadInterface& s)
-                {
-                    s.hu_aap_stop();
-                });
+                //we "lost video focus"
+                callbacks->VideoFocusHappened(false, true);
             }
             break;
         }

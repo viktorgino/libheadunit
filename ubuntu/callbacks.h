@@ -41,9 +41,10 @@ public:
 
 class DesktopCommandServerCallbacks : public ICommandServerCallbacks
 {
-    DesktopEventCallbacks& eventCallbacks;
 public:
-    DesktopCommandServerCallbacks(DesktopEventCallbacks& eventCallbacks);
+    DesktopCommandServerCallbacks();
+
+    DesktopEventCallbacks* eventCallbacks = nullptr;
 
     virtual bool IsConnected() const override;
     virtual bool HasAudioFocus() const override;
