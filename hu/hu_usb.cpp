@@ -560,7 +560,7 @@ int HUTransportStreamUSB::Start(byte ep_in_addr, byte ep_out_addr) {
 
   usb_recv_thread = std::thread([this]{ this->usb_recv_thread_main(); });
 
-  recv_temp_buffer.resize(1024);
+  recv_temp_buffer.resize(16384);
   start_usb_recv();
 
   iusb_state = hu_STATE_STARTED;
