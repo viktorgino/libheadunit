@@ -6,7 +6,6 @@
 #include "hu_usb.h"
 #include <vector>
 #include <algorithm>
-int iusb_state = 0; // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
 
 
 #include <libusb.h>
