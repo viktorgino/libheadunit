@@ -415,6 +415,7 @@ void VideoOutput::MediaPacket(uint64_t timestamp, const byte *buf, int len)
 
 void BUCPSAClient::DisplayMode(const uint32_t &currentDisplayMode)
 {
+    logw("Got DisplayMode: %u\n", currentDisplayMode);
     if (currentDisplayMode)
     {
         callbacks->VideoFocusHappened(true, true);

@@ -159,12 +159,13 @@ if grep -Fq "###TESTMODE_OK###" /tmp/mnt/data/headunit.log
 		show_message "Headunit binary can't launch. Check the log"
 fi
 
-/jci/tools/jci-dialog --confirm --title="SELECTED ALL-IN-ONE TWEAKS APPLIED" --text="Click OK to reboot the system"
+/jci/tools/jci-dialog --confirm --title="AA Headunit Installed" --text="Click OK to reboot the system"
 		if [ $? != 1 ]
 		then
 			reboot
 			exit
 		fi
 
-log_message "=== TEST RUN ==="
-/tmp/mnt/data_persist/dev/bin/headunit-wrapper >> "${MYDIR}/AIO_log.txt"
+#Can be useful to a log on the usb key
+#log_message "=== TEST RUN ==="
+#/tmp/mnt/data_persist/dev/bin/headunit-wrapper >> "${MYDIR}/AIO_log.txt"

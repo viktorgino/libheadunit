@@ -1,6 +1,8 @@
 #include "command_server.h"
 #include "json/json.hpp"
 
+#include "hu_uti.h"
+
 using json = nlohmann::json;
 
 namespace
@@ -21,7 +23,13 @@ CommandServer::CommandServer(ICommandServerCallbacks &callbacks)
        result["connected"] = callbacks.IsConnected();
        result["videoFocus"] = callbacks.HasVideoFocus();
        result["audioFocus"] = callbacks.HasAudioFocus();
+       std::string logPath = callbacks.GetLogPath();
+       if (logPath.length() > 0)
+         result["logPath"] = logPath;
+
        resp.body << std::setw(4) << result;
+
+       logd("Got /status call. response:\n%s\n", resp.body.str().c_str());
 
        AddCORSHeaders(resp);
     });
@@ -29,9 +37,11 @@ CommandServer::CommandServer(ICommandServerCallbacks &callbacks)
     server.post("/takeVideoFocus", [&callbacks](WPP::Request& req, WPP::Response& resp)
     {
        resp.type = "application/json";
-       callbacks.TakeVideoFocus();;
+       callbacks.TakeVideoFocus();
        json result;
        resp.body << std::setw(4) << result;
+
+       printf("Got /takeVideoFocus call. response:\n%s\n", resp.body.str().c_str());
 
        AddCORSHeaders(resp);
     });

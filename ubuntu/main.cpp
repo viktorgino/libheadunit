@@ -93,7 +93,7 @@ main(int argc, char *argv[]) {
                     return 0;
             }
 
-            GlobalState::connected = true;
+            callbacks.connected = true;
 
             g_hu = &headunit.GetAnyThreadInterface();
             commandCallbacks.eventCallbacks = &callbacks;
@@ -104,7 +104,7 @@ main(int argc, char *argv[]) {
                     printf("STATUS:gst_loop() ret: %d\n", ret);
             }
 
-            GlobalState::connected = false;
+            callbacks.connected = false;
             commandCallbacks.eventCallbacks = nullptr;
 
             /* Stop AA processing */

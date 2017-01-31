@@ -29,6 +29,7 @@
 #include "main.h"
 #include "command_server.h"
 #include "callbacks.h"
+#include "glib_utils.h"
 
 #define HMI_BUS_ADDRESS "unix:path=/tmp/dbus_hmi_socket"
 #define SERVICE_BUS_ADDRESS "unix:path=/tmp/dbus_service_socket"
@@ -102,7 +103,6 @@ void gps_location_handler(uint64_t timestamp, double lat, double lng, double bea
 	});
 }
 
-DBus::Glib::BusDispatcher dispatcher;
 
 int main (int argc, char *argv[])
 {	
@@ -115,23 +115,12 @@ int main (int argc, char *argv[])
 	hu_log_library_versions();
 	hu_install_crash_handler();
 
-    DBus::default_dispatcher = &dispatcher;
     DBus::_init_threading();
-
-    dispatcher.attach(nullptr);
-    printf("DBus::Glib::BusDispatcher attached\n");
 
     gst_init(&argc, &argv);
 
     try
     {
-        printf("Making debug connections\n");
-        DBus::Connection hmiBus(HMI_BUS_ADDRESS, false);
-        hmiBus.register_bus();
-
-        DBus::Connection serviceBus(SERVICE_BUS_ADDRESS, false);
-        serviceBus.register_bus();
-
         MazdaCommandServerCallbacks commandCallbacks;
         CommandServer commandServer(commandCallbacks);
         if (!commandServer.Start())
@@ -150,7 +139,22 @@ int main (int argc, char *argv[])
         printf("Looping\n");
         while (true)
         {
+            //Make a new one instead of using the default so we can clean it up each run
+            run_on_thread_main_context = g_main_context_new();
             //Recreate this each time, it makes the error handling logic simpler
+            DBus::Glib::BusDispatcher dispatcher;
+            dispatcher.attach(run_on_thread_main_context);
+            printf("DBus::Glib::BusDispatcher attached\n");
+
+            DBus::default_dispatcher = &dispatcher;
+
+            printf("Making debug connections\n");
+            DBus::Connection hmiBus(HMI_BUS_ADDRESS, false);
+            hmiBus.register_bus();
+
+            DBus::Connection serviceBus(SERVICE_BUS_ADDRESS, false);
+            serviceBus.register_bus();
+
             MazdaEventCallbacks callbacks(serviceBus, hmiBus);
             HUServer headunit(callbacks);
             g_hu = &headunit.GetAnyThreadInterface();
@@ -163,8 +167,8 @@ int main (int argc, char *argv[])
                 continue;
             }
 
-            gst_app.loop = g_main_loop_new (NULL, FALSE);
-            GlobalState::connected = true;
+            gst_app.loop = g_main_loop_new(run_on_thread_main_context, FALSE);
+            callbacks.connected = true;
 
             std::condition_variable quitcv;
             std::mutex quitmutex;
@@ -182,9 +186,9 @@ int main (int argc, char *argv[])
 
             commandCallbacks.eventCallbacks = nullptr;
 
-            GlobalState::connected = false;
-            GlobalState::videoFocus = false;
-            GlobalState::audioFocus = false;
+            callbacks.connected = false;
+            callbacks.videoFocus = false;
+            callbacks.audioFocus = false;
 
             printf("quitting...\n");
             //wake up night mode polling thread
@@ -201,15 +205,17 @@ int main (int argc, char *argv[])
             g_main_loop_unref(gst_app.loop);
             gst_app.loop = nullptr;
 
-                /* Stop AA processing */
+            /* Stop AA processing */
             ret = headunit.hu_aap_shutdown();
             if (ret < 0) {
                 printf("hu_aap_shutdown() ret: %d\n", ret);
                 return ret;
             }
 
-
+            g_main_context_unref(run_on_thread_main_context);
+            run_on_thread_main_context = nullptr;
             g_hu = nullptr;
+            DBus::default_dispatcher = nullptr;
         }
     }
     catch(DBus::Error& error)

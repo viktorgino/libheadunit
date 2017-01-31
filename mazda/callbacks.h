@@ -13,15 +13,6 @@
 
 class VideoOutput;
 class AudioOutput;
-
-//This is kind of hacky, but they are only for the query HTTP request
-struct GlobalState
-{
-    static std::atomic<bool> connected;
-    static std::atomic<bool> videoFocus;
-    static std::atomic<bool> audioFocus;
-};
-
 class MazdaEventCallbacks;
 
 class AudioManagerClient : public com::xsembedded::ServiceProvider_proxy,
@@ -76,6 +67,10 @@ public:
 
         void VideoFocusHappened(bool hasFocus, bool unrequested);
         void AudioFocusHappend(int chan, bool hasFocus);
+
+        std::atomic<bool> connected;
+        std::atomic<bool> videoFocus;
+        std::atomic<bool> audioFocus;
 };
 
 class MazdaCommandServerCallbacks : public ICommandServerCallbacks
@@ -89,4 +84,5 @@ public:
     virtual bool HasAudioFocus() const override;
     virtual bool HasVideoFocus() const override;
     virtual void TakeVideoFocus() override;
+    virtual std::string GetLogPath() const override;
 };

@@ -2,12 +2,11 @@
 #include "outputs.h"
 #include "glib_utils.h"
 
-std::atomic<bool> GlobalState::connected(false);
-std::atomic<bool> GlobalState::videoFocus(false);
-std::atomic<bool> GlobalState::audioFocus(false);
-
-DesktopEventCallbacks::DesktopEventCallbacks()  {
-
+DesktopEventCallbacks::DesktopEventCallbacks() :
+    connected(false),
+    videoFocus(false),
+    audioFocus(false)
+{
 }
 
 DesktopEventCallbacks::~DesktopEventCallbacks() {
@@ -68,13 +67,13 @@ void DesktopEventCallbacks::AudioFocusRequest(int chan, const HU::AudioFocusRequ
         if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_RELEASE) {
             audioOutput.reset();
             response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_LOSS);
-            GlobalState::audioFocus = false;
+            audioFocus = false;
         } else {
             if (!audioOutput) {
                 audioOutput.reset(new AudioOutput());
             }
             response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_GAIN);
-            GlobalState::audioFocus = true;
+            audioFocus = true;
         }
 
         g_hu->hu_queue_command([chan, response](IHUConnectionThreadInterface & s) {
@@ -93,7 +92,7 @@ void DesktopEventCallbacks::VideoFocusHappened(bool hasFocus, bool unrequested) 
         if ((bool)videoOutput != hasFocus) {
             videoOutput.reset(hasFocus ? new VideoOutput(this) : nullptr);
         }
-        GlobalState::videoFocus = hasFocus;
+        videoFocus = hasFocus;
         g_hu->hu_queue_command([hasFocus, unrequested](IHUConnectionThreadInterface & s) {
             HU::VideoFocus videoFocusGained;
             videoFocusGained.set_mode(hasFocus ? HU::VIDEO_FOCUS_MODE_FOCUSED : HU::VIDEO_FOCUS_MODE_UNFOCUSED);
@@ -111,23 +110,42 @@ DesktopCommandServerCallbacks::DesktopCommandServerCallbacks()
 
 bool DesktopCommandServerCallbacks::IsConnected() const
 {
-    return GlobalState::connected;
+    if (eventCallbacks)
+    {
+        return eventCallbacks->connected;
+    }
+    return false;
 }
 
 bool DesktopCommandServerCallbacks::HasAudioFocus() const
 {
-    return GlobalState::audioFocus;
+    if (eventCallbacks)
+    {
+        return eventCallbacks->audioFocus;
+    }
+    return false;
 }
 
 bool DesktopCommandServerCallbacks::HasVideoFocus() const
 {
-    return GlobalState::videoFocus;
+    if (eventCallbacks)
+    {
+        return eventCallbacks->videoFocus;
+    }
+    return false;
 }
 
 void DesktopCommandServerCallbacks::TakeVideoFocus()
 {
-    if (GlobalState::connected && eventCallbacks)
+    if (eventCallbacks && eventCallbacks->connected)
     {
         eventCallbacks->VideoFocusHappened(true, true);
     }
 }
+
+std::string DesktopCommandServerCallbacks::GetLogPath() const
+{
+    //no log
+    return std::string();
+}
+

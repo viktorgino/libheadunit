@@ -7,13 +7,12 @@
 #include "json/json.hpp"
 using json = nlohmann::json;
 
-std::atomic<bool> GlobalState::connected(false);
-std::atomic<bool> GlobalState::videoFocus(false);
-std::atomic<bool> GlobalState::audioFocus(false);
-
 MazdaEventCallbacks::MazdaEventCallbacks(DBus::Connection& serviceBus, DBus::Connection& hmiBus)
     : serviceBus(serviceBus)
     , hmiBus(hmiBus)
+    , connected(false)
+    , videoFocus(false)
+    , audioFocus(false)
 {
     //no need to create/destroy this
     audioOutput.reset(new AudioOutput("default", true));
@@ -94,7 +93,7 @@ void MazdaEventCallbacks::VideoFocusHappened(bool hasFocus, bool unrequested) {
         if ((bool)videoOutput != hasFocus) {
             videoOutput.reset(hasFocus ? new VideoOutput(this, hmiBus) : nullptr);
         }
-        GlobalState::videoFocus = hasFocus;
+        videoFocus = hasFocus;
         g_hu->hu_queue_command([hasFocus, unrequested] (IHUConnectionThreadInterface & s) {
             HU::VideoFocus videoFocusGained;
             videoFocusGained.set_mode(hasFocus ? HU::VIDEO_FOCUS_MODE_FOCUSED : HU::VIDEO_FOCUS_MODE_UNFOCUSED);
@@ -125,25 +124,42 @@ MazdaCommandServerCallbacks::MazdaCommandServerCallbacks()
 
 bool MazdaCommandServerCallbacks::IsConnected() const
 {
-    return GlobalState::connected;
+    if (eventCallbacks)
+    {
+        return eventCallbacks->connected;
+    }
+    return false;
 }
 
 bool MazdaCommandServerCallbacks::HasAudioFocus() const
 {
-    return GlobalState::audioFocus;
+    if (eventCallbacks)
+    {
+        return eventCallbacks->audioFocus;
+    }
+    return false;
 }
 
 bool MazdaCommandServerCallbacks::HasVideoFocus() const
 {
-    return GlobalState::videoFocus;
+    if (eventCallbacks)
+    {
+        return eventCallbacks->videoFocus;
+    }
+    return false;
 }
 
 void MazdaCommandServerCallbacks::TakeVideoFocus()
 {
-    if (GlobalState::connected && eventCallbacks)
+    if (eventCallbacks && eventCallbacks->connected)
     {
         eventCallbacks->VideoFocusHappened(true, true);
     }
+}
+
+std::string MazdaCommandServerCallbacks::GetLogPath() const
+{
+    return "/tmp/mnt/data/headunit.log";
 }
 
 
@@ -316,7 +332,7 @@ void AudioManagerClient::Notify(const std::string &signalName, const std::string
                 if (eventSessionID == usbSessionID)
                 {
                     hasFocus = newFocus != "lost";
-                    GlobalState::audioFocus = hasFocus;
+                    callbacks.audioFocus = hasFocus;
                     for (int chan : channelsWaitingForFocus)
                     {
                         callbacks.AudioFocusHappend(chan, hasFocus);

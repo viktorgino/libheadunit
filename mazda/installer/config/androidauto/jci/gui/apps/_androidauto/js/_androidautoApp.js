@@ -39,12 +39,10 @@ _androidautoApp.prototype.appInit = function()
     this._contextTable = {
         "Start": { // initial context must be called "Start"
             "sbName": "Android Auto",
-            "hideHomeBtn" : true,
             "template": "AndroidAutoTmplt",
+            "leftBtnStyle" : "goBack",
             "properties" : {
-                "customBgImage" : "common/images/FullTransparent.png",
-                "keybrdInputSurface" : "TV_TOUCH_SURFACE", 
-                "visibleSurfaces" :  ["TV_TOUCH_SURFACE"]    // Do not include JCI_OPERA_PRIMARY in this list            
+      
             },// end of list of controlProperties
             "templatePath": "apps/_androidauto/templates/AndroidAuto", //only needed for app-specific templates
             "readyFunction": this._StartContextReady.bind(this),
@@ -60,7 +58,6 @@ _androidautoApp.prototype.appInit = function()
     };
     //@formatter:on
 
-    this.timerId = null;
 };
 
 /**
@@ -69,17 +66,25 @@ _androidautoApp.prototype.appInit = function()
  * =========================
  */
 
-function AAcallCommandServer(method, request)
+function AAcallCommandServer(method, request, resultFunc)
 {
     var xhttp = new XMLHttpRequest();
-    xhttp.open(method, "http://localhost:9999/" + request, false);
-    xhttp.send();
-
-    if (xhttp.readyState == 4 && xhttp.status == 200)
+    xhttp.onreadystatechange = function() 
     {
-        return JSON.parse(xhttp.responseText);
+        if (xhttp.readyState == 4)
+        {
+            if (xhttp.status == 200)
+            {
+                resultFunc(JSON.parse(xhttp.responseText));
+            }
+            else
+            {
+                resultFunc(null);
+            }
+        }
     }
-    return null;
+    xhttp.open(method, "http://localhost:9999/" + request, true);
+    xhttp.send();
 };
 
 function AAdisplayError(location, err)
@@ -96,39 +101,64 @@ function AAlogPoll()
     
     try
     {
-        var currentStatus = AAcallCommandServer("GET", "status");
-        //no point updating if not showing this pane
-        if (!currentStatus.videoFocus)
+        AAcallCommandServer("GET", "status",  function(currentStatus)
         {
-            //put these back to what the JS code thinks they are just incase
-            utility.setRequiredSurfaces(framework._visibleSurfaces, true);
-
-            var xhttp = new XMLHttpRequest();
-            xhttp.onreadystatechange = function() 
+            if (currentStatus == null)
             {
-                var debugTxt = "";
-                if (this.readyState == 4 && this.status == 200) 
+                AAdisplayError("AAlogPoll", "Can't connect to headunit process");
+            }
+            else
+            {
+                //no point updating if not showing this pane
+                if (!currentStatus.videoFocus)
                 {
-                    debugTxt = xmlhttp.responseText;
-                }
-                else 
-                {
-                    debugTxt = "HTTP Error";
-                }
-                var psconsole = document.getElementById('aaStatusText');
-                if (psconsole != null && psconsole.value != debugTxt)
-                {
-                    psconsole.focus();
-                    psconsole.value = debugTxt;
+                    //put these back to what the JS code thinks they are just incase
+                    utility.setRequiredSurfaces(framework._visibleSurfaces, true);
 
-                    if(psconsole.length)
-                        psconsole.scrollTop = (psconsole[0].scrollHeight - psconsole.height());
+                    if (currentStatus.logPath != null)
+                    {
+                        var xhttp = new XMLHttpRequest();
+                        xhttp.onreadystatechange = function() 
+                        {
+                            try
+                            {
+                                var debugTxt = null;
+                                if (xhttp.readyState >= 3 && xhttp.status == 200) 
+                                {
+                                    debugTxt = xhttp.responseText;
+                                }
+                                else if (xhttp.readyState == 4 && xhttp.status != 200)
+                                {
+                                    debugTxt = "HTTP Error: readyState " + xhttp.readyState + " status " + xhttp.status + "\n responseText " + xhttp.responseText + "\n";
+                                }
+                                var psconsole = document.getElementById('aaStatusText');
+                                if (debugTxt != null && psconsole != null)
+                                {
+                                    var atBottom = (psconsole.scrollTop == psconsole.scrollHeight);
+                                    psconsole.focus();
+                                    psconsole.value = debugTxt;
+
+                                    if(psconsole.length && atBottom)
+                                        psconsole.scrollTop = psconsole.scrollHeight;
+                                }
+                            }
+                            catch(err)
+                            {
+                                AAdisplayError("onreadystatechange", err);
+                            }
+                            
+                        };
+                        xhttp.open("GET", "file://localhost" + currentStatus.logPath, true);
+                        xhttp.send();
+                    }
                 }
-                
-            };
-            xhttp.open("GET", "file://localhost/tmp/mnt/data/headunit.log", true);
-            xhttp.send();
-        }
+                else
+                {
+                    //try again later
+                    window.setTimeout(AAlogPoll, 2000);
+                }
+            }
+        });
     }
     catch(err)
     {
@@ -139,30 +169,28 @@ function AAlogPoll()
 
 _androidautoApp.prototype._StartContextReady = function ()
 {
-    AAdisplayError("Test", "No error");
     try
     {
-        AAlogPoll();
-        if (this.timerId == null)
+        AAcallCommandServer("GET", "status", function(currentStatus)
         {
-            this.timerId = window.setInterval(AAlogPoll, 1000);
-        }
-
-        var currentStatus = AAcallCommandServer("GET", "status");
-        if (!currentStatus.videoFocus && currentStatus.connected)
-        {
-            var takeFocus = function() 
+            if (currentStatus != null)
             {
-                callCommandServer("POST", "takeVideoFocus");
-            };
+                if (!currentStatus.videoFocus && currentStatus.connected)
+                {
+                    var takeFocus = function() 
+                    {
+                        AAcallCommandServer("POST", "takeVideoFocus", function(currentStatus){});
+                    };
 
-            if (!window.aaHasStartedOnce)
-                window.setTimeout(takeFocus, 3000);
+                    //need to sleep a bit to make sure the pane switch is done otherwise it will blow out our focus change later
+                    window.setTimeout(takeFocus, 1000);
+                }
+            }
             else
-                takeFocus();
-
-            window.aaHasStartedOnce = true;
-        }
+            {
+                AAdisplayError("_StartContextReady", "Can't connect to headunit process");
+            }
+        });
     }
     catch(err)
     {
@@ -174,11 +202,7 @@ _androidautoApp.prototype._StartContextOut = function ()
 {
     try
     {
-        if (this.timerId != null)
-        {
-            window.clearInterval(this.timerId);
-            this.timerId = null;
-        }
+        //nothing
     }
     catch(err)
     {

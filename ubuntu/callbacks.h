@@ -11,12 +11,6 @@
 class VideoOutput;
 class AudioOutput;
 
-struct GlobalState
-{
-    static std::atomic<bool> connected;
-    static std::atomic<bool> videoFocus;
-    static std::atomic<bool> audioFocus;
-};
 
 class DesktopEventCallbacks : public IHUConnectionThreadEventCallbacks {
         std::unique_ptr<VideoOutput> videoOutput;
@@ -37,6 +31,10 @@ public:
         virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) override;
 
         void VideoFocusHappened(bool hasFocus, bool unrequested);
+
+        std::atomic<bool> connected;
+        std::atomic<bool> videoFocus;
+        std::atomic<bool> audioFocus;
 };
 
 class DesktopCommandServerCallbacks : public ICommandServerCallbacks
@@ -50,4 +48,5 @@ public:
     virtual bool HasAudioFocus() const override;
     virtual bool HasVideoFocus() const override;
     virtual void TakeVideoFocus() override;
+    virtual std::string GetLogPath() const override;
 };
