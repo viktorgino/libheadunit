@@ -54,10 +54,6 @@ show_message_OK()
 }
 
 
-# disable watchdog and allow write access
-echo 1 > /sys/class/gpio/Watchdog\ Disable/value
-mount -o rw,remount /
-
 
 MYDIR=$(dirname $(readlink -f $0))
 CMU_SW_VER=$(get_cmu_sw_version)
@@ -68,15 +64,11 @@ rm -f "${MYDIR}/AIO_log.txt"
 log_message "=== START LOGGING ... ==="
 # log_message "=== CMU_SW_VER = ${CMU_SW_VER} ==="
 log_message "=== MYDIR = ${MYDIR} ==="
-log_message "=== Watchdog temporary disabeld and write access enabled ==="
-
 
 # first test, if copy from MZD to sd card is working to test correct mount point
-cp /jci/sm/sm.conf ${MYDIR}/config
-if [ -e ${MYDIR}/config/sm.conf ]
+if [ -e "${MYDIR}/AIO_log.txt" ]
 	then
 		log_message "=== Copytest to sd card successful, mount point is OK ==="
-		rm -f ${MYDIR}/config/sm.conf
 	else
 		log_message "=== Copytest to sd card not successful, mount point not found! ==="
 		/jci/tools/jci-dialog --title="ERROR!" --text="Mount point not found, have to reboot again" --ok-label='OK' --no-cancel &
@@ -88,16 +80,15 @@ fi
 
 show_message_OK "Version = ${CMU_SW_VER} : To continue installation press OK"
 
-# disable watchdogs in /jci/sm/sm.conf to avoid boot loops if somthing goes wrong
-if [ ! -e /jci/sm/sm.conf.org ]
-	then
-		cp -a /jci/sm/sm.conf /jci/sm/sm.conf.org
-		log_message "=== Backup of /jci/sm/sm.conf to sm.conf.org ==="
-	else log_message "=== Backup of /jci/sm.conf.org already there! ==="
-fi
-sed -i 's/watchdog_enable="true"/watchdog_enable="false"/g' /jci/sm/sm.conf
-sed -i 's|args="-u /jci/gui/index.html"|args="-u /jci/gui/index.html --noWatchdogs"|g' /jci/sm/sm.conf
-log_message "=== WATCHDOG IN SM.CONF PERMANENTLY DISABLED ==="
+# disable watchdog and allow write access
+echo 1 > /sys/class/gpio/Watchdog\ Disable/value
+mount -o rw,remount /
+
+log_message "=== Watchdog temporary disabeld and write access enabled ==="
+
+
+log_message "=== Killing running headunit processes ==="
+killall -q -9 headunit
 
 
 # -- Enable userjs and allow file XMLHttpRequest in /jci/opera/opera_home/opera.ini - backup first - then edit
@@ -129,11 +120,7 @@ if [ ! -e /jci/opera/opera_dir/userjs/fps.js.bak ]
 		mv /jci/opera/opera_dir/userjs/fps.js /jci/opera/opera_dir/userjs/fps.js.bak
 fi
 
-cp -a ${MYDIR}/config/androidauto/usr/lib/gstreamer-0.10/libgsth264parse.so /usr/lib/gstreamer-0.10
-cp -a ${MYDIR}/config/androidauto/usr/lib/gstreamer-0.10/libgstalsa.so /usr/lib/gstreamer-0.10
-
 log_message "=== Copied Android Auto Headunit App files ==="
-chmod 755 /tmp/mnt/data_persist/dev/bin/websocketd
 chmod 755 /tmp/mnt/data_persist/dev/bin/headunit
 chmod 755 /tmp/mnt/data_persist/dev/bin/headunit-wrapper
 
@@ -144,22 +131,41 @@ if [ -e "/jci/scripts/stage_wifi.sh" ]
 			then
 				echo "exist"
 				log_message "=== Modifications already done to /jci/scripts/stage_wifi.sh ==="
+				if grep -q "websocketd" /jci/scripts/stage_wifi.sh
+					then
+					log_message "Found old websocketd version"
+					sed -i 's/.*websocketd.*/headunit-wrapper \&/' /jci/scripts/stage_wifi.sh
+				fi
 			else
 				#first backup
-				cp -a /jci/scripts/stage_wifi.sh /jci/scripts/stage_wifi.sh.org3
-				log_message "=== Backup of /jci/scripts/stage_wifi.sh to stage_wifi.sh.org3==="
+				cp -a /jci/scripts/stage_wifi.sh /jci/scripts/stage_wifi.sh.bak
+				log_message "=== Backup of /jci/scripts/stage_wifi.sh to stage_wifi.sh.bak==="
 				echo "# Android Auto start" >> /jci/scripts/stage_wifi.sh
-				echo "websocketd --port=9999 sh &" >> /jci/scripts/stage_wifi.sh
+				echo "headunit-wrapper &" >> /jci/scripts/stage_wifi.sh
 				log_message "=== Modifications added to /jci/scripts/stage_wifi.sh ==="
 			break
 		fi
 	fi
 log_message "=== END INSTALLATION OF ANDROID AUTO HEADUNIT APP ==="
 
+#make sure it can run. this will hopefully generate a more useful log for debugging that is easy to get if not
+log_message "=== RUNNING TEST RUN ==="
+/tmp/mnt/data_persist/dev/bin/headunit-wrapper test
+cat /tmp/mnt/data/headunit.log >> "${MYDIR}/AIO_log.txt"
+if grep -Fq "###TESTMODE_OK###" /tmp/mnt/data/headunit.log
+	then
+		log_message "Test looks good"
+	else
+		show_message "Headunit binary can't launch. Check the log"
+fi
 
-/jci/tools/jci-dialog --confirm --title="SELECTED ALL-IN-ONE TWEAKS APPLIED" --text="Click OK to reboot the system"
+/jci/tools/jci-dialog --confirm --title="AA Headunit Installed" --text="Click OK to reboot the system"
 		if [ $? != 1 ]
 		then
 			reboot
 			exit
 		fi
+
+#Can be useful to a log on the usb key
+#log_message "=== TEST RUN ==="
+#/tmp/mnt/data_persist/dev/bin/headunit-wrapper >> "${MYDIR}/AIO_log.txt"

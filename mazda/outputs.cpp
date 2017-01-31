@@ -1,0 +1,428 @@
+#include "outputs.h"
+#include "main.h"
+#include "callbacks.h"
+
+#include "json/json.hpp"
+using json = nlohmann::json;
+
+#include <linux/input.h>
+
+#define EVENT_DEVICE_TS	"/dev/input/filtered-touchscreen0"
+#define EVENT_DEVICE_KBD "/dev/input/filtered-keyboard0"
+
+static gboolean bus_callback(GstBus *bus, GstMessage *message, gpointer *ptr)
+{
+    gst_app_t *app = &gst_app;
+
+    switch(GST_MESSAGE_TYPE(message)){
+
+        case GST_MESSAGE_ERROR:{
+                           gchar *debug;
+                           GError *err;
+
+                           gst_message_parse_error(message, &err, &debug);
+                           g_print("Error %s\n", err->message);
+                           g_error_free(err);
+                           g_free(debug);
+                           g_main_loop_quit(app->loop);
+                       }
+                       break;
+
+        case GST_MESSAGE_WARNING:{
+                         gchar *debug;
+                         GError *err;
+                         gchar *name;
+
+                         gst_message_parse_warning(message, &err, &debug);
+                         g_print("Warning %s\nDebug %s\n", err->message, debug);
+
+                         name = (gchar *)GST_MESSAGE_SRC_NAME(message);
+
+                         g_print("Name of src %s\n", name ? name : "nil");
+                         g_error_free(err);
+                         g_free(debug);
+                     }
+                     break;
+
+        case GST_MESSAGE_EOS:
+                     g_print("End of stream\n");
+                     g_main_loop_quit(app->loop);
+                     break;
+
+        case GST_MESSAGE_STATE_CHANGED:
+                     break;
+
+        default:
+//					 g_print("got message %s\n", \
+                             gst_message_type_get_name (GST_MESSAGE_TYPE (message)));
+                     break;
+    }
+
+    return TRUE;
+}
+
+struct TouchScreenState {
+    int x;
+    int y;
+    HU::TouchInfo::TOUCH_ACTION action;
+    int action_recvd;
+};
+
+
+static void aa_touch_event(HU::TouchInfo::TOUCH_ACTION action, unsigned int x, unsigned int y, uint64_t ts) {
+
+    g_hu->hu_queue_command([action, x, y, ts](IHUConnectionThreadInterface& s)
+    {
+        HU::InputEvent inputEvent;
+        inputEvent.set_timestamp(ts);
+        HU::TouchInfo* touchEvent = inputEvent.mutable_touch();
+        touchEvent->set_action(action);
+        HU::TouchInfo::Location* touchLocation = touchEvent->add_location();
+        touchLocation->set_x(x);
+        touchLocation->set_y(y);
+        touchLocation->set_pointer_id(0);
+
+        /* Send touch event */
+
+        int ret = s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
+        if (ret < 0) {
+            printf("aa_touch_event(): hu_aap_enc_send() failed with (%d)\n", ret);
+        }
+    });
+}
+
+static uint64_t get_timestamp(struct input_event& ii)
+{
+    return ii.time.tv_sec * 1000000 + ii.time.tv_usec;
+}
+
+void VideoOutput::input_thread_func()
+{
+    TouchScreenState mTouch {0,0,(HU::TouchInfo::TOUCH_ACTION)0,0};
+    int maxfdPlus1 = std::max(std::max(touch_fd, kbd_fd), input_thread_quit_pipe_read) + 1;
+    while (true)
+    {
+        fd_set set;
+        int unblocked;
+
+        FD_ZERO(&set);
+        FD_SET(touch_fd, &set);
+        FD_SET(kbd_fd, &set);
+        FD_SET(input_thread_quit_pipe_read, &set);
+
+        unblocked = select(maxfdPlus1, &set, NULL, NULL, NULL);
+
+        if (unblocked == -1)
+        {
+            printf("Error in read...\n");
+            g_main_loop_quit(gst_app.loop);
+            break;
+        }
+        else if (unblocked > 0 && FD_ISSET(input_thread_quit_pipe_read, &set))
+        {
+            break;
+        }
+
+        struct input_event events[64];
+        const size_t buffer_size = sizeof(events);
+
+        if (FD_ISSET(touch_fd, &set))
+        {
+            ssize_t size = read(touch_fd, &events, buffer_size);
+
+            if (size == 0 || size == -1)
+                break;
+
+            if (size < sizeof(input_event)) {
+                printf("Error size when reading\n");
+                g_main_loop_quit(gst_app.loop);
+                break;
+            }
+
+            int num_chars = size / sizeof(input_event);
+            for (int i=0;i < num_chars;i++)
+            {
+                auto& event = events[i];
+                switch (event.type)
+                {
+                    case EV_ABS:
+                        switch (event.code) {
+                            case ABS_MT_POSITION_X:
+                                mTouch.x = event.value * 800 /4095;
+                                break;
+                            case ABS_MT_POSITION_Y:
+                                #if ASPECT_RATIO_FIX
+                                mTouch.y = event.value * 450/4095 + 15;
+                                #else
+                                mTouch.y = event.value * 480/4095;
+                                #endif
+                                break;
+                        }
+                        break;
+                    case EV_KEY:
+                        if (event.code == BTN_TOUCH) {
+                            mTouch.action_recvd = 1;
+                            if (event.value == 1) {
+                                mTouch.action = HU::TouchInfo::TOUCH_ACTION_PRESS;
+                            }
+                            else {
+                                mTouch.action = HU::TouchInfo::TOUCH_ACTION_RELEASE;
+                            }
+                        }
+                        break;
+                    case EV_SYN:
+                        if (mTouch.action_recvd == 0) {
+                            mTouch.action = HU::TouchInfo::TOUCH_ACTION_DRAG;
+                            aa_touch_event(mTouch.action, mTouch.x, mTouch.y, get_timestamp(event));
+                        } else {
+                            aa_touch_event(mTouch.action, mTouch.x, mTouch.y, get_timestamp(event));
+                            mTouch.action_recvd = 0;
+                        }
+                        break;
+                }
+            }
+        }
+
+        if (FD_ISSET(kbd_fd, &set))
+        {
+            ssize_t size = read(kbd_fd, &events, buffer_size);
+
+            if (size == 0 || size == -1)
+                break;
+
+            if (size < sizeof(input_event)) {
+                printf("Error size when reading\n");
+                g_main_loop_quit(gst_app.loop);
+                break;
+            }
+
+            int num_chars = size / sizeof(input_event);
+            for (int i=0;i < num_chars;i++)
+            {
+                auto& event = events[i];
+                if (event.type == EV_KEY && (event.value == 1 || event.value == 0))
+                {
+                    uint64_t timeStamp = get_timestamp(event);
+                    uint32_t scanCode = 0;
+                    int32_t scrollAmount = 0;
+                    bool isPressed = (event.value == 1);
+
+                    printf("Key code %i value %i\n", (int)event.code, (int)event.value);
+                    switch (event.code)
+                    {
+                    case KEY_G:
+                        printf("KEY_G\n");
+                        scanCode = HUIB_MIC;
+                        break;
+                    //Make the music button play/pause
+                    case KEY_E:
+                        printf("KEY_E\n");
+                        scanCode = HUIB_PLAYPAUSE;
+                        break;
+                    case KEY_LEFTBRACE:
+                        printf("KEY_LEFTBRACE\n");
+                        scanCode = HUIB_NEXT;
+                        break;
+                    case KEY_RIGHTBRACE:
+                        printf("KEY_RIGHTBRACE\n");
+                        scanCode = HUIB_PREV;
+                        break;
+                    case KEY_BACKSPACE:
+                        printf("KEY_BACKSPACE\n");
+                        scanCode = HUIB_BACK;
+                        break;
+                    case KEY_ENTER:
+                        printf("KEY_ENTER\n");
+                        scanCode = HUIB_ENTER;
+                        break;
+                    case KEY_LEFT:
+                        printf("KEY_LEFT\n");
+                        scanCode = HUIB_LEFT;
+                        break;
+                    case KEY_N:
+                        printf("KEY_N\n");
+                        if (isPressed)
+                        {
+                            scrollAmount = -1;
+                        }
+                        break;
+                    case KEY_RIGHT:
+                        printf("KEY_RIGHT\n");
+                        scanCode = HUIB_RIGHT;
+                        break;
+                    case KEY_M:
+                        printf("KEY_M\n");
+                        if (isPressed)
+                        {
+                            scrollAmount = 1;
+                        }
+                        break;
+                    case KEY_UP:
+                        printf("KEY_UP\n");
+                        scanCode = HUIB_UP;
+                        break;
+                    case KEY_DOWN:
+                        printf("KEY_DOWN\n");
+                        scanCode = HUIB_DOWN;
+                        break;
+                    case KEY_HOME:
+                        printf("KEY_HOME\n");
+                        if (isPressed)
+                        {
+                            //go back to home screen
+                            callbacks->VideoFocusHappened(false, true);
+                        }
+                        break;
+                    case KEY_R:
+                        printf("KEY_R\n");
+                        //NAV
+                        break;
+                    }
+                    if (scanCode != 0 || scrollAmount != 0)
+                    {
+                        g_hu->hu_queue_command([timeStamp, scanCode, scrollAmount, isPressed](IHUConnectionThreadInterface& s)
+                        {
+                            HU::InputEvent inputEvent;
+                            inputEvent.set_timestamp(timeStamp);
+                            if (scanCode != 0)
+                            {
+                                HU::ButtonInfo* buttonInfo = inputEvent.mutable_button()->add_button();
+                                buttonInfo->set_is_pressed(isPressed);
+                                buttonInfo->set_meta(0);
+                                buttonInfo->set_long_press(false);
+                                buttonInfo->set_scan_code(scanCode);
+                            }
+                            if (scrollAmount != 0)
+                            {
+                                HU::RelativeInputEvent* rel = inputEvent.mutable_rel_event()->mutable_event();
+                                rel->set_delta(scrollAmount);
+                                rel->set_scan_code(HUIB_SCROLLWHEEL);
+                            }
+                            s.hu_aap_enc_send_message(0, AA_CH_TOU, HU_INPUT_CHANNEL_MESSAGE::InputEvent, inputEvent);
+                        });
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+VideoOutput::VideoOutput(MazdaEventCallbacks* callbacks, DBus::Connection& hmiBus)
+    : hmiBus(hmiBus)
+    , callbacks(callbacks)
+    , displayClient(hmiBus, callbacks)
+{
+    /* Open Touchscreen Device */
+    touch_fd = open(EVENT_DEVICE_TS, O_RDONLY);
+
+    if (touch_fd < 0) {
+        fprintf(stderr, "%s is not a vaild device\n", EVENT_DEVICE_TS);
+    }
+
+    if (ioctl(touch_fd, EVIOCGRAB, 1) < 0)
+    {
+        fprintf(stderr, "EVIOCGRAB failed on %s\n", EVENT_DEVICE_TS);
+    }
+
+    kbd_fd = open(EVENT_DEVICE_KBD, O_RDONLY);
+
+    if (kbd_fd < 0) {
+        fprintf(stderr, "%s is not a vaild device\n", EVENT_DEVICE_KBD);
+    }
+
+    if (ioctl(kbd_fd, EVIOCGRAB, 1) < 0)
+    {
+        fprintf(stderr, "EVIOCGRAB failed on %s\n", EVENT_DEVICE_TS);
+    }
+
+    int quitpiperw[2];
+    if (pipe(quitpiperw) < 0) {
+        fprintf(stderr, "Pipe failed");
+    }
+    input_thread_quit_pipe_read = quitpiperw[0];
+    input_thread_quit_pipe_write = quitpiperw[1];
+
+    input_thread = std::thread([this](){ input_thread_func(); } );
+
+    //if we have ASPECT_RATIO_FIX, cut off the bottom black bar
+    const char* vid_pipeline_launch = "appsrc name=mysrc is-live=true block=false max-latency=1000000 do-timestamp=true ! queue ! h264parse ! vpudec low-latency=true framedrop=true framedrop-level-mask=0x200 ! mfw_isink name=mysink "
+    #if ASPECT_RATIO_FIX
+    "axis-left=0 axis-top=-20 disp-width=800 disp-height=520"
+    #else
+    "axis-left=0 axis-top=0 disp-width=800 disp-height=480"
+    #endif
+    " max-lateness=1000000000 sync=false async=false";
+
+    GError* error = nullptr;
+    vid_pipeline = gst_parse_launch(vid_pipeline_launch, &error);
+
+    if (error != NULL) {
+        printf("could not construct pipeline: %s\n", error->message);
+        g_clear_error (&error);
+    }
+
+    GstBus* bus = gst_pipeline_get_bus(GST_PIPELINE(vid_pipeline));
+    gst_bus_add_watch(bus, (GstBusFunc)bus_callback, nullptr);
+    gst_object_unref(bus);
+
+    vid_src = GST_APP_SRC(gst_bin_get_by_name (GST_BIN (vid_pipeline), "mysrc"));
+    vid_sink = GST_ELEMENT(gst_bin_get_by_name (GST_BIN (vid_pipeline), "mysink"));
+
+    gst_app_src_set_stream_type(vid_src, GST_APP_STREAM_TYPE_STREAM);
+
+    gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_PLAYING);
+
+    NativeGUICtrlClient guiClient(hmiBus);
+    //By setting these manually we can run even when not launched by the JS code
+    guiClient.SetRequiredSurfacesByEnum({NativeGUICtrlClient::TV_TOUCH_SURFACE}, true);
+}
+
+VideoOutput::~VideoOutput()
+{
+    NativeGUICtrlClient guiClient(hmiBus);
+    guiClient.SetRequiredSurfacesByEnum({NativeGUICtrlClient::JCI_OPERA_PRIMARY}, true);
+
+    gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_NULL);
+
+    //data we write doesn't matter, wake up touch polling thread
+    write(input_thread_quit_pipe_write, &input_thread_quit_pipe_write, sizeof(input_thread_quit_pipe_write));
+
+    printf("waiting for input_thread\n");
+    input_thread.join();
+
+    close(touch_fd);
+    close(kbd_fd);
+    close(input_thread_quit_pipe_write);
+    close(input_thread_quit_pipe_read);
+
+
+    gst_object_unref(vid_pipeline);
+    gst_object_unref(vid_src);
+    gst_object_unref(vid_sink);
+}
+
+void VideoOutput::MediaPacket(uint64_t timestamp, const byte *buf, int len)
+{
+    GstBuffer * buffer = gst_buffer_new_and_alloc(len);
+    memcpy(GST_BUFFER_DATA(buffer), buf, len);
+    int ret = gst_app_src_push_buffer(vid_src, buffer);
+    if(ret !=  GST_FLOW_OK){
+        printf("push buffer returned %d for %d bytes \n", ret, len);
+    }
+}
+
+void BUCPSAClient::DisplayMode(const uint32_t &currentDisplayMode)
+{
+    logw("Got DisplayMode: %u\n", currentDisplayMode);
+    if (currentDisplayMode)
+    {
+        callbacks->VideoFocusHappened(true, true);
+    }
+    else
+    {
+        callbacks->VideoFocusHappened(false, true);
+    }
+}
+

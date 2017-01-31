@@ -47,7 +47,7 @@ class HUTransportStreamUSB : public HUTransportStream
 public:
     ~HUTransportStreamUSB();
     HUTransportStreamUSB();
-    virtual int Start(byte ep_in_addr, byte ep_out_addr) override;
+    virtual int Start(bool waitForDevice) override;
     virtual int Stop() override;
     virtual int Write(const byte* buf, int len, int tmo) override;
 };
