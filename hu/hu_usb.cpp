@@ -6,7 +6,6 @@
 #include "hu_usb.h"
 #include <vector>
 #include <algorithm>
-int iusb_state = 0; // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
 
 
 #include <libusb.h>
@@ -567,7 +566,7 @@ int HUTransportStreamUSB::Start(bool waitForDevice) {
 
   usb_recv_thread = std::thread([this]{ this->usb_recv_thread_main(); });
 
-  recv_temp_buffer.resize(1024);
+  recv_temp_buffer.resize(16384);
   start_usb_recv();
 
   iusb_state = hu_STATE_STARTED;

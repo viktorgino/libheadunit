@@ -19,6 +19,7 @@ class HUTransportStreamUSB : public HUTransportStream
 
     int pipe_write_fd = -1;
     int error_write_fd = -1;
+    int iusb_state = 0; // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
 
     int abort_usb_thread_pipe_read_fd = -1;
     int abort_usb_thread_pipe_write_fd = -1;
