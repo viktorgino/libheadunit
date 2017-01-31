@@ -147,8 +147,6 @@ int main (int argc, char *argv[])
             return 0;
         }
 
-        gst_app.loop = g_main_loop_new (NULL, FALSE);
-
         printf("Looping\n");
         while (true)
         {
@@ -165,6 +163,7 @@ int main (int argc, char *argv[])
                 continue;
             }
 
+            gst_app.loop = g_main_loop_new (NULL, FALSE);
             GlobalState::connected = true;
 
             std::condition_variable quitcv;
@@ -198,6 +197,10 @@ int main (int argc, char *argv[])
             mzd_gps_stop();
 
             printf("shutting down\n");
+
+            g_main_loop_unref(gst_app.loop);
+            gst_app.loop = nullptr;
+
                 /* Stop AA processing */
             ret = headunit.hu_aap_shutdown();
             if (ret < 0) {
@@ -208,9 +211,6 @@ int main (int argc, char *argv[])
 
             g_hu = nullptr;
         }
-
-        g_main_loop_unref(gst_app.loop);
-        gst_app.loop = nullptr;
     }
     catch(DBus::Error& error)
     {

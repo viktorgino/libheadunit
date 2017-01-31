@@ -54,6 +54,7 @@ namespace WPP {
             string type;
             string date;
             ostringstream body;
+            map<string, string> headers;
     };
 
     class Exception : public std::exception {

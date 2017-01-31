@@ -453,6 +453,11 @@ void Server::main_loop() {
         header_buffer << "Content-Type:" << res.type << "\r\n";
         header_buffer << "Content-Length:" << body_string.size() << "\r\n";
 
+        for (const auto& header : res.headers)
+        {
+            header_buffer << header.first << ":" << header.second << "\r\n";
+        }
+
         // append extra crlf to indicate start of body
         header_buffer << "\r\n";
         std::string header_string = header_buffer.str();
