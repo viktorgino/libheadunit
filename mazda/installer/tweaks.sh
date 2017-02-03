@@ -8,164 +8,260 @@ get_cmu_sw_version()
 	_patch=$(/bin/grep "^JCI_SW_VER_PATCH=" /jci/version.ini | /bin/sed 's/^.*\"\([^\"]*\)\"$/\1/')
 	_flavor=$(/bin/grep "^JCI_SW_FLAVOR=" /jci/version.ini | /bin/sed 's/^.*_\([^_]*\)\"$/\1/')
 
-	if [[ ! -z "${_flavor}" ]]; then
+	if [ ! -z "${_flavor}" ]; then
 		echo "${_ver}${_patch}-${_flavor}"
 	else
 		echo "${_ver}${_patch}"
 	fi
 }
 
-get_cmu_sw_version_only()
-{
-	_veronly=$(/bin/grep "^JCI_SW_VER=" /jci/version.ini | /bin/sed 's/^.*_\([^_]*\)\"$/\1/')
-	echo "${_veronly}"
-}
-
 log_message()
 {
-	echo "$*" 1>2
-	echo "$*" >> "${MYDIR}/AIO_log.txt"
-	/bin/fsync "${MYDIR}/AIO_log.txt"
+	printf "$*" >> "${MYDIR}/installer_log.txt"
+	/bin/fsync "${MYDIR}/installer_log.txt"
 }
 
 
-show_message()
+show_message() # $1 - title, $2 - message
 {
 	killall jci-dialog
-	log_message "= POPUP: $* "
-	/jci/tools/jci-dialog --info --title="MESSAGE" --text="$*" --no-cancel
+	log_message "= POPUP INFO: $*\n"
+	/jci/tools/jci-dialog --info --title="$1" --text="$2" --no-cancel
 }
 
+show_confirmation() # $1 - title, $2 - message
+{
+    killall jci-dialog
+    log_message "= POPUP CONFIRM: $*\n"
+    /jci/tools/jci-dialog --confirm --title="$1" --text="$2" --no-cancel
+    return $?
+}
 
-show_message_OK()
+show_error() # $1 - title, $2 - message
+{
+    killall jci-dialog
+    log_message "= POPUP ERROR: $*\n"
+    /jci/tools/jci-dialog --title="$1" --text="$2" --ok-label='OK' --no-cancel
+}
+
+show_dialog() # $1 - title, $2 - message, $3 - ok label, $4 - cancel label
 {
 	killall jci-dialog
-	log_message "= POPUP: $* "
-	/jci/tools/jci-dialog --confirm --title="CONTINUE INSTALLATION?" --text="$*" --ok-label="YES - GO ON" --cancel-label="NO - ABORT"
-	if [ $? != 1 ]
-		then
-			killall jci-dialog
-			break
-		else
-			show_message "INSTALLATION ABORTED! PLEASE UNPLUG USB DRIVE"
-			sleep 5
-			exit
-		fi
+	log_message "= POPUP: $*\n"
+	/jci/tools/jci-dialog --confirm --title="$1" --text="$2" --ok-label="$3" --cancel-label="$4"
+	return $?
 }
-
-
 
 MYDIR=$(dirname $(readlink -f $0))
 CMU_SW_VER=$(get_cmu_sw_version)
-CMU_VER_ONLY=$(get_cmu_sw_version_only)
-rm -f "${MYDIR}/AIO_log.txt"
+rm -f "${MYDIR}/installer_log.txt"
 
 
-log_message "=== START LOGGING ... ==="
-# log_message "=== CMU_SW_VER = ${CMU_SW_VER} ==="
-log_message "=== MYDIR = ${MYDIR} ==="
+log_message "Installer started.\n"
+
+log_message "MYDIR = ${MYDIR}\n"
+log_message "CMU version = ${CMU_SW_VER}\n"
 
 # first test, if copy from MZD to sd card is working to test correct mount point
-if [ -e "${MYDIR}/AIO_log.txt" ]
-	then
-		log_message "=== Copytest to sd card successful, mount point is OK ==="
-	else
-		log_message "=== Copytest to sd card not successful, mount point not found! ==="
-		/jci/tools/jci-dialog --title="ERROR!" --text="Mount point not found, have to reboot again" --ok-label='OK' --no-cancel &
-		sleep 5
-		reboot
-		exit
+log_message "Check mount point ... "
+if [ -f "${MYDIR}/installer_log.txt" ]; then
+    log_message "OK\n"
+else
+    log_message "FAILED!\n"
+    show_error "ERROR!" "Mount point not found, have to reboot again."
+    sleep 1
+    reboot
+    exit
 fi
 
-
-show_message_OK "Version = ${CMU_SW_VER} : To continue installation press OK"
+show_dialog "AA INSTALL SCRIPT" "Welcome to Android Auto installation script. Would you like to proceed?" "Proceed" "Abort"
+if [ $? -ne 0 ]; then
+    log_message "Installation aborted.\n"
+    show_message "Aborted" "Script aborted. Please remove the USB drive. There is no need to reboot."
+    exit
+fi
 
 # disable watchdog and allow write access
-echo 1 > /sys/class/gpio/Watchdog\ Disable/value
-mount -o rw,remount /
-
-log_message "=== Watchdog temporary disabeld and write access enabled ==="
-
-
-log_message "=== Killing running headunit processes ==="
-killall -q -9 headunit
-
-
-# -- Enable userjs and allow file XMLHttpRequest in /jci/opera/opera_home/opera.ini - backup first - then edit
-if [ ! -e /jci/opera/opera_home/opera.ini.org ]
-	then
-		cp -a /jci/opera/opera_home/opera.ini /jci/opera/opera_home/opera.ini.org
-		log_message "=== Backup of /jci/opera/opera_home/opera.ini to opera.ini.org ==="
-	else log_message "=== Backup of /jci/opera/opera_home/opera.ini.org already there! ==="
-fi
-sed -i 's/User JavaScript=0/User JavaScript=1/g' /jci/opera/opera_home/opera.ini
-count=$(grep -c "Allow File XMLHttpRequest=" /jci/opera/opera_home/opera.ini)
-if [ "$count" = "0" ]
-	then
-		sed -i '/User JavaScript=.*/a Allow File XMLHttpRequest=1' /jci/opera/opera_home/opera.ini
-	else
-		sed -i 's/Allow File XMLHttpRequest=.*/Allow File XMLHttpRequest=1/g' /jci/opera/opera_home/opera.ini
-fi
-log_message "=== ENABLED USERJS AND ALLOWED FILE XMLHTTPREQUEST IN /JCI/OPERA/OPERA_HOME/OPERA.INI  ==="
-
-
-# Install Android Auto Headunit App
-show_message "INSTALL ANDROID AUTO HEADUNIT APP ..."
-cp -a ${MYDIR}/config/androidauto/data_persist/dev/* /tmp/mnt/data_persist/dev/
-cp -a ${MYDIR}/config/androidauto/jci/gui/apps/_androidauto /jci/gui/apps/
-cp -a ${MYDIR}/config/androidauto/jci/opera/opera_dir/userjs/additionalApps.* /jci/opera/opera_dir/userjs/
-#Rename this since once we turn on userJs we don't want a FPS indicator everywhere
-if [ ! -e /jci/opera/opera_dir/userjs/fps.js.bak ]
-	then
-		mv /jci/opera/opera_dir/userjs/fps.js /jci/opera/opera_dir/userjs/fps.js.bak
+log_message "Disabling watchdog and remounting for write access ... "
+echo 1 > /sys/class/gpio/Watchdog\ Disable/value && mount -o rw,remount /
+if [ $? -eq 0 ]; then
+    log_message "SUCCESS\n"
+else
+    log_message "FAILED\n"
+    show_error "ERROR!" "Could not disable watchdog or remount filesystem. Rebooting."
+    sleep 1
+    reboot
+    exit
 fi
 
-log_message "=== Copied Android Auto Headunit App files ==="
-chmod 755 /tmp/mnt/data_persist/dev/bin/headunit
-chmod 755 /tmp/mnt/data_persist/dev/bin/headunit-wrapper
+installed=0
+remove=0
+# check whether we have AA already installed
+# check for headunit-wrapper to make sure the installed version is new one
+log_message "Check whether Android Auto is installed ... "
+if [ -f /tmp/mnt/data_persist/dev/bin/headunit-wrapper ]; then
+    installed=1
+    log_message "YES\n"
+    show_dialog "CHOOSE ACTION" "You have Android Auto already installed. Would you like to update or remove it?" "UPDATE" "REMOVE"
+    remove=$?
+    if [ $remove -eq 1 ]; then
+        log_message "Removing Android Auto.\n"
+    else
+        log_message "Updating Android Auto.\n"
+    fi
+    log_message "Killing running headunit processes ... "
+    killall -q -9 headunit && log_message "KILLED\n" || log_message "FAILED! No 'headunit' process found or could not kill it.\n"
+else
+    log_message "NO\n"
+    log_message "Installing Android Auto.\n"
+fi
 
-#add androidauto.js to stage_wifi
-if [ -e "/jci/scripts/stage_wifi.sh" ]
-	then
-		if grep -Fq "# Android Auto start" /jci/scripts/stage_wifi.sh
-			then
-				echo "exist"
-				log_message "=== Modifications already done to /jci/scripts/stage_wifi.sh ==="
-				if grep -q "websocketd" /jci/scripts/stage_wifi.sh
-					then
-					log_message "Found old websocketd version"
-					sed -i 's/.*websocketd.*/headunit-wrapper \&/' /jci/scripts/stage_wifi.sh
-				fi
-			else
-				#first backup
-				cp -a /jci/scripts/stage_wifi.sh /jci/scripts/stage_wifi.sh.bak
-				log_message "=== Backup of /jci/scripts/stage_wifi.sh to stage_wifi.sh.bak==="
-				echo "# Android Auto start" >> /jci/scripts/stage_wifi.sh
-				echo "headunit-wrapper &" >> /jci/scripts/stage_wifi.sh
-				log_message "=== Modifications added to /jci/scripts/stage_wifi.sh ==="
-			break
-		fi
-	fi
-log_message "=== END INSTALLATION OF ANDROID AUTO HEADUNIT APP ==="
+if [ ${installed} -eq 0 ]; then
+    show_message "INSTALLING" "Android Auto is installing ..."
+    log_message "Changing opera.ini file ... "
+    # -- Enable userjs and allow file XMLHttpRequest in /jci/opera/opera_home/opera.ini - backup first - then edit
+    if [ ! -f /jci/opera/opera_home/opera.ini.org ]; then
+        cp -a /jci/opera/opera_home/opera.ini /jci/opera/opera_home/opera.ini.org
+        log_message "backing up file first ... "
+    else
+        log_message "backup exists ... "
+    fi
+    sed -i 's/User JavaScript=0/User JavaScript=1/g' /jci/opera/opera_home/opera.ini
+    count=$(grep -c "Allow File XMLHttpRequest=" /jci/opera/opera_home/opera.ini)
+    if [ ${count} -eq 0 ]; then
+        sed -i '/User JavaScript=.*/a Allow File XMLHttpRequest=1' /jci/opera/opera_home/opera.ini
+    else
+        sed -i 's/Allow File XMLHttpRequest=.*/Allow File XMLHttpRequest=1/g' /jci/opera/opera_home/opera.ini
+    fi
+    log_message "OK\n"
+
+    #Rename this since once we turn on userJs we don't want a FPS indicator everywhere
+    if [ ! -f /jci/opera/opera_dir/userjs/fps.js.bak ]; then
+        log_message "Disabling fps.js ... "
+        if mv /jci/opera/opera_dir/userjs/fps.js /jci/opera/opera_dir/userjs/fps.js.bak; then
+            log_message "OK\n"
+        else
+            log_message "FAILED\n"
+        fi
+    fi
+    log_message "Changing stage_wifi.sh file ... "
+    if grep -Fq "# Android Auto start" /jci/scripts/stage_wifi.sh; then
+        log_message "autorun AA entry already exists in /jci/scripts/stage_wifi.sh"
+        if grep -q "websocketd" /jci/scripts/stage_wifi.sh ; then
+            log_message " ... found old websocketd version and replacing to new one ... "
+            sed -i 's/.*websocketd.*/headunit-wrapper \&/' /jci/scripts/stage_wifi.sh
+            log_message "DONE"
+        fi
+        log_message "\n"
+    else
+        #first backup
+        log_message "backing up file first ... "
+        if cp -a /jci/scripts/stage_wifi.sh /jci/scripts/stage_wifi.sh.bak; then
+            echo "# Android Auto start" >> /jci/scripts/stage_wifi.sh
+            echo "headunit-wrapper &" >> /jci/scripts/stage_wifi.sh
+            log_message "autostart entry added to /jci/scripts/stage_wifi.sh ... DONE\n"
+        else
+            log_message "backup failed so leaving file as is - there will be no autostart. FAILED\n"
+        fi
+    fi
+fi
+
+if [ ${remove} -eq 1 ]; then
+    show_message "UNINSTALLING" "Android Auto is uninstalling ..."
+    log_message "Reverting opera.ini file ... "
+    reverted=0
+    # -- Revert /jci/opera/opera_home/opera.ini from backup
+    if [ -f /jci/opera/opera_home/opera.ini.org ]; then
+        log_message "from backup ... "
+        if cp -a /jci/opera/opera_home/opera.ini.org /jci/opera/opera_home/opera.ini; then
+            log_message "OK\n"
+            reverted=1
+        else
+            log_message "FAILED ... trying the same "
+        fi
+    fi
+    if [ ${reverted} -eq 0 ]; then
+        log_message "by reverting changes ... "
+        sed -i 's/User JavaScript=1/User JavaScript=0/g' /jci/opera/opera_home/opera.ini &&
+            sed -i 'Allow File XMLHttpRequest=1/d' /jci/opera/opera_home/opera.ini
+        if [ $? == 0 ]; then
+            log_message "OK\n"
+        else
+            log_message "FAILED\n"
+        fi
+    fi
+    #Revert fps since once we try to match original state of JCI
+    if [ -f /jci/opera/opera_dir/userjs/fps.js.bak ]; then
+        log_message "Reverting fps.js from backup ... "
+        if mv /jci/opera/opera_dir/userjs/fps.js.bak /jci/opera/opera_dir/userjs/fps.js; then
+            log_message "OK\n"
+        else
+            log_message "FAILED\n"
+        fi
+    fi
+
+    # Remove Android Auto Headunit App
+    log_message "Removing AA files ... "
+    rm /tmp/mnt/data_persist/dev/bin/headunit || log_message "headunit failed ... "
+    rm /tmp/mnt/data_persist/dev/bin/headunit-wrapper || log_message "headunit-wrapper failed ... "
+    rm -rf /tmp/mnt/data_persist/dev/bin/headunit_libs || log_message "headunit_libs failed ... "
+    rm -rf /jci/gui/apps/_androidauto || log_message "_androidauto failed ... "
+    rm /jci/opera/opera_dir/userjs/additionalApps.* || "additionalApps.* failed ... "
+    log_message "DONE\n"
+
+    if grep -Fq "# Android Auto start" /jci/scripts/stage_wifi.sh; then
+        log_message "Reverting stage_wifi.sh ... "
+        reverted=0
+        if [ -f "/jci/scripts/stage_wifi.sh.bak" ]; then
+            log_message " from backup ... "
+            if cp /jci/scripts/stage_wifi.sh.bak /jci/scripts/stage_wifi.sh; then
+                log_message "OK\n"
+                reverted=1
+            else
+                log_message "FAILED ... trying the same "
+            fi
+        fi
+        if [ ${reverted} -eq 0 ]; then
+            log_message "by reverting changes ... "
+            sed -i '# Android Auto start/d' /jci/scripts/stage_wifi.sh &&
+                sed -i 'headunit-wrapper/d' /jci/scripts/stage_wifi.sh
+            if [ $? == 0 ]; then
+                log_message "OK\n"
+            else
+                log_message "FAILED\n"
+            fi
+        fi
+    fi
+    log_message "Uninstall complete!\n"
+    show_confirmation "DONE" "Uninstall complete. System will reboot now. Remember to remove USB drive."
+    reboot
+    exit
+else
+    # Install or update Android Auto Headunit App - we can copy files for sure.
+    log_message "Copying AA files ... "
+    cp -a ${MYDIR}/config/androidauto/data_persist/dev/* /tmp/mnt/data_persist/dev/ || "headunit binaries failed ... "
+    cp -a ${MYDIR}/config/androidauto/jci/gui/apps/_androidauto /jci/gui/apps/ || "_androidauto failed ... "
+    cp -a ${MYDIR}/config/androidauto/jci/opera/opera_dir/userjs/additionalApps.* /jci/opera/opera_dir/userjs/ || "additionalApps.* failed ... "
+    log_message "DONE\n"
+
+    log_message "Changing permissions ... "
+    chmod 755 /tmp/mnt/data_persist/dev/bin/headunit || "for headunit failed ... "
+    chmod 755 /tmp/mnt/data_persist/dev/bin/headunit-wrapper || "for headunit-wrapper failed ... "
+    log_message "DONE\n"
+fi
+
 
 #make sure it can run. this will hopefully generate a more useful log for debugging that is easy to get if not
-log_message "=== RUNNING TEST RUN ==="
+log_message "\n\nRunning smoke test\n\n"
 /tmp/mnt/data_persist/dev/bin/headunit-wrapper test
-cat /tmp/mnt/data/headunit.log >> "${MYDIR}/AIO_log.txt"
-if grep -Fq "###TESTMODE_OK###" /tmp/mnt/data/headunit.log
-	then
-		log_message "Test looks good"
-	else
-		show_message "Headunit binary can't launch. Check the log"
+cat /tmp/mnt/data/headunit.log >> "${MYDIR}/installer_log.txt"
+if grep -Fq "###TESTMODE_OK###" /tmp/mnt/data/headunit.log; then
+    log_message "\nTest looks good.\n"
+else
+    log_message "\nTest went wrong.\n"
+    show_message "TEST RUN FAILED" "Headunit binary launch failed. Check the log."
 fi
 
-/jci/tools/jci-dialog --confirm --title="AA Headunit Installed" --text="Click OK to reboot the system"
-		if [ $? != 1 ]
-		then
-			reboot
-			exit
-		fi
-
-#Can be useful to a log on the usb key
-#log_message "=== TEST RUN ==="
-#/tmp/mnt/data_persist/dev/bin/headunit-wrapper >> "${MYDIR}/AIO_log.txt"
+show_confirmation "INSTALL COMPLETE" "Android Auto has been installed. Click OK to reboot the system."
+reboot
+exit

@@ -82,10 +82,10 @@ function AAcallCommandServer(method, request, resultFunc)
                 resultFunc(null);
             }
         }
-    }
+    };
     xhttp.open(method, "http://localhost:9999/" + request, true);
     xhttp.send();
-};
+}
 
 function AAdisplayError(location, err)
 {
