@@ -270,7 +270,7 @@ void VideoOutput::input_thread_func()
                         if (isPressed)
                         {
                             //go back to home screen
-                            callbacks->VideoFocusHappened(false, true);
+                            callbacks->VideoFocusHappened(false, VIDEO_FOCUS_REQUESTOR::HEADUNIT);
                         }
                         break;
                     case KEY_R:
@@ -373,17 +373,10 @@ VideoOutput::VideoOutput(MazdaEventCallbacks* callbacks, DBus::Connection& hmiBu
     gst_app_src_set_stream_type(vid_src, GST_APP_STREAM_TYPE_STREAM);
 
     gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_PLAYING);
-
-    NativeGUICtrlClient guiClient(hmiBus);
-    //By setting these manually we can run even when not launched by the JS code
-    guiClient.SetRequiredSurfacesByEnum({NativeGUICtrlClient::TV_TOUCH_SURFACE}, true);
 }
 
 VideoOutput::~VideoOutput()
 {
-    NativeGUICtrlClient guiClient(hmiBus);
-    guiClient.SetRequiredSurfacesByEnum({NativeGUICtrlClient::JCI_OPERA_PRIMARY}, true);
-
     gst_element_set_state((GstElement*)vid_pipeline, GST_STATE_NULL);
 
     //data we write doesn't matter, wake up touch polling thread
@@ -416,13 +409,6 @@ void VideoOutput::MediaPacket(uint64_t timestamp, const byte *buf, int len)
 void BUCPSAClient::DisplayMode(const uint32_t &currentDisplayMode)
 {
     logw("Got DisplayMode: %u\n", currentDisplayMode);
-    if (currentDisplayMode)
-    {
-        callbacks->VideoFocusHappened(true, true);
-    }
-    else
-    {
-        callbacks->VideoFocusHappened(false, true);
-    }
+    callbacks->VideoFocusHappened(!(bool)currentDisplayMode, VIDEO_FOCUS_REQUESTOR::BACKUP_CAMERA);
 }
 

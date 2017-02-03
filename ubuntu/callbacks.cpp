@@ -43,7 +43,7 @@ int DesktopEventCallbacks::MediaStop(int chan) {
 
 void DesktopEventCallbacks::MediaSetupComplete(int chan) {
     if (chan == AA_CH_VID) {
-        VideoFocusHappened(true, true);
+        VideoFocusHappened(true, VIDEO_FOCUS_REQUESTOR::HEADUNIT);
     }
 }
 
@@ -84,15 +84,16 @@ void DesktopEventCallbacks::AudioFocusRequest(int chan, const HU::AudioFocusRequ
 }
 
 void DesktopEventCallbacks::VideoFocusRequest(int chan, const HU::VideoFocusRequest &request) {
-    VideoFocusHappened(request.mode() == HU::VIDEO_FOCUS_MODE_FOCUSED, false);
+    VideoFocusHappened(request.mode() == HU::VIDEO_FOCUS_MODE_FOCUSED, VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO);
 }
 
-void DesktopEventCallbacks::VideoFocusHappened(bool hasFocus, bool unrequested) {
-    run_on_main_thread([this, hasFocus, unrequested](){
+void DesktopEventCallbacks::VideoFocusHappened(bool hasFocus, VIDEO_FOCUS_REQUESTOR videoFocusRequestor) {
+    run_on_main_thread([this, hasFocus, videoFocusRequestor](){
         if ((bool)videoOutput != hasFocus) {
             videoOutput.reset(hasFocus ? new VideoOutput(this) : nullptr);
         }
         videoFocus = hasFocus;
+        bool unrequested = videoFocusRequestor != VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO;
         g_hu->hu_queue_command([hasFocus, unrequested](IHUConnectionThreadInterface & s) {
             HU::VideoFocus videoFocusGained;
             videoFocusGained.set_mode(hasFocus ? HU::VIDEO_FOCUS_MODE_FOCUSED : HU::VIDEO_FOCUS_MODE_UNFOCUSED);
@@ -139,7 +140,7 @@ void DesktopCommandServerCallbacks::TakeVideoFocus()
 {
     if (eventCallbacks && eventCallbacks->connected)
     {
-        eventCallbacks->VideoFocusHappened(true, true);
+        eventCallbacks->VideoFocusHappened(true, VIDEO_FOCUS_REQUESTOR::HEADUNIT);
     }
 }
 

@@ -235,7 +235,7 @@ gboolean VideoOutput::sdl_poll_event() {
         case SDL_QUIT:
             {
                 //we "lost video focus"
-                callbacks->VideoFocusHappened(false, true);
+                callbacks->VideoFocusHappened(false, VIDEO_FOCUS_REQUESTOR::HEADUNIT);
             }
             break;
         }

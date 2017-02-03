@@ -15,6 +15,12 @@ class VideoOutput;
 class AudioOutput;
 class MazdaEventCallbacks;
 
+enum VIDEO_FOCUS_REQUESTOR {
+    HEADUNIT, // headunit (we) has requested video focus
+    ANDROID_AUTO, // AA phone app has requested video focus
+    BACKUP_CAMERA // CMU requested screen for backup camera
+};
+
 class AudioManagerClient : public com::xsembedded::ServiceProvider_proxy,
                      public DBus::ObjectProxy
 {
@@ -65,7 +71,7 @@ public:
         virtual void AudioFocusRequest(int chan, const HU::AudioFocusRequest& request) override;
         virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) override;
 
-        void VideoFocusHappened(bool hasFocus, bool unrequested);
+        void VideoFocusHappened(bool hasFocus, VIDEO_FOCUS_REQUESTOR videoFocusRequestor);
         void AudioFocusHappend(int chan, bool hasFocus);
 
         std::atomic<bool> connected;

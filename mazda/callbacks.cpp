@@ -54,7 +54,7 @@ int MazdaEventCallbacks::MediaStop(int chan) {
 void MazdaEventCallbacks::MediaSetupComplete(int chan) {
     if (chan == AA_CH_VID) {
         //Ask for video focus on connection
-        VideoFocusHappened(true, true);
+        VideoFocusHappened(true, VIDEO_FOCUS_REQUESTOR::HEADUNIT);
     }
 }
 
@@ -85,15 +85,21 @@ void MazdaEventCallbacks::AudioFocusRequest(int chan, const HU::AudioFocusReques
 }
 
 void MazdaEventCallbacks::VideoFocusRequest(int chan, const HU::VideoFocusRequest &request) {
-    VideoFocusHappened(request.mode() == HU::VIDEO_FOCUS_MODE_FOCUSED, false);
+    VideoFocusHappened(request.mode() == HU::VIDEO_FOCUS_MODE_FOCUSED, VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO);
 }
 
-void MazdaEventCallbacks::VideoFocusHappened(bool hasFocus, bool unrequested) {
-    run_on_main_thread([this, hasFocus, unrequested](){
+void MazdaEventCallbacks::VideoFocusHappened(bool hasFocus, VIDEO_FOCUS_REQUESTOR videoFocusRequestor) {
+    run_on_main_thread([this, hasFocus, videoFocusRequestor](){
         if ((bool)videoOutput != hasFocus) {
             videoOutput.reset(hasFocus ? new VideoOutput(this, hmiBus) : nullptr);
         }
         videoFocus = hasFocus;
+        // change surface only when getting focus or loosing it for opera (backup camera operates on the same surface)
+        if (hasFocus || videoFocusRequestor != VIDEO_FOCUS_REQUESTOR::BACKUP_CAMERA) {
+            NativeGUICtrlClient guiClient(hmiBus);
+            guiClient.SetRequiredSurfacesByEnum({hasFocus ? NativeGUICtrlClient::TV_TOUCH_SURFACE : NativeGUICtrlClient::JCI_OPERA_PRIMARY}, true);
+        }
+        bool unrequested = videoFocusRequestor != VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO;
         g_hu->hu_queue_command([hasFocus, unrequested] (IHUConnectionThreadInterface & s) {
             HU::VideoFocus videoFocusGained;
             videoFocusGained.set_mode(hasFocus ? HU::VIDEO_FOCUS_MODE_FOCUSED : HU::VIDEO_FOCUS_MODE_UNFOCUSED);
@@ -153,7 +159,7 @@ void MazdaCommandServerCallbacks::TakeVideoFocus()
 {
     if (eventCallbacks && eventCallbacks->connected)
     {
-        eventCallbacks->VideoFocusHappened(true, true);
+        eventCallbacks->VideoFocusHappened(true, VIDEO_FOCUS_REQUESTOR::HEADUNIT);
     }
 }
 
