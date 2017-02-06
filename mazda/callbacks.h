@@ -22,7 +22,6 @@ class AudioManagerClient : public com::xsembedded::ServiceProvider_proxy,
     //"USB" as far as the audio manager cares is the normal ALSA sound output
     int usbSessionID = -1;
     int previousSessionID = -1;
-    bool hasFocus = false;
     bool waitingForFocusLostEvent = false;
     MazdaEventCallbacks& callbacks;
     std::set<int> channelsWaitingForFocus;
