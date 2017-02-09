@@ -239,23 +239,9 @@ void VideoOutput::input_thread_func()
                         printf("KEY_LEFT\n");
                         scanCode = HUIB_LEFT;
                         break;
-                    case KEY_N:
-                        printf("KEY_N\n");
-                        if (isPressed)
-                        {
-                            scrollAmount = -1;
-                        }
-                        break;
                     case KEY_RIGHT:
                         printf("KEY_RIGHT\n");
                         scanCode = HUIB_RIGHT;
-                        break;
-                    case KEY_M:
-                        printf("KEY_M\n");
-                        if (isPressed)
-                        {
-                            scrollAmount = 1;
-                        }
                         break;
                     case KEY_UP:
                         printf("KEY_UP\n");
@@ -265,12 +251,23 @@ void VideoOutput::input_thread_func()
                         printf("KEY_DOWN\n");
                         scanCode = HUIB_DOWN;
                         break;
+                    case KEY_N:
+                        printf("KEY_N\n");
+                        if (isPressed) {
+                            scrollAmount = -1;
+                        }
+                        break;
+                    case KEY_M:
+                        printf("KEY_M\n");
+                        if (isPressed) {
+                            scrollAmount = 1;
+                        }
+                        break;
                     case KEY_HOME:
                         printf("KEY_HOME\n");
-                        if (isPressed)
-                        {
+                        if (isPressed) {
                             //go back to home screen
-                            callbacks->VideoFocusHappened(false, VIDEO_FOCUS_REQUESTOR::HEADUNIT);
+                            callbacks->releaseVideoFocus();
                         }
                         break;
                     case KEY_R:
@@ -309,10 +306,8 @@ void VideoOutput::input_thread_func()
 
 
 
-VideoOutput::VideoOutput(MazdaEventCallbacks* callbacks, DBus::Connection& hmiBus)
-    : hmiBus(hmiBus)
-    , callbacks(callbacks)
-    , displayClient(hmiBus, callbacks)
+VideoOutput::VideoOutput(MazdaEventCallbacks* callbacks)
+    : callbacks(callbacks)
 {
     /* Open Touchscreen Device */
     touch_fd = open(EVENT_DEVICE_TS, O_RDONLY);
@@ -405,10 +400,3 @@ void VideoOutput::MediaPacket(uint64_t timestamp, const byte *buf, int len)
         printf("push buffer returned %d for %d bytes \n", ret, len);
     }
 }
-
-void BUCPSAClient::DisplayMode(const uint32_t &currentDisplayMode)
-{
-    logw("Got DisplayMode: %u\n", currentDisplayMode);
-    callbacks->VideoFocusHappened(!(bool)currentDisplayMode, VIDEO_FOCUS_REQUESTOR::BACKUP_CAMERA);
-}
-

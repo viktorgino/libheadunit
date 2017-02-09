@@ -17,6 +17,7 @@ MazdaEventCallbacks::MazdaEventCallbacks(DBus::Connection& serviceBus, DBus::Con
     //no need to create/destroy this
     audioOutput.reset(new AudioOutput("default", true));
     audioMgrClient.reset(new AudioManagerClient(*this, serviceBus));
+    videoMgrClient.reset(new VideoManagerClient(*this, hmiBus));
 }
 
 MazdaEventCallbacks::~MazdaEventCallbacks() {
@@ -54,7 +55,7 @@ int MazdaEventCallbacks::MediaStop(int chan) {
 void MazdaEventCallbacks::MediaSetupComplete(int chan) {
     if (chan == AA_CH_VID) {
         //Ask for video focus on connection
-        VideoFocusHappened(true, VIDEO_FOCUS_REQUESTOR::HEADUNIT);
+        videoMgrClient->requestVideoFocus(VIDEO_FOCUS_REQUESTOR::HEADUNIT);
     }
 }
 
@@ -85,42 +86,104 @@ void MazdaEventCallbacks::AudioFocusRequest(int chan, const HU::AudioFocusReques
 }
 
 void MazdaEventCallbacks::VideoFocusRequest(int chan, const HU::VideoFocusRequest &request) {
-    VideoFocusHappened(request.mode() == HU::VIDEO_FOCUS_MODE_FOCUSED, VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO);
+    if (request.mode() == HU::VIDEO_FOCUS_MODE::VIDEO_FOCUS_MODE_FOCUSED) {
+        videoMgrClient->requestVideoFocus(VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO);
+    } else {
+        videoMgrClient->releaseVideoFocus(VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO);
+    }
 }
 
-void MazdaEventCallbacks::VideoFocusHappened(bool hasFocus, VIDEO_FOCUS_REQUESTOR videoFocusRequestor) {
-    run_on_main_thread([this, hasFocus, videoFocusRequestor](){
-        if ((bool)videoOutput != hasFocus) {
-            videoOutput.reset(hasFocus ? new VideoOutput(this, hmiBus) : nullptr);
-        }
-        videoFocus = hasFocus;
-        // change surface only when getting focus or loosing it for opera (backup camera operates on the same surface)
-        if (hasFocus || videoFocusRequestor != VIDEO_FOCUS_REQUESTOR::BACKUP_CAMERA) {
-            NativeGUICtrlClient guiClient(hmiBus);
-            guiClient.SetRequiredSurfacesByEnum({hasFocus ? NativeGUICtrlClient::TV_TOUCH_SURFACE : NativeGUICtrlClient::JCI_OPERA_PRIMARY}, true);
-        }
-        bool unrequested = videoFocusRequestor != VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO;
-        g_hu->hu_queue_command([hasFocus, unrequested] (IHUConnectionThreadInterface & s) {
-            HU::VideoFocus videoFocusGained;
-            videoFocusGained.set_mode(hasFocus ? HU::VIDEO_FOCUS_MODE_FOCUSED : HU::VIDEO_FOCUS_MODE_UNFOCUSED);
-            videoFocusGained.set_unrequested(unrequested);
-            s.hu_aap_enc_send_message(0, AA_CH_VID, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
-        });
-        return false;
+void MazdaEventCallbacks::takeVideoFocus() {
+    videoMgrClient->requestVideoFocus(VIDEO_FOCUS_REQUESTOR::HEADUNIT);
+}
+
+void MazdaEventCallbacks::releaseVideoFocus() {
+    videoMgrClient->releaseVideoFocus(VIDEO_FOCUS_REQUESTOR::HEADUNIT);
+}
+
+void MazdaEventCallbacks::VideoFocusHappened(bool hasFocus, bool unrequested) {
+    videoFocus = hasFocus;
+    if ((bool)videoOutput != hasFocus) {
+        videoOutput.reset(hasFocus ? new VideoOutput(this) : nullptr);
+    }
+    g_hu->hu_queue_command([hasFocus, unrequested] (IHUConnectionThreadInterface & s) {
+        HU::VideoFocus videoFocusGained;
+        videoFocusGained.set_mode(hasFocus ? HU::VIDEO_FOCUS_MODE_FOCUSED : HU::VIDEO_FOCUS_MODE_UNFOCUSED);
+        videoFocusGained.set_unrequested(unrequested);
+        s.hu_aap_enc_send_message(0, AA_CH_VID, HU_MEDIA_CHANNEL_MESSAGE::VideoFocus, videoFocusGained);
     });
 }
 
 void MazdaEventCallbacks::AudioFocusHappend(int chan, bool hasFocus) {
     HU::AudioFocusResponse response;
-    if (hasFocus) {
-        response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_GAIN);
-    } else {
-        response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_LOSS);
-    }
+    response.set_focus_type(hasFocus ? HU::AudioFocusResponse::AUDIO_FOCUS_STATE_GAIN : HU::AudioFocusResponse::AUDIO_FOCUS_STATE_LOSS);
     g_hu->hu_queue_command([chan, response](IHUConnectionThreadInterface & s) {
         s.hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::AudioFocusResponse, response);
     });
-    printf("Sent channel %i HU_PROTOCOL_MESSAGE::AudioFocusResponse %s\n", chan,  HU::AudioFocusResponse::AUDIO_FOCUS_STATE_Name(response.focus_type()).c_str());
+    logd("Sent channel %i HU_PROTOCOL_MESSAGE::AudioFocusResponse %s\n", chan,  HU::AudioFocusResponse::AUDIO_FOCUS_STATE_Name(response.focus_type()).c_str());
+}
+
+VideoManagerClient::VideoManagerClient(MazdaEventCallbacks& callbacks, DBus::Connection& hmiBus)
+        : DBus::ObjectProxy(hmiBus, "/com/jci/bucpsa", "com.jci.bucpsa"), guiClient(hmiBus), callbacks(callbacks)
+{
+    uint32_t currentDisplayMode;
+    int32_t returnValue;
+    // check if backup camera is not visible at the moment and get output only when not
+    GetDisplayMode(currentDisplayMode, returnValue);
+    allowedToGetFocus = !(bool)currentDisplayMode;
+}
+
+VideoManagerClient::~VideoManagerClient() {
+    releaseVideoFocus(VIDEO_FOCUS_REQUESTOR::HEADUNIT);
+}
+
+void VideoManagerClient::requestVideoFocus(VIDEO_FOCUS_REQUESTOR requestor)
+{
+    if (!allowedToGetFocus) {
+        // we can safely exit - backup camera will notice us when finish and we request focus back
+        waitsForFocus = true;
+        return;
+    }
+    waitsForFocus = false;
+    bool unrequested = requestor != VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO;
+    logd("Requestor %i requested video focus\n", requestor);
+    // need to wait for a second (maybe less but 100ms is too early) to make sure
+    // the CMU has already changed the surface from backup camera to opera
+    run_on_main_thread_delay(1000, [this, unrequested](){
+        callbacks.VideoFocusHappened(true, unrequested);
+        logd("Requesting video surface: TV_TOUCH_SURFACE");
+        guiClient.SetRequiredSurfacesByEnum({NativeGUICtrlClient::TV_TOUCH_SURFACE}, true);
+        return false;
+    });
+}
+
+void VideoManagerClient::releaseVideoFocus(VIDEO_FOCUS_REQUESTOR requestor)
+{
+    if (!callbacks.videoFocus) {
+        return;
+    }
+    bool unrequested = requestor != VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO;
+    logd("Requestor %i released video focus\n", requestor);
+    run_on_main_thread([this, unrequested, requestor](){
+        callbacks.VideoFocusHappened(false, unrequested);
+        if (requestor != VIDEO_FOCUS_REQUESTOR::BACKUP_CAMERA) {
+            logd("Requesting video surface: JCI_OPERA_PRIMARY");
+            guiClient.SetRequiredSurfacesByEnum({NativeGUICtrlClient::JCI_OPERA_PRIMARY}, true);
+        }
+        return false;
+    });
+}
+
+void VideoManagerClient::DisplayMode(const uint32_t &currentDisplayMode)
+{
+    // currentDisplayMode != 0 means backup camera wants the screen
+    allowedToGetFocus = !(bool)currentDisplayMode;
+    if ((bool)currentDisplayMode) {
+        waitsForFocus = callbacks.videoFocus;
+        releaseVideoFocus(VIDEO_FOCUS_REQUESTOR::BACKUP_CAMERA);
+    } else if (waitsForFocus) {
+        requestVideoFocus(VIDEO_FOCUS_REQUESTOR::BACKUP_CAMERA);
+    }
 }
 
 MazdaCommandServerCallbacks::MazdaCommandServerCallbacks()
@@ -159,7 +222,7 @@ void MazdaCommandServerCallbacks::TakeVideoFocus()
 {
     if (eventCallbacks && eventCallbacks->connected)
     {
-        eventCallbacks->VideoFocusHappened(true, VIDEO_FOCUS_REQUESTOR::HEADUNIT);
+        eventCallbacks->takeVideoFocus();
     }
 }
 
@@ -167,7 +230,6 @@ std::string MazdaCommandServerCallbacks::GetLogPath() const
 {
     return "/tmp/mnt/data/headunit.log";
 }
-
 
 void AudioManagerClient::populateStreamTable()
 {
