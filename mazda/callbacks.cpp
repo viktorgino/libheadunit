@@ -241,7 +241,7 @@ AudioManagerClient::AudioManagerClient(MazdaEventCallbacks& callbacks, DBus::Con
 
 AudioManagerClient::~AudioManagerClient()
 {
-    if (previousSessionID >= 0)
+    if (channelsWithFocus.size() > 0 && previousSessionID >= 0)
     {
         json args = { { "sessionId", previousSessionID } };
         std::string result = Request("requestAudioFocus", args.dump());
@@ -253,7 +253,7 @@ bool AudioManagerClient::canSwitchAudio() { return usbSessionID >= 0; }
 
 void AudioManagerClient::audioMgrRequestAudioFocus(int chan)
 {
-    if (hasFocus)
+    if (channelsWithFocus.size() > 0)
     {
         //no need to do anything
         callbacks.AudioFocusHappend(chan, true);
@@ -261,8 +261,9 @@ void AudioManagerClient::audioMgrRequestAudioFocus(int chan)
         return;
     }
 
+    bool sentRequestAudioFocus = channelsWaitingForFocus.size() > 0;
     channelsWaitingForFocus.insert(chan);
-    if (previousSessionID >= 0 || waitingForFocusLostEvent)
+    if (sentRequestAudioFocus)
     {
         //already asked
         return;
@@ -277,25 +278,20 @@ void AudioManagerClient::audioMgrRequestAudioFocus(int chan)
 
 void AudioManagerClient::audioMgrReleaseAudioFocus(int chan)
 {
-    if (!hasFocus)
-    {
-        //no need to do anything
-        callbacks.AudioFocusHappend(chan, false);
-        channelsWithFocus.erase(chan);
-        return;
-    }
+    //say it happened right away
+    callbacks.AudioFocusHappend(chan, false);
+    bool hadFocus = channelsWithFocus.size() > 0;
+    channelsWithFocus.erase(chan);
+    channelsWaitingForFocus.erase(chan);
 
-    channelsWaitingForFocus.insert(chan);
-    if (previousSessionID < 0)
+    if (previousSessionID >= 0 && hadFocus && channelsWithFocus.size() == 0)
     {
-        //already pending release request
-        return;
+        //We released the last one, give up audio focus for real
+        json args = { { "sessionId", previousSessionID } };
+        std::string result = Request("requestAudioFocus", args.dump());
+        printf("requestAudioFocus(%s)\n%s\n", args.dump().c_str(), result.c_str());
+        previousSessionID = -1;
     }
-
-    json args = { { "sessionId", previousSessionID } };
-    std::string result = Request("requestAudioFocus", args.dump());
-    printf("requestAudioFocus(%s)\n%s\n", args.dump().c_str(), result.c_str());
-    previousSessionID = -1;
 }
 
 void AudioManagerClient::Notify(const std::string &signalName, const std::string &payload)
@@ -331,30 +327,26 @@ void AudioManagerClient::Notify(const std::string &signalName, const std::string
 
                 if (eventSessionID == usbSessionID)
                 {
-                    hasFocus = newFocus != "lost";
+                    bool hasFocus = newFocus != "lost";
                     callbacks.audioFocus = hasFocus;
-                    for (int chan : channelsWaitingForFocus)
+                    if (hasFocus)
                     {
-                        callbacks.AudioFocusHappend(chan, hasFocus);
-                        if (hasFocus)
+                        for (int chan : channelsWaitingForFocus)
                         {
+                            callbacks.AudioFocusHappend(chan, true);
                             channelsWithFocus.insert(chan);
                         }
-                        else
-                        {
-                            channelsWithFocus.erase(chan);
-                        }
+                        channelsWaitingForFocus.clear();
                     }
-                    channelsWaitingForFocus.clear();
-
-                    //If we lost focus, tell the other channels which we previously were focused
-                    if (!hasFocus)
+                    else
                     {
                         for (int chan : channelsWithFocus)
                         {
                             callbacks.AudioFocusHappend(chan, false);
                         }
-                        channelsWithFocus.clear();;
+                        channelsWithFocus.clear();
+                        //never gonna happen :(
+                        channelsWaitingForFocus.clear();
                     }
                 }
             }
