@@ -15,12 +15,17 @@ get_cmu_sw_version()
 	fi
 }
 
+MYDIR=$(dirname $(readlink -f $0))
+CMU_SW_VER=$(get_cmu_sw_version)
+rm -f "${MYDIR}/installer_log.txt"
+
 log_message()
 {
 	printf "$*" >> "${MYDIR}/installer_log.txt"
 	/bin/fsync "${MYDIR}/installer_log.txt"
 }
 
+#============================= DIALOG FUNCTIONS
 
 show_message() # $1 - title, $2 - message
 {
@@ -41,83 +46,48 @@ show_error() # $1 - title, $2 - message
 {
     killall jci-dialog
     log_message "= POPUP ERROR: $*\n"
-    /jci/tools/jci-dialog --title="$1" --text="$2" --ok-label='OK' --no-cancel
+    /jci/tools/jci-dialog --error --title="$1" --text="$2" --ok-label='OK' --no-cancel
 }
 
-show_dialog() # $1 - title, $2 - message, $3 - ok label, $4 - cancel label
+show_question() # $1 - title, $2 - message, $3 - ok label, $4 - cancel label
 {
 	killall jci-dialog
 	log_message "= POPUP: $*\n"
-	/jci/tools/jci-dialog --confirm --title="$1" --text="$2" --ok-label="$3" --cancel-label="$4"
+	/jci/tools/jci-dialog --question --title="$1" --text="$2" --ok-label="$3" --cancel-label="$4"
 	return $?
 }
 
-MYDIR=$(dirname $(readlink -f $0))
-CMU_SW_VER=$(get_cmu_sw_version)
-rm -f "${MYDIR}/installer_log.txt"
+#============================= INSTALLATION HELPERS
 
-
-log_message "Installer started.\n"
-
-log_message "MYDIR = ${MYDIR}\n"
-log_message "CMU version = ${CMU_SW_VER}\n"
-
-# first test, if copy from MZD to sd card is working to test correct mount point
-log_message "Check mount point ... "
-if [ -f "${MYDIR}/installer_log.txt" ]; then
-    log_message "OK\n"
-else
-    log_message "FAILED!\n"
-    show_error "ERROR!" "Mount point not found, have to reboot again."
-    sleep 1
-    reboot
-    exit
-fi
-
-show_dialog "AA INSTALL SCRIPT" "Welcome to Android Auto installation script. Would you like to proceed?" "Proceed" "Abort"
-if [ $? -ne 0 ]; then
-    log_message "Installation aborted.\n"
-    show_message "Aborted" "Script aborted. Please remove the USB drive. There is no need to reboot."
-    exit
-fi
-
-# disable watchdog and allow write access
-log_message "Disabling watchdog and remounting for write access ... "
-echo 1 > /sys/class/gpio/Watchdog\ Disable/value && mount -o rw,remount /
-if [ $? -eq 0 ]; then
-    log_message "SUCCESS\n"
-else
-    log_message "FAILED\n"
-    show_error "ERROR!" "Could not disable watchdog or remount filesystem. Rebooting."
-    sleep 1
-    reboot
-    exit
-fi
-
-installed=0
-remove=0
-# check whether we have AA already installed
-# check for headunit-wrapper to make sure the installed version is new one
-log_message "Check whether Android Auto is installed ... "
-if [ -f /tmp/mnt/data_persist/dev/bin/headunit-wrapper ]; then
-    installed=1
-    log_message "YES\n"
-    show_dialog "CHOOSE ACTION" "You have Android Auto already installed. Would you like to update or remove it?" "UPDATE" "REMOVE"
-    remove=$?
-    if [ $remove -eq 1 ]; then
-        log_message "Removing Android Auto.\n"
+check_mount_point()
+{
+    if [ -f "${MYDIR}/installer_log.txt" ]; then
+        log_message "OK\n"
     else
-        log_message "Updating Android Auto.\n"
+        log_message "FAILED!\n"
+        show_error "ERROR!" "Mount point not found, have to reboot again."
+        sleep 1
+        reboot
+        exit
     fi
-    log_message "Killing running headunit processes ... "
-    killall -q -9 headunit && log_message "KILLED\n" || log_message "FAILED! No 'headunit' process found or could not kill it.\n"
-else
-    log_message "NO\n"
-    log_message "Installing Android Auto.\n"
-fi
+}
 
-if [ ${installed} -eq 0 ]; then
-    show_message "INSTALLING" "Android Auto is installing ..."
+disable_watchdog_and_remount()
+{
+    echo 1 > /sys/class/gpio/Watchdog\ Disable/value && mount -o rw,remount /
+    if [ $? -eq 0 ]; then
+        log_message "SUCCESS\n"
+    else
+        log_message "FAILED\n"
+        show_error "ERROR!" "Could not disable watchdog or remount filesystem. Rebooting."
+        sleep 1
+        reboot
+        exit
+    fi
+}
+
+modify_cmu_files()
+{
     log_message "Changing opera.ini file ... "
     # -- Enable userjs and allow file XMLHttpRequest in /jci/opera/opera_home/opera.ini - backup first - then edit
     if [ ! -f /jci/opera/opera_home/opera.ini.org ]; then
@@ -164,10 +134,10 @@ if [ ${installed} -eq 0 ]; then
             log_message "backup failed so leaving file as is - there will be no autostart. FAILED\n"
         fi
     fi
-fi
+}
 
-if [ ${remove} -eq 1 ]; then
-    show_message "UNINSTALLING" "Android Auto is uninstalling ..."
+revert_cmu_files()
+{
     log_message "Reverting opera.ini file ... "
     reverted=0
     # -- Revert /jci/opera/opera_home/opera.ini from backup
@@ -199,16 +169,6 @@ if [ ${remove} -eq 1 ]; then
             log_message "FAILED\n"
         fi
     fi
-
-    # Remove Android Auto Headunit App
-    log_message "Removing AA files ... "
-    rm /tmp/mnt/data_persist/dev/bin/headunit || log_message "headunit failed ... "
-    rm /tmp/mnt/data_persist/dev/bin/headunit-wrapper || log_message "headunit-wrapper failed ... "
-    rm -rf /tmp/mnt/data_persist/dev/bin/headunit_libs || log_message "headunit_libs failed ... "
-    rm -rf /jci/gui/apps/_androidauto || log_message "_androidauto failed ... "
-    rm /jci/opera/opera_dir/userjs/additionalApps.* || "additionalApps.* failed ... "
-    log_message "DONE\n"
-
     if grep -Fq "# Android Auto start" /jci/scripts/stage_wifi.sh; then
         log_message "Reverting stage_wifi.sh ... "
         reverted=0
@@ -232,11 +192,10 @@ if [ ${remove} -eq 1 ]; then
             fi
         fi
     fi
-    log_message "Uninstall complete!\n"
-    show_confirmation "DONE" "Uninstall complete. System will reboot now. Remember to remove USB drive."
-    reboot
-    exit
-else
+}
+
+copy_aa_binaries()
+{
     # Install or update Android Auto Headunit App - we can copy files for sure.
     log_message "Copying AA files ... "
     cp -a ${MYDIR}/config/androidauto/data_persist/dev/* /tmp/mnt/data_persist/dev/ || "headunit binaries failed ... "
@@ -248,20 +207,111 @@ else
     chmod 755 /tmp/mnt/data_persist/dev/bin/headunit || "for headunit failed ... "
     chmod 755 /tmp/mnt/data_persist/dev/bin/headunit-wrapper || "for headunit-wrapper failed ... "
     log_message "DONE\n"
+}
+
+remove_aa_binaries()
+{
+    # Remove Android Auto Headunit App
+    log_message "Removing AA files ... "
+    rm /tmp/mnt/data_persist/dev/bin/headunit || log_message "headunit failed ... "
+    rm /tmp/mnt/data_persist/dev/bin/headunit-wrapper || log_message "headunit-wrapper failed ... "
+    rm -rf /tmp/mnt/data_persist/dev/bin/headunit_libs || log_message "headunit_libs failed ... "
+    rm -rf /jci/gui/apps/_androidauto || log_message "_androidauto failed ... "
+    rm /jci/opera/opera_dir/userjs/additionalApps.* || "additionalApps.* failed ... "
+    log_message "DONE\n"
+}
+
+test_run()
+{
+    #make sure it can run. this will hopefully generate a more useful log for debugging that is easy to get if not
+    log_message "\n\nRunning smoke test\n\n"
+    /tmp/mnt/data_persist/dev/bin/headunit-wrapper test
+    cat /tmp/mnt/data/headunit.log >> "${MYDIR}/installer_log.txt"
+    if grep -Fq "###TESTMODE_OK###" /tmp/mnt/data/headunit.log; then
+        log_message "\nTest looks good.\n"
+    else
+        log_message "\nTest went wrong.\n"
+        show_message "TEST RUN FAILED" "Headunit binary launch failed. Check the log."
+    fi
+}
+
+#============================= INSTALLATION STARTS HERE
+
+log_message "Installer started.\n"
+
+log_message "MYDIR = ${MYDIR}\n"
+log_message "CMU version = ${CMU_SW_VER}\n"
+
+# first test, if copy from MZD to sd card is working to test correct mount point
+log_message "Check mount point ... "
+check_mount_point
+
+# ask if proceed with installation
+show_question "AA INSTALL SCRIPT" "Welcome to Android Auto installation script. Would you like to proceed?" "Proceed" "Abort"
+if [ $? -ne 0 ]; then
+    log_message "Installation aborted.\n"
+    show_message "Aborted" "Script aborted. Please remove the USB drive. There is no need to reboot."
+    exit
 fi
 
+# disable watchdog and allow write access
+log_message "Disabling watchdog and remounting for write access ... "
+disable_watchdog_and_remount
 
-#make sure it can run. this will hopefully generate a more useful log for debugging that is easy to get if not
-log_message "\n\nRunning smoke test\n\n"
-/tmp/mnt/data_persist/dev/bin/headunit-wrapper test
-cat /tmp/mnt/data/headunit.log >> "${MYDIR}/installer_log.txt"
-if grep -Fq "###TESTMODE_OK###" /tmp/mnt/data/headunit.log; then
-    log_message "\nTest looks good.\n"
+installed=0
+remove=0
+# check whether we have AA already installed
+# check for headunit-wrapper to make sure the installed version is new one
+log_message "Check whether Android Auto is installed ... "
+if [ -f /tmp/mnt/data_persist/dev/bin/headunit-wrapper ]; then
+    installed=1
+    log_message "YES\n"
+    show_question "CHOOSE ACTION" "You have Android Auto already installed. Would you like to update or remove it?" "UPDATE" "REMOVE"
+    remove=$?
+    if [ ${remove} -eq 1 ]; then
+        log_message "Removing Android Auto.\n"
+    else
+        log_message "Updating Android Auto.\n"
+    fi
+    log_message "Killing running headunit processes ... "
+    killall -q -9 headunit && log_message "KILLED\n" || log_message "FAILED! No 'headunit' process found or could not kill it.\n"
 else
-    log_message "\nTest went wrong.\n"
-    show_message "TEST RUN FAILED" "Headunit binary launch failed. Check the log."
+    log_message "NO\n"
+    log_message "Installing Android Auto.\n"
 fi
 
-show_confirmation "INSTALL COMPLETE" "Android Auto has been installed. Click OK to reboot the system."
+if [ ${installed} -eq 0 ]; then
+    # this is an installation path - installed=false
+    show_message "INSTALLING" "Android Auto is installing ..."
+
+    modify_cmu_files
+    copy_aa_binaries
+    test_run
+
+    log_message "Installation complete!\n"
+    show_confirmation "DONE" "Android Auto has been installed. System will reboot now. Remember to remove USB drive."
+fi
+
+if [ ${remove} -eq 1 ]; then
+    # this is a removing path - installed=true, remove=true
+    show_message "UNINSTALLING" "Android Auto is uninstalling ..."
+
+    revert_cmu_files
+    remove_aa_binaries
+
+    log_message "Uninstall complete!\n"
+    show_confirmation "DONE" "Uninstall complete. System will reboot now. Remember to remove USB drive."
+else
+    # this is an update path - installed=true, remove=false
+    show_message "UPDATING" "Android Auto is updating ..."
+
+    copy_aa_binaries
+    test_run
+
+    log_message "Update complete!\n"
+    show_confirmation "DONE" "Update complete. System will reboot now. Remember to remove USB drive."
+fi
+
+sleep 3
 reboot
 exit
