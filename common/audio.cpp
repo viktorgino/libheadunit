@@ -9,7 +9,7 @@ AudioOutput::AudioOutput(const char *outDev, bool halfVolume)
     if ((err = snd_pcm_open(&aud_handle, outDev, SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
         loge("Playback open error: %s\n", snd_strerror(err));
     }
-    if ((err = snd_pcm_set_params(aud_handle, SND_PCM_FORMAT_S16_LE, SND_PCM_ACCESS_RW_INTERLEAVED, 2,48000, 1, 500000)) < 0) {   /* 0.5sec */
+    if ((err = snd_pcm_set_params(aud_handle, SND_PCM_FORMAT_S16_LE, SND_PCM_ACCESS_RW_INTERLEAVED, 2,48000, 1, 1000000)) < 0) {   /* 1.0sec */
         loge("Playback open error: %s\n", snd_strerror(err));
     }
 
@@ -20,7 +20,7 @@ AudioOutput::AudioOutput(const char *outDev, bool halfVolume)
     if ((err = snd_pcm_open(&au1_handle, outDev, SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
         loge("Playback open error: %s\n", snd_strerror(err));
     }
-    if ((err = snd_pcm_set_params(au1_handle, SND_PCM_FORMAT_S16_LE, SND_PCM_ACCESS_RW_INTERLEAVED, 1, 16000, 1, 500000)) < 0) {   /* 0.5sec */
+    if ((err = snd_pcm_set_params(au1_handle, SND_PCM_FORMAT_S16_LE, SND_PCM_ACCESS_RW_INTERLEAVED, 1, 16000, 1, 1000000)) < 0) {   /* 1.0sec */
         loge("Playback open error: %s\n", snd_strerror(err));
     }
 
