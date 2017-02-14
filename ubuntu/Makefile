@@ -13,13 +13,12 @@ SRCS += $(TOP)/hu/hu_usb.cpp
 SRCS += $(TOP)/hu/hu_uti.cpp
 SRCS += $(TOP)/hu/hu_tcp.cpp
 SRCS += $(TOP)/hu/generated.x64/hu.pb.cc
-
 SRCS += $(TOP)/common/audio.cpp
 SRCS += $(TOP)/common/glib_utils.cpp
 SRCS += $(TOP)/common/command_server.cpp
-
 SRCS += $(TOP)/common/web++/web++.cpp
 
+SRCS += bt/ub_bluetooth.cpp
 SRCS += main.cpp
 SRCS += outputs.cpp
 SRCS += callbacks.cpp

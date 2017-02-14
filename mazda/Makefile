@@ -37,6 +37,7 @@ SRCS += gps/nematode/src/NMEACommand.cpp
 SRCS += gps/nematode/src/NMEAParser.cpp
 SRCS += gps/nematode/src/NumberConversion.cpp
 SRCS += gps/mzd_gps.cpp
+SRCS += bt/mzd_bluetooth.cpp
 
 SRCS += outputs.cpp
 SRCS += callbacks.cpp

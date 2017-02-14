@@ -14,6 +14,7 @@
 #define AA_CH_AU1 5
 #define AA_CH_AU2 6
 #define AA_CH_MIC 7
+#define AA_CH_BT  8
 #define AA_CH_MAX 256
 
 enum HU_STATE
@@ -137,6 +138,7 @@ public:
   virtual void CustomizeSensorConfig(HU::ChannelDescriptor::SensorChannel& sensorChannel) {}
   virtual void CustomizeOutputChannel(int chan, HU::ChannelDescriptor::OutputStreamChannel& streamChannel) {}
   virtual void CustomizeInputChannel(int chan, HU::ChannelDescriptor::InputStreamChannel& streamChannel) {}
+  virtual void CustomizeBluetoothService(int chan, HU::ChannelDescriptor::BluetoothService& bluetoothService) {}
 
   virtual void AudioFocusRequest(int chan, const HU::AudioFocusRequest& request) = 0;
   virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) = 0;
