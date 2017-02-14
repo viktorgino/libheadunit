@@ -23,5 +23,5 @@ std::string get_bluetooth_mac_address() {
     // This is naive and simple, but works well for testing.
     const auto start_of_mac = output.find_last_of('\t');
     if (start_of_mac == std::string::npos) return "";
-    return output.substr(start_of_mac);
+    return output.substr(start_of_mac+1);
 }

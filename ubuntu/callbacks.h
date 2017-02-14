@@ -34,6 +34,8 @@ public:
         virtual void AudioFocusRequest(int chan, const HU::AudioFocusRequest& request) override;
         virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) override;
 
+        virtual std::string GetCarBluetoothAddress() override;
+
         void VideoFocusHappened(bool hasFocus, VIDEO_FOCUS_REQUESTOR videoFocusRequestor);
 
         std::atomic<bool> connected;

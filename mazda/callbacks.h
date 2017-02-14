@@ -134,6 +134,8 @@ public:
     virtual void AudioFocusRequest(int chan, const HU::AudioFocusRequest& request) override;
     virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) override;
 
+    virtual std::string GetCarBluetoothAddress() override;
+
     void takeVideoFocus();
     void releaseVideoFocus();
 

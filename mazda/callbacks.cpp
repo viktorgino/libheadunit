@@ -3,6 +3,7 @@
 #include "glib_utils.h"
 #include "audio.h"
 #include "main.h"
+#include "bt/mzd_bluetooth.h"
 
 #include "json/json.hpp"
 using json = nlohmann::json;
@@ -97,6 +98,11 @@ void MazdaEventCallbacks::VideoFocusRequest(int chan, const HU::VideoFocusReques
         }
         return false;
     });
+}
+
+std::string MazdaEventCallbacks::GetCarBluetoothAddress()
+{
+    return get_bluetooth_mac_address();
 }
 
 void MazdaEventCallbacks::takeVideoFocus() {

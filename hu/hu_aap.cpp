@@ -540,13 +540,23 @@
 
     callbacks.CustomizeCarInfo(carInfo);
 
-    HU::ChannelDescriptor* btChannel = carInfo.add_channels();
-    btChannel->set_channel_id(AA_CH_BT);
+    std::string carBTAddress = callbacks.GetCarBluetoothAddress();
+    if (carBTAddress.size() > 0)
     {
-      auto inner = btChannel->mutable_bluetooth_service();
-      callbacks.CustomizeBluetoothService(AA_CH_BT, *inner);
-      inner->add_supported_pairing_methods(HU::ChannelDescriptor_BluetoothService::BLUETOOTH_PARING_METHOD_A2DP);
-      inner->add_supported_pairing_methods(HU::ChannelDescriptor_BluetoothService::BLUETOOTH_PARING_METHOD_HFP);
+        logw("Found BT address %s. Exposing Bluetooth service", carBTAddress.c_str());
+        HU::ChannelDescriptor* btChannel = carInfo.add_channels();
+        btChannel->set_channel_id(AA_CH_BT);
+        {
+          auto inner = btChannel->mutable_bluetooth_service();
+          inner->set_car_address(carBTAddress);
+          inner->add_supported_pairing_methods(HU::ChannelDescriptor_BluetoothService::BLUETOOTH_PARING_METHOD_A2DP);
+          inner->add_supported_pairing_methods(HU::ChannelDescriptor_BluetoothService::BLUETOOTH_PARING_METHOD_HFP);
+          callbacks.CustomizeBluetoothService(AA_CH_BT, *inner);
+        }
+    }
+    else
+    {
+        logw("No Bluetooth or finding BT address failed. Not exposing Bluetooth service");
     }
 
     return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::ServiceDiscoveryResponse, carInfo);

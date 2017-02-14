@@ -1,6 +1,7 @@
 #include "callbacks.h"
 #include "outputs.h"
 #include "glib_utils.h"
+#include "bt/ub_bluetooth.h"
 
 DesktopEventCallbacks::DesktopEventCallbacks() :
     connected(false),
@@ -85,6 +86,11 @@ void DesktopEventCallbacks::AudioFocusRequest(int chan, const HU::AudioFocusRequ
 
 void DesktopEventCallbacks::VideoFocusRequest(int chan, const HU::VideoFocusRequest &request) {
     VideoFocusHappened(request.mode() == HU::VIDEO_FOCUS_MODE_FOCUSED, VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO);
+}
+
+std::string DesktopEventCallbacks::GetCarBluetoothAddress()
+{
+    return get_bluetooth_mac_address();
 }
 
 void DesktopEventCallbacks::VideoFocusHappened(bool hasFocus, VIDEO_FOCUS_REQUESTOR videoFocusRequestor) {

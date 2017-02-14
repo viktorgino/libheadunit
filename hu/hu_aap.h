@@ -140,6 +140,9 @@ public:
   virtual void CustomizeInputChannel(int chan, HU::ChannelDescriptor::InputStreamChannel& streamChannel) {}
   virtual void CustomizeBluetoothService(int chan, HU::ChannelDescriptor::BluetoothService& bluetoothService) {}
 
+  //returning a empty string means no bluetooth
+  virtual std::string GetCarBluetoothAddress() { return std::string(); }
+
   virtual void AudioFocusRequest(int chan, const HU::AudioFocusRequest& request) = 0;
   virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) = 0;
 };
