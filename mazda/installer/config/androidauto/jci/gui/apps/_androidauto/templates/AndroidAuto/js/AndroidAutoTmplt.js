@@ -24,11 +24,11 @@ AndroidAutoTmplt.prototype.handleControllerEvent = function(eventID)
 {
     log.debug('handleController() called, eventID: ' + eventID);
     return 'giveFocusLeft';
-}
+};
 
 AndroidAutoTmplt.prototype.cleanUp = function() 
 {
 
-}
+};
 
 framework.registerTmpltLoaded('AndroidAutoTmplt');
