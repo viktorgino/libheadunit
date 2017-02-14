@@ -54,8 +54,11 @@ int MazdaEventCallbacks::MediaStop(int chan) {
 
 void MazdaEventCallbacks::MediaSetupComplete(int chan) {
     if (chan == AA_CH_VID) {
-        //Ask for video focus on connection
-        videoMgrClient->requestVideoFocus(VIDEO_FOCUS_REQUESTOR::HEADUNIT);
+        run_on_main_thread([this](){
+            //Ask for video focus on connection
+            videoMgrClient->requestVideoFocus(VIDEO_FOCUS_REQUESTOR::HEADUNIT);
+            return false;
+        });
     }
 }
 
@@ -86,19 +89,28 @@ void MazdaEventCallbacks::AudioFocusRequest(int chan, const HU::AudioFocusReques
 }
 
 void MazdaEventCallbacks::VideoFocusRequest(int chan, const HU::VideoFocusRequest &request) {
-    if (request.mode() == HU::VIDEO_FOCUS_MODE::VIDEO_FOCUS_MODE_FOCUSED) {
-        videoMgrClient->requestVideoFocus(VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO);
-    } else {
-        videoMgrClient->releaseVideoFocus(VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO);
-    }
+    run_on_main_thread([this, request](){
+        if (request.mode() == HU::VIDEO_FOCUS_MODE::VIDEO_FOCUS_MODE_FOCUSED) {
+            videoMgrClient->requestVideoFocus(VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO);
+        } else {
+            videoMgrClient->releaseVideoFocus(VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO);
+        }
+        return false;
+    });
 }
 
 void MazdaEventCallbacks::takeVideoFocus() {
-    videoMgrClient->requestVideoFocus(VIDEO_FOCUS_REQUESTOR::HEADUNIT);
+    run_on_main_thread([this](){
+        videoMgrClient->requestVideoFocus(VIDEO_FOCUS_REQUESTOR::HEADUNIT);
+        return false;
+    });
 }
 
 void MazdaEventCallbacks::releaseVideoFocus() {
-    videoMgrClient->releaseVideoFocus(VIDEO_FOCUS_REQUESTOR::HEADUNIT);
+    run_on_main_thread([this](){
+        videoMgrClient->releaseVideoFocus(VIDEO_FOCUS_REQUESTOR::HEADUNIT);
+        return false;
+    });
 }
 
 void MazdaEventCallbacks::VideoFocusHappened(bool hasFocus, bool unrequested) {
@@ -147,14 +159,24 @@ void VideoManagerClient::requestVideoFocus(VIDEO_FOCUS_REQUESTOR requestor)
     waitsForFocus = false;
     bool unrequested = requestor != VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO;
     logd("Requestor %i requested video focus\n", requestor);
-    // need to wait for a second (maybe less but 100ms is too early) to make sure
-    // the CMU has already changed the surface from backup camera to opera
-    run_on_main_thread_delay(1000, [this, unrequested](){
+
+    auto handleRequest = [this, unrequested](){
         callbacks.VideoFocusHappened(true, unrequested);
         logd("Requesting video surface: TV_TOUCH_SURFACE");
         guiClient.SetRequiredSurfacesByEnum({NativeGUICtrlClient::TV_TOUCH_SURFACE}, true);
         return false;
-    });
+    };
+    if (requestor == VIDEO_FOCUS_REQUESTOR::BACKUP_CAMERA)
+    {
+        // need to wait for a second (maybe less but 100ms is too early) to make sure
+        // the CMU has already changed the surface from backup camera to opera
+        run_on_main_thread_delay(1000, handleRequest);
+    }
+    else
+    {
+        //otherwise don't pause
+        handleRequest();
+    }
 }
 
 void VideoManagerClient::releaseVideoFocus(VIDEO_FOCUS_REQUESTOR requestor)

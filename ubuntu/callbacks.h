@@ -11,7 +11,7 @@
 class VideoOutput;
 class AudioOutput;
 
-enum VIDEO_FOCUS_REQUESTOR {
+enum class VIDEO_FOCUS_REQUESTOR {
     HEADUNIT, // headunit (we) has requested video focus
     ANDROID_AUTO // AA phone app has requested video focus
 };
