@@ -3,3 +3,7 @@
 /.codelite/
 *.project
 *.workspace
+.idea/
+CMakeLists.txt
+cmake-build-debug/
+mazda/installer/config/androidauto/data_persist/dev/bin/headunit

@@ -147,7 +147,7 @@ function getJSON(url, successHandler, errorHandler) {
   };
   xhr.onerror = function() {
     var status = xhr.status;
-  }
+  };
   xhr.send();
 }
 
