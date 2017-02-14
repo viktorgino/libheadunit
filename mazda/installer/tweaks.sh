@@ -17,7 +17,14 @@ get_cmu_sw_version()
 
 MYDIR=$(dirname $(readlink -f $0))
 CMU_SW_VER=$(get_cmu_sw_version)
-rm -f "${MYDIR}/installer_log.txt"
+if [ -f "${MYDIR}/installer_log.txt" ]; then
+    #save old logs
+    logidx=1
+    while [ -f "${MYDIR}/installer_log_${logidx}.txt" ]; do
+        let logidx=logidx+1
+    done
+    mv "${MYDIR}/installer_log.txt" "${MYDIR}/installer_log_${logidx}.txt"
+fi
 
 log_message()
 {
@@ -125,13 +132,17 @@ modify_cmu_files()
         log_message "\n"
     else
         #first backup
-        log_message "backing up file first ... "
-        if cp -a /jci/scripts/stage_wifi.sh /jci/scripts/stage_wifi.sh.bak; then
-            echo "# Android Auto start" >> /jci/scripts/stage_wifi.sh
-            echo "headunit-wrapper &" >> /jci/scripts/stage_wifi.sh
-            log_message "autostart entry added to /jci/scripts/stage_wifi.sh ... DONE\n"
+        if [ ! -f /jci/scripts/stage_wifi.sh.bak ]; then
+            log_message "backing up file first ... "
+            if cp -a /jci/scripts/stage_wifi.sh /jci/scripts/stage_wifi.sh.bak; then
+                echo "# Android Auto start" >> /jci/scripts/stage_wifi.sh
+                echo "headunit-wrapper &" >> /jci/scripts/stage_wifi.sh
+                log_message "autostart entry added to /jci/scripts/stage_wifi.sh ... DONE\n"
+            else
+                log_message "backup failed so leaving file as is - there will be no autostart. FAILED\n"
+            fi
         else
-            log_message "backup failed so leaving file as is - there will be no autostart. FAILED\n"
+            log_message "backup exists so leaving file as is - there will be no autostart. FAILED\n"
         fi
     fi
 }
@@ -290,9 +301,7 @@ if [ ${installed} -eq 0 ]; then
 
     log_message "Installation complete!\n"
     show_confirmation "DONE" "Android Auto has been installed. System will reboot now. Remember to remove USB drive."
-fi
-
-if [ ${remove} -eq 1 ]; then
+elif [ ${remove} -eq 1 ]; then
     # this is a removing path - installed=true, remove=true
     show_message "UNINSTALLING" "Android Auto is uninstalling ..."
 
@@ -305,6 +314,8 @@ else
     # this is an update path - installed=true, remove=false
     show_message "UPDATING" "Android Auto is updating ..."
 
+    #still modify cmu_files incase they were updated
+    modify_cmu_files
     copy_aa_binaries
     test_run
 
