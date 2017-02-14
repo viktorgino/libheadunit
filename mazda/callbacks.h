@@ -14,6 +14,49 @@
 class VideoOutput;
 class AudioOutput;
 class MazdaEventCallbacks;
+class VideoManagerClient;
+
+class NativeGUICtrlClient : public com::jci::nativeguictrl_proxy,
+                            public DBus::ObjectProxy
+{
+public:
+    NativeGUICtrlClient(DBus::Connection &connection)
+            : DBus::ObjectProxy(connection, "/com/jci/nativeguictrl", "com.jci.nativeguictrl")
+    {
+    }
+
+    enum SURFACES
+    {
+        NNG_NAVI_ID = 0,
+        TV_TOUCH_SURFACE,
+        NATGUI_SURFACE,
+        LOOPLOGO_SURFACE,
+        TRANLOGOEND_SURFACE,
+        TRANLOGO_SURFACE,
+        QUICKTRANLOGO_SURFACE,
+        EXITLOGO_SURFACE,
+        JCI_OPERA_PRIMARY,
+        JCI_OPERA_SECONDARY,
+        lvdsSurface,
+        SCREENREP_IVI_NAME,
+        NNG_NAVI_MAP1,
+        NNG_NAVI_MAP2,
+        NNG_NAVI_HMI,
+        NNG_NAVI_TWN,
+    };
+
+    void SetRequiredSurfacesByEnum(const std::vector<SURFACES>& surfaces, bool fadeOpera)
+    {
+        std::ostringstream idString;
+        for (size_t i = 0; i < surfaces.size(); i++)
+        {
+            if (i > 0)
+                idString << ",";
+            idString << surfaces[i];
+        }
+        SetRequiredSurfaces(idString.str(), fadeOpera ? 1 : 0);
+    }
+};
 
 class AudioManagerClient : public com::xsembedded::ServiceProvider_proxy,
                      public DBus::ObjectProxy
@@ -42,34 +85,64 @@ public:
     virtual void Notify(const std::string& signalName, const std::string& payload) override;
 };
 
-class MazdaEventCallbacks : public IHUConnectionThreadEventCallbacks {
-        std::unique_ptr<VideoOutput> videoOutput;
-        std::unique_ptr<AudioOutput> audioOutput;
+enum class VIDEO_FOCUS_REQUESTOR : u_int8_t {
+    HEADUNIT, // headunit (we) has requested video focus
+    ANDROID_AUTO, // AA phone app has requested video focus
+    BACKUP_CAMERA // CMU requested screen for backup camera
+};
 
-        MicInput micInput;
-        DBus::Connection& serviceBus;
-        DBus::Connection& hmiBus;
+class VideoManagerClient : public com::jci::bucpsa_proxy,
+                           public DBus::ObjectProxy {
+    bool allowedToGetFocus = true;
+    bool waitsForFocus = false;
 
-        std::unique_ptr<AudioManagerClient> audioMgrClient;
+    MazdaEventCallbacks& callbacks;
+    NativeGUICtrlClient guiClient;
 public:
-        MazdaEventCallbacks(DBus::Connection& serviceBus, DBus::Connection& hmiBus);
-        ~MazdaEventCallbacks();
+    VideoManagerClient(MazdaEventCallbacks& callbacks, DBus::Connection &hmiBus);
+    ~VideoManagerClient();
 
-        virtual int MediaPacket(int chan, uint64_t timestamp, const byte * buf, int len) override;
-        virtual int MediaStart(int chan) override;
-        virtual int MediaStop(int chan) override;
-        virtual void MediaSetupComplete(int chan) override;
-        virtual void DisconnectionOrError() override;
-        virtual void CustomizeOutputChannel(int chan, HU::ChannelDescriptor::OutputStreamChannel& streamChannel) override;
-        virtual void AudioFocusRequest(int chan, const HU::AudioFocusRequest& request) override;
-        virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) override;
+    void requestVideoFocus(VIDEO_FOCUS_REQUESTOR requestor);
+    void releaseVideoFocus(VIDEO_FOCUS_REQUESTOR requestor);
 
-        void VideoFocusHappened(bool hasFocus, bool unrequested);
-        void AudioFocusHappend(int chan, bool hasFocus);
+    virtual void CommandResponse(const uint32_t& cmdResponse) override {}
+    virtual void DisplayMode(const uint32_t& currentDisplayMode) override;
+    virtual void ReverseStatusChanged(const int32_t& reverseStatus) override {}
+    virtual void PSMInstallStatusChanged(const uint8_t& psmInstalled) override {}
+};
 
-        std::atomic<bool> connected;
-        std::atomic<bool> videoFocus;
-        std::atomic<bool> audioFocus;
+class MazdaEventCallbacks : public IHUConnectionThreadEventCallbacks {
+    std::unique_ptr<VideoOutput> videoOutput;
+    std::unique_ptr<AudioOutput> audioOutput;
+
+    MicInput micInput;
+    DBus::Connection& serviceBus;
+    DBus::Connection& hmiBus;
+
+    std::unique_ptr<AudioManagerClient> audioMgrClient;
+    std::unique_ptr<VideoManagerClient> videoMgrClient;
+public:
+    MazdaEventCallbacks(DBus::Connection& serviceBus, DBus::Connection& hmiBus);
+    ~MazdaEventCallbacks();
+
+    virtual int MediaPacket(int chan, uint64_t timestamp, const byte * buf, int len) override;
+    virtual int MediaStart(int chan) override;
+    virtual int MediaStop(int chan) override;
+    virtual void MediaSetupComplete(int chan) override;
+    virtual void DisconnectionOrError() override;
+    virtual void CustomizeOutputChannel(int chan, HU::ChannelDescriptor::OutputStreamChannel& streamChannel) override;
+    virtual void AudioFocusRequest(int chan, const HU::AudioFocusRequest& request) override;
+    virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) override;
+
+    void takeVideoFocus();
+    void releaseVideoFocus();
+
+    void VideoFocusHappened(bool hasFocus, bool unrequested);
+    void AudioFocusHappend(int chan, bool hasFocus);
+
+    std::atomic<bool> connected;
+    std::atomic<bool> videoFocus;
+    std::atomic<bool> audioFocus;
 };
 
 class MazdaCommandServerCallbacks : public ICommandServerCallbacks

@@ -19,9 +19,9 @@ void run_on_main_thread(std::function<bool()>&& f)
     g_source_unref(source);
 }
 
-void run_on_main_thread_delay(guint seconds, std::function<bool()>&& f)
+void run_on_main_thread_delay(guint milliseconds, std::function<bool()>&& f)
 {
-    GSource* source = g_timeout_source_new_seconds(seconds);
+    GSource* source = g_timeout_source_new(milliseconds);
     g_source_set_callback(source, run_on_main_thread_func, new std::function<bool()>(f), nullptr);
 
     g_source_attach(source, run_on_thread_main_context);
