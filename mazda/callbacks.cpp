@@ -146,7 +146,11 @@ VideoManagerClient::VideoManagerClient(MazdaEventCallbacks& callbacks, DBus::Con
 }
 
 VideoManagerClient::~VideoManagerClient() {
-    releaseVideoFocus(VIDEO_FOCUS_REQUESTOR::HEADUNIT);
+    //We can't call release video focus since the callbacks object is being destroyed, but make sure we got to opera if no in backup cam
+    if (allowedToGetFocus) {
+        logd("Requesting video surface: JCI_OPERA_PRIMARY");
+        guiClient.SetRequiredSurfacesByEnum({NativeGUICtrlClient::JCI_OPERA_PRIMARY}, true);
+    }
 }
 
 void VideoManagerClient::requestVideoFocus(VIDEO_FOCUS_REQUESTOR requestor)
@@ -186,14 +190,11 @@ void VideoManagerClient::releaseVideoFocus(VIDEO_FOCUS_REQUESTOR requestor)
     }
     bool unrequested = requestor != VIDEO_FOCUS_REQUESTOR::ANDROID_AUTO;
     logd("Requestor %i released video focus\n", requestor);
-    run_on_main_thread([this, unrequested, requestor](){
-        callbacks.VideoFocusHappened(false, unrequested);
-        if (requestor != VIDEO_FOCUS_REQUESTOR::BACKUP_CAMERA) {
-            logd("Requesting video surface: JCI_OPERA_PRIMARY");
-            guiClient.SetRequiredSurfacesByEnum({NativeGUICtrlClient::JCI_OPERA_PRIMARY}, true);
-        }
-        return false;
-    });
+    callbacks.VideoFocusHappened(false, unrequested);
+    if (requestor != VIDEO_FOCUS_REQUESTOR::BACKUP_CAMERA) {
+        logd("Requesting video surface: JCI_OPERA_PRIMARY");
+        guiClient.SetRequiredSurfacesByEnum({NativeGUICtrlClient::JCI_OPERA_PRIMARY}, true);
+    }
 }
 
 void VideoManagerClient::DisplayMode(const uint32_t &currentDisplayMode)
