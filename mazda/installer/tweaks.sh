@@ -314,8 +314,10 @@ else
     # this is an update path - installed=true, remove=false
     show_message "UPDATING" "Android Auto is updating ..."
 
-    #still modify cmu_files incase they were updated
+    # still modify cmu_files in case they were updated
     modify_cmu_files
+    # remove all files and copy once again in case there were some orphaned files in CMU
+    remove_aa_binaries
     copy_aa_binaries
     test_run
 
