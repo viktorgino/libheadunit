@@ -21,7 +21,7 @@ if [ -f "${MYDIR}/installer_log.txt" ]; then
     #save old logs
     logidx=1
     while [ -f "${MYDIR}/installer_log_${logidx}.txt" ]; do
-        let logidx=logidx+1
+        logidx=$(($logidx+1))
     done
     mv "${MYDIR}/installer_log.txt" "${MYDIR}/installer_log_${logidx}.txt"
 fi
@@ -252,6 +252,14 @@ log_message "Installer started.\n"
 
 log_message "MYDIR = ${MYDIR}\n"
 log_message "CMU version = ${CMU_SW_VER}\n"
+
+# check software version first
+echo ${CMU_SW_VER} | /bin/sed "/^5[69]\..*/Q 1"
+if [ $? -ne 1 ]; then
+    log_message "Script aborted due to CMU version mismatch."
+    show_message "Aborted" "This version of CMU is not supported. Please update first."
+    exit
+fi
 
 # first test, if copy from MZD to sd card is working to test correct mount point
 log_message "Check mount point ... "
