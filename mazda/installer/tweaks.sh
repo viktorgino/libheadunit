@@ -254,7 +254,7 @@ log_message "MYDIR = ${MYDIR}\n"
 log_message "CMU version = ${CMU_SW_VER}\n"
 
 # check software version first
-echo ${CMU_SW_VER} | /bin/sed "/^5[69]\..*/Q 1"
+echo ${CMU_SW_VER} | /bin/sed "/^5[569]\..*/Q 1"
 if [ $? -ne 1 ]; then
     log_message "Script aborted due to CMU version mismatch."
     show_message "Aborted" "This version of CMU is not supported. Please update first."
