@@ -28,9 +28,17 @@
 
 static unsigned char AAP_VAL_MAN[] =  "Android";
 static unsigned char AAP_VAL_MOD[] =  "Android Auto";    // "Android Open Automotive Protocol"
+static unsigned char AAP_VAL_DESC[] =  "Android Auto";
+static unsigned char AAP_VAL_VER[] =  "2.0.1";
+static unsigned char AAP_VAL_URI[] =  "https://github.com/gartnera/headunit";
+static unsigned char AAP_VAL_SERIAL[] =  "HU-AAAAAA001";
 
-#define ACC_IDX_MAN   0   // Manufacturer
-#define ACC_IDX_MOD   1   // Model
+#define ACC_IDX_MAN    0   // Manufacturer
+#define ACC_IDX_MOD    1   // Model
+#define ACC_IDX_DESC   2  // Model
+#define ACC_IDX_VER    3   // Model
+#define ACC_IDX_URI    4   // Model
+#define ACC_IDX_SERIAL 5   // Model
 
 #define ACC_REQ_GET_PROTOCOL        51
 #define ACC_REQ_SEND_STRING         52
@@ -402,6 +410,30 @@ int HUTransportStreamUSB::Start(bool waitForDevice) {
             if (usb_err < 0)
             {
                 loge("Error sending ACC_IDX_MOD to device 0x%04x : 0x%04x", desc.idVendor, desc.idProduct);
+                continue;
+            }
+            usb_err = iusb_control_transfer(handle, USB_DIR_OUT | USB_TYPE_VENDOR, ACC_REQ_SEND_STRING, 0, ACC_IDX_DESC, AAP_VAL_DESC, sizeof(AAP_VAL_DESC), 1000);
+            if (usb_err < 0)
+            {
+                loge("Error sending ACC_IDX_DESC to device 0x%04x : 0x%04x", desc.idVendor, desc.idProduct);
+                continue;
+            }
+            usb_err = iusb_control_transfer(handle, USB_DIR_OUT | USB_TYPE_VENDOR, ACC_REQ_SEND_STRING, 0, ACC_IDX_VER, AAP_VAL_VER, sizeof(AAP_VAL_VER), 1000);
+            if (usb_err < 0)
+            {
+                loge("Error sending ACC_IDX_VER to device 0x%04x : 0x%04x", desc.idVendor, desc.idProduct);
+                continue;
+            }
+            usb_err = iusb_control_transfer(handle, USB_DIR_OUT | USB_TYPE_VENDOR, ACC_REQ_SEND_STRING, 0, ACC_IDX_URI, AAP_VAL_URI, sizeof(AAP_VAL_URI), 1000);
+            if (usb_err < 0)
+            {
+                loge("Error sending ACC_IDX_URI to device 0x%04x : 0x%04x", desc.idVendor, desc.idProduct);
+                continue;
+            }
+            usb_err = iusb_control_transfer(handle, USB_DIR_OUT | USB_TYPE_VENDOR, ACC_REQ_SEND_STRING, 0, ACC_IDX_SERIAL, AAP_VAL_SERIAL, sizeof(AAP_VAL_SERIAL), 1000);
+            if (usb_err < 0)
+            {
+                loge("Error sending ACC_IDX_SERIAL to device 0x%04x : 0x%04x", desc.idVendor, desc.idProduct);
                 continue;
             }
             usb_err = iusb_control_transfer(handle, USB_DIR_OUT | USB_TYPE_VENDOR, ACC_REQ_START, 0, 0, nullptr, 0, 1000);
