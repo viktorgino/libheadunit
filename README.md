@@ -1,8 +1,13 @@
-# Unofficial Mazda Connect (tm) (*) Android Auto Headunit App
+# Android<sup>tm*</sup> Auto interoperability library
 
-Unofficial port of Android Auto Headunit App to Mazda Connect CMU. The app makes extensive use of jni functions that were originally developed by Mike Reid as part of his Android app. The Mazda specific source code is under the /mazda folder.
+In its current state this project can only act as a headunit, but I plan to implement the phone side + some other modes as well.
 
-(*) - Mazda and Mazda Connect are trademarks of Mazda NA
+The library is based on, and makes extensive use of the following projects:
+ 
+ - JNI functions from [mikereidis/headunit](https://github.com/mikereidis/headunit)
+ - The protocol handler and the USB/TCP specific code from (the plaform independent bits) [gartnera/headunit](https://github.com/gartnera/headunit), which is based on mikreidis' work, first forked by [konsulko](https://github.com/konsulko/headunit) then [spadival](https://github.com/spadival/headunit).
 
-The goal of this fork is to update the code to modernize it, and to use libprotobuf instead of manually parsing the messages so that it will be easier to add more complete integration with car systems.
+This library by itself is based on libusb, OpenSSL, Protobuf and some Linux specific libraries (libudev and libunwind)
 
+-----------------
+*Android is a trademark of Google Inc.*
