@@ -186,7 +186,7 @@ public:
   int hu_aap_shutdown ();
 
   HUServer(IHUConnectionThreadEventCallbacks& callbacks);
-  ~HUServer() { hu_aap_shutdown(); }
+  virtual ~HUServer() { hu_aap_shutdown(); }
 
   inline IHUAnyThreadInterface& GetAnyThreadInterface() { return *this; }
 

@@ -118,7 +118,6 @@
 
     int net_port = 30515;
 
-    int cmd_len = 0, ctr = 0;
     //struct hostent *hp;
 
     errno = 0;

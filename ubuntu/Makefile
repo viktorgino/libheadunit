@@ -1,9 +1,9 @@
 TOP = $(realpath ..)
 
 INCLUDES=$(shell pkg-config --cflags gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0 gstreamer-app-1.0 gstreamer-audio-1.0 gstreamer-codecparsers-1.0 libcrypto libusb-1.0 openssl glib-2.0 gtk+-3.0 x11 protobuf sdl2 libunwind libudev alsa) -I$(TOP)/hu -I$(TOP)/common -I$(TOP)/hu/generated.x64
-CFLAGS= -g -rdynamic -pthread
+CFLAGS= -g -rdynamic -pthread -Wno-unused-parameter
 LFLAGS= -g -rdynamic -pthread -ldl $(shell pkg-config --libs gstreamer-1.0 gstreamer-app-1.0 gstreamer-video-1.0 gstreamer-app-1.0 gstreamer-audio-1.0 gstreamer-codecparsers-1.0 libcrypto libusb-1.0 openssl glib-2.0 gtk+-3.0 x11 protobuf sdl2 libunwind libudev alsa)
-CXXFLAGS= $(CFLAGS) -std=c++11 -Wno-narrowing
+CXXFLAGS= $(CFLAGS) -std=c++11 -Wno-narrowing -Wno-unused-parameter
 
 
 SRCS = $(TOP)/hu/hu_aap.cpp

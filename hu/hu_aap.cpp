@@ -145,9 +145,9 @@
   {
     const int messageSize = message.ByteSize();
     const int requiredSize = messageSize + 2;
-    if (temp_assembly_buffer.size() < requiredSize)
+    if (temp_assembly_buffer.size() < static_cast<unsigned int>(requiredSize))
     {
-      temp_assembly_buffer.resize(requiredSize);
+      temp_assembly_buffer.resize(static_cast<unsigned int>(requiredSize));
     }
 
     uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(temp_assembly_buffer.data());
@@ -168,9 +168,9 @@
   int HUServer::hu_aap_enc_send_media_packet(int retry, int chan, uint16_t messageCode, uint64_t timeStamp, const byte* buffer, int bufferLen, int overrideTimeout)
   {
     const int requiredSize = bufferLen + 2 + 8;
-    if (temp_assembly_buffer.size() < requiredSize)
+    if (temp_assembly_buffer.size() < static_cast<unsigned int>(requiredSize))
     {
-      temp_assembly_buffer.resize(requiredSize);
+      temp_assembly_buffer.resize(static_cast<unsigned int>(requiredSize));
     }
 
     uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(temp_assembly_buffer.data());
@@ -220,7 +220,7 @@
       if (log_packet_info) { // && ena_log_aap_send)
         char prefix [MAX_FRAME_SIZE] = {0};
         snprintf (prefix, sizeof (prefix), "S %d %s %1.1x", chan, chan_get (chan), flags);  // "S 1 VID B"
-        int rmv = hu_aad_dmp (prefix, "HU", chan, flags, &buf[frag_start], cur_len);
+        hu_aad_dmp (prefix, "HU", chan, flags, &buf[frag_start], cur_len);
       }
   #endif
 
@@ -310,7 +310,7 @@
       if (log_packet_info) { // && ena_log_aap_send)
         char prefix [MAX_FRAME_SIZE] = {0};
         snprintf (prefix, sizeof (prefix), "S %d %s %1.1x", chan, chan_get (chan), flags);  // "S 1 VID B"
-        int rmv = hu_aad_dmp (prefix, "HU", chan, flags, &buf[frag_start], cur_len);
+        hu_aad_dmp (prefix, "HU", chan, flags, &buf[frag_start], cur_len);
       }
   #endif
 
@@ -327,7 +327,6 @@
 
       memcpy(&enc_buf[header_size], &buf[frag_start], cur_len);
 
-      int ret = 0;
       return hu_aap_tra_send (retry, enc_buf, cur_len + header_size, overrideTimeout < 0 ? iaap_tra_send_tmo : overrideTimeout);           // Send encrypted data to AA Server
     }
 
@@ -337,9 +336,9 @@
   int HUServer::hu_aap_unenc_send_blob(int retry, int chan, uint16_t messageCode, const byte* buffer, int bufferLen, int overrideTimeout)
   {
     const int requiredSize = bufferLen + 2;
-    if (temp_assembly_buffer.size() < requiredSize)
+    if (temp_assembly_buffer.size() < static_cast<unsigned int>(requiredSize))
     {
-      temp_assembly_buffer.resize(requiredSize);
+      temp_assembly_buffer.resize(static_cast<unsigned int>(requiredSize));
     }
 
     uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(temp_assembly_buffer.data());
@@ -356,9 +355,9 @@
   {
     const int messageSize = message.ByteSize();
     const int requiredSize = messageSize + 2;
-    if (temp_assembly_buffer.size() < requiredSize)
+    if (temp_assembly_buffer.size() < static_cast<unsigned int>(requiredSize))
     {
-      temp_assembly_buffer.resize(requiredSize);
+      temp_assembly_buffer.resize(static_cast<unsigned int>(requiredSize));
     }
 
     uint16_t* destMessageCode = reinterpret_cast<uint16_t*>(temp_assembly_buffer.data());
@@ -1074,6 +1073,7 @@
       delete ptr;
       loge("hu_queue_command error %d", ret);
     }
+    return ret;
   }
 
   int HUServer::hu_aap_shutdown()
@@ -1193,7 +1193,7 @@
         {
           logd("Got command_read_fd");
           IHUAnyThreadInterface::HUThreadCommand* ptr = nullptr;
-          if(ptr = hu_pop_command())
+          if((ptr = hu_pop_command()))
           {
             logd("Running %p", ptr);
             (*ptr)(*this);

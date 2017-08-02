@@ -97,7 +97,7 @@ int hu_log (int prio, const char * tag, const char * func, const char * fmt, ...
   va_start (aq, fmt);
 
   char log_line [4096] = {0};
-  int len = vsnprintf (log_line, sizeof (log_line), fmt, aq);
+  vsnprintf (log_line, sizeof (log_line), fmt, aq);
 
   //Time doesn't work on CMU anyway, always says 1970
   printf ("%s: %s: %s : %s\n", prio_get (prio), tag, func, log_line);
@@ -143,15 +143,15 @@ void hex_dump (const char * prefix, int width, unsigned char * buf, int len) {
 
   if (prefix)
     //strlcpy (line, prefix, sizeof (line));
-    strlcat (line, prefix, sizeof(line));
+    strlcat (line, prefix, sizeof(line) - strlen(line) - 1);
 
   snprintf (tmp, sizeof (tmp), " %8.8x ", 0);
-  strlcat (line, tmp, sizeof(line) - strlen(line));
+  strlcat (line, tmp, sizeof(line) - strlen(line) - 1);
 
   for (i = 0, n = 1; i < len; i ++, n ++) {                           // i keeps incrementing, n gets reset to 0 each line
 
     snprintf (tmp, sizeof (tmp), "%2.2x ", buf [i]);
-    strlcat (line, tmp, sizeof(line) - strlen(line));                 // Append 2 bytes hex and space to line
+    strlcat (line, tmp, sizeof(line) - strlen(line) - 1);                 // Append 2 bytes hex and space to line
 
     if (n == width) {                                                 // If at specified line width
       n = 0;                                                          // Reset position in line counter
@@ -160,11 +160,11 @@ void hex_dump (const char * prefix, int width, unsigned char * buf, int len) {
       line [0] = 0;
       if (prefix)
         //strlcpy (line, prefix, sizeof (line));
-        strlcat (line, prefix, sizeof(line) - strlen(line));
+        strlcat (line, prefix, sizeof(line) - strlen(line) - 1);
 
       //snprintf (tmp, sizeof (tmp), " %8.8x ", i + 1);
       snprintf (tmp, sizeof (tmp), "     %4.4x ", i + 1);
-      strlcat (line, tmp, sizeof(line) - strlen(line));
+      strlcat (line, tmp, sizeof(line) - strlen(line) - 1);
     }
     else if (i == len - 1)                                            // Else if at last byte
       logd (line);                                                    // Log line

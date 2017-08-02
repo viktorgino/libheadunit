@@ -5,9 +5,9 @@
 class HUTransportStreamTCP : public HUTransportStream
 {
     int tcp_so_fd = -1;
-    struct sockaddr_in  cli_addr = {0};
+    struct sockaddr_in  cli_addr = {0,0,{0},{0}};
     socklen_t cli_len = 0;
-    struct sockaddr_in  srv_addr = {0};
+    struct sockaddr_in  srv_addr = {0,0,{0},{0}};
     socklen_t srv_len = 0;
 
     int wifi_direct = 1;//0;
