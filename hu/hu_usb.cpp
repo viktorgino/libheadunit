@@ -144,7 +144,7 @@ libusb_device_handle* HUTransportStreamUSB::find_oap_device()
     return handle;
 }
 
-HUTransportStreamUSB::HUTransportStreamUSB()
+HUTransportStreamUSB::HUTransportStreamUSB(std::map<std::string, std::string> _settings) : HUTransportStream (_settings)
 {
 
 }

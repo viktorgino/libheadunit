@@ -59,20 +59,23 @@
       default_settings["available_while_in_call"] = "0";//bool
       default_settings["transport_type"] = "usb"; // "usb" or "network"
       default_settings["network_address"] = "127.0.0.1";
+      default_settings["wifi_direct"] = "0";
 
       settings.insert(default_settings.begin(), default_settings.end());
   }
 
 
-  int HUServer::ihu_tra_start (HU_TRANSPORT_TYPE transportType, bool waitForDevice) {
-    if (transportType == HU_TRANSPORT_TYPE::WIFI) {
+  int HUServer::ihu_tra_start (bool waitForDevice) {
+    std::map<std::string, std::string> conf;
+    if (settings["transport_type"] == "network") {
+      conf["network_address"] = settings["network_address"];
       logd ("AA over Wifi");
-      transport = std::unique_ptr<HUTransportStream>(new HUTransportStreamTCP());
+      transport = std::unique_ptr<HUTransportStream>(new HUTransportStreamTCP(conf));
       iaap_tra_recv_tmo = 1000;
       iaap_tra_send_tmo = 2000;
     }
-    else if (transportType == HU_TRANSPORT_TYPE::USB) {
-      transport = std::unique_ptr<HUTransportStream>(new HUTransportStreamUSB());
+    else if (settings["transport_type"] == "usb") {
+      transport = std::unique_ptr<HUTransportStream>(new HUTransportStreamUSB(conf));
       logd ("AA over USB");
       iaap_tra_recv_tmo = 0;//100;
       iaap_tra_send_tmo = 2500;
@@ -1247,7 +1250,7 @@
 
   static_assert(PIPE_BUF >= sizeof(IHUAnyThreadInterface::HUThreadCommand*), "PIPE_BUF is tool small for a pointer?");
 
-  int HUServer::hu_aap_start (HU_TRANSPORT_TYPE transportType, bool waitForDevice) {                // Starts Transport/USBACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
+  int HUServer::hu_aap_start (bool waitForDevice) {                // Starts Transport/USBACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
 
     if (iaap_state == hu_STATE_STARTED || iaap_state == hu_STATE_STARTIN) {
       loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
@@ -1259,7 +1262,7 @@
     iaap_state = hu_STATE_STARTIN;
     logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
 
-    int ret = ihu_tra_start (transportType, waitForDevice);                   // Start Transport/USBACC/OAP
+    int ret = ihu_tra_start (waitForDevice);                   // Start Transport/USBACC/OAP
     if (ret) {
       iaap_state = hu_STATE_STOPPED;
       logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));

@@ -1,6 +1,7 @@
 
 #include "hu_aap.h"
 #include <netinet/in.h>
+#include <arpa/inet.h>
 
 class HUTransportStreamTCP : public HUTransportStream
 {
@@ -10,13 +11,14 @@ class HUTransportStreamTCP : public HUTransportStream
     struct sockaddr_in  srv_addr = {0,0,{0},{0}};
     socklen_t srv_len = 0;
 
-    int wifi_direct = 1;//0;
+    int wifi_direct = 0;
     int itcp_deinit ();
     int itcp_accept (int tmo);
     int itcp_init();
+    std::map<std::string, std::string> settings;
  public:
     ~HUTransportStreamTCP();
-    HUTransportStreamTCP() {}
+    HUTransportStreamTCP(std::map<std::string, std::string> _settings);
     virtual int Start(bool waitForDevice) override;
     virtual int Stop() override;
     virtual int Write(const byte* buf, int len, int tmo) override;

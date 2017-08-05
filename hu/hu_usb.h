@@ -46,7 +46,7 @@ class HUTransportStreamUSB : public HUTransportStream
     libusb_device_handle* find_oap_device();
 public:
     ~HUTransportStreamUSB();
-    HUTransportStreamUSB();
+    HUTransportStreamUSB(std::map<std::string, std::string> _settings);
     virtual int Start(bool waitForDevice) override;
     virtual int Stop() override;
     virtual int Write(const byte* buf, int len, int tmo) override;

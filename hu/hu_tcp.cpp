@@ -24,6 +24,16 @@
     }
   }
 
+  HUTransportStreamTCP::HUTransportStreamTCP(std::map<std::string, std::string> _settings) : HUTransportStream (_settings)
+  {
+      settings = _settings;
+      if(settings["wifi_direct"] == "1"){
+          wifi_direct = 1;
+      } else {
+          wifi_direct = 0;
+      }
+  }
+
   int HUTransportStreamTCP::Write (const byte * buf, int len, int tmo) {
     //int ret = itcp_bulk_transfer (itcp_ep_out, buf, len, tmo);      // milli-second timeout
     if (readfd < 0)
@@ -96,7 +106,7 @@
       }
     }
     else {
-      cli_addr.sin_addr.s_addr = htonl (INADDR_LOOPBACK);
+      inet_pton(AF_INET, settings["network_address"].c_str(), &(cli_addr.sin_addr));
       cli_addr.sin_family = AF_INET;
       cli_addr.sin_port = htons (5277);
       //logd ("cli_len: %d  fam: %d  addr: 0x%x  port: %d",cli_len,cli_addr.sin_family, ntohl (cli_addr.sin_addr.s_addr), ntohs (cli_addr.sin_port));
