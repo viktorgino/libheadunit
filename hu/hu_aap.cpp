@@ -7,7 +7,9 @@
 #include "hu_aad.h"
 #include <fstream>
 #include <memory>
+#include <iostream>
 #include <endian.h>
+#include <google/protobuf/descriptor.h>
 
   const char * state_get (int state) {
     switch (state) {
@@ -28,10 +30,37 @@
 #include "hu_usb.h"
 #include "hu_tcp.h"
 
-  HUServer::HUServer(IHUConnectionThreadEventCallbacks& callbacks)
-  : callbacks(callbacks)
+  HUServer::HUServer(IHUConnectionThreadEventCallbacks& callbacks, std::map<std::string, std::string> _settings)
+      : callbacks(callbacks)
   {
+      settings = _settings;
 
+      //Defaults
+      std::map<std::string, std::string> default_settings;
+
+      default_settings["head_unit_name"] = "Computer";
+      default_settings["car_model"] = "libheadunit";
+      default_settings["car_year"] = "2017";
+      default_settings["car_serial"] = "007";
+      default_settings["driver_pos"] = "1";//bool
+      default_settings["headunit_make"] = "libhu";
+      default_settings["headunit_model"] = "libheadunit";
+      default_settings["sw_build"] = "SWB1";
+      default_settings["sw_version"] = "SWV1";
+      default_settings["can_play_native_media_during_vr"] = "0";//bool
+      default_settings["hide_clock"] = "0";//bool
+      default_settings["ts_width"] = "800";
+      default_settings["ts_height"] = "480";
+      default_settings["resolution"] = "1";//800x480 = 1, 1280x720 = 2, 1920x1080 = 3
+      default_settings["frame_rate"] = "1";//30 FPS = 1, 60 FPS = 2
+      default_settings["margin_width"] = "0";
+      default_settings["margin_height"] = "0";
+      default_settings["dpi"] = "140";
+      default_settings["available_while_in_call"] = "0";//bool
+      default_settings["transport_type"] = "usb"; // "usb" or "network"
+      default_settings["network_address"] = "127.0.0.1";
+
+      settings.insert(default_settings.begin(), default_settings.end());
   }
 
 
@@ -397,17 +426,17 @@
       logd ("Service Discovery Request: %s", request.phone_name().c_str());                               // S 0 CTR b src: HU  lft:   113  msg_type:     6 Service Discovery Response    S 0 CTR b 00000000 0a 08 08 01 12 04 0a 02 08 0b 0a 13 08 02 1a 0f
 
     HU::ServiceDiscoveryResponse carInfo;
-    carInfo.set_head_unit_name("Mazda Connect");
-    carInfo.set_car_model("Mazda");
-    carInfo.set_car_year("2016");
-    carInfo.set_car_serial("0001");
-    carInfo.set_driver_pos(true);
-    carInfo.set_headunit_make("Mazda");
-    carInfo.set_headunit_model("Connect");
-    carInfo.set_sw_build("SWB1");
-    carInfo.set_sw_version("SWV1");
-    carInfo.set_can_play_native_media_during_vr(false);
-    carInfo.set_hide_clock(false);
+    carInfo.set_head_unit_name(settings["head_unit_name"]);
+    carInfo.set_car_model(settings["car_model"]);
+    carInfo.set_car_year(settings["car_year"]);
+    carInfo.set_car_serial(settings["car_serial"]);
+    carInfo.set_driver_pos(std::stoi(settings["driver_pos"]));
+    carInfo.set_headunit_make(settings["headunit_make"]);
+    carInfo.set_headunit_model(settings["headunit_model"]);
+    carInfo.set_sw_build(settings["sw_build"]);
+    carInfo.set_sw_version(settings["sw_version"]);
+    carInfo.set_can_play_native_media_during_vr(std::stoi(settings["can_play_native_media_during_vr"]));
+    carInfo.set_hide_clock(std::stoi(settings["hide_clock"]));
 
     carInfo.mutable_channels()->Reserve(AA_CH_MAX);
 
@@ -416,8 +445,8 @@
     {
       auto inner = inputChannel->mutable_input_event_channel();
       auto tsConfig = inner->mutable_touch_screen_config();
-      tsConfig->set_width(800);
-      tsConfig->set_height(480);
+      tsConfig->set_width(stoul(settings["ts_width"]));
+      tsConfig->set_height(stoul(settings["ts_height"]));
 
       //No idea what these mean since they aren't the same as HU_INPUT_BUTTON
       inner->add_keycodes_supported(HUIB_MENU); // 0x01 Open menu
@@ -463,12 +492,12 @@
       auto inner = videoChannel->mutable_output_stream_channel();
       inner->set_type(HU::STREAM_TYPE_VIDEO);
       auto videoConfig = inner->add_video_configs();
-      videoConfig->set_resolution(HU::ChannelDescriptor::OutputStreamChannel::VideoConfig::VIDEO_RESOLUTION_800x480);
-      videoConfig->set_frame_rate(HU::ChannelDescriptor::OutputStreamChannel::VideoConfig::VIDEO_FPS_30);
-      videoConfig->set_margin_width(0);
-      videoConfig->set_margin_height(0);
-      videoConfig->set_dpi(140);
-      inner->set_available_while_in_call(true);
+      videoConfig->set_resolution(static_cast<HU::ChannelDescriptor::OutputStreamChannel::VideoConfig::VIDEO_RESOLUTION>(std::stoi(settings["resolution"])));
+      videoConfig->set_frame_rate(static_cast<HU::ChannelDescriptor::OutputStreamChannel::VideoConfig::VIDEO_FPS>(std::stoi(settings["frame_rate"])));
+      videoConfig->set_margin_width(std::stoi(settings["margin_width"]));
+      videoConfig->set_margin_height(std::stoi(settings["margin_height"]));
+      videoConfig->set_dpi(std::stoi(settings["dpi"]));
+      inner->set_available_while_in_call(std::stoi(settings["available_while_in_call"]));
 
       callbacks.CustomizeOutputChannel(AA_CH_VID, *inner);
     }
@@ -483,7 +512,7 @@
       audioConfig->set_sample_rate(48000);
       audioConfig->set_bit_depth(16);
       audioConfig->set_channel_count(2);
-      inner->set_available_while_in_call(true);
+      inner->set_available_while_in_call(std::stoi(settings["available_while_in_call"]));
 
       callbacks.CustomizeOutputChannel(AA_CH_AUD, *inner);
     }
@@ -1414,5 +1443,25 @@
 
     return (ret);                                                       // Return value from the last iaap_recv_dec_process() call; should be 0
   }
-/*
-*/
+
+  std::map<std::string, int> HUServer::getResolutions(){
+      std::map<std::string, int> ret;
+
+      const google::protobuf::EnumDescriptor* resolutions = HU::ChannelDescriptor_OutputStreamChannel_VideoConfig_VIDEO_RESOLUTION_descriptor();
+      for(int i = 0; i < resolutions->value_count(); i++){
+          ret[resolutions->value(i)->name()] = resolutions->value(i)->index();
+      }
+
+      return ret;
+  }
+
+  std::map<std::string, int> HUServer::getFPS(){
+      std::map<std::string, int> ret;
+
+      const google::protobuf::EnumDescriptor* fpss = HU::ChannelDescriptor_OutputStreamChannel_VideoConfig_VIDEO_FPS_descriptor();
+      for(int i = 0; i < fpss->value_count(); i++){
+          ret[fpss->value(i)->name()] = fpss->value(i)->index();
+      }
+
+      return ret;
+  }

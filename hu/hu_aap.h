@@ -4,6 +4,8 @@
 #include "hu_ssl.h"
 #include <functional>
 #include <thread>
+#include <string>
+#include <map>
 
 // Channels ( or Service IDs)
 #define AA_CH_CTR 0                                                                                  // Sync with hu_tra.java, hu_aap.h and hu_aap.c:aa_type_array[]
@@ -185,10 +187,12 @@ public:
   int hu_aap_start    (HU_TRANSPORT_TYPE transportType, bool waitForDevice);
   int hu_aap_shutdown ();
 
-  HUServer(IHUConnectionThreadEventCallbacks& callbacks);
+  HUServer(IHUConnectionThreadEventCallbacks& callbacks, std::map<std::string, std::string>);
   virtual ~HUServer() { hu_aap_shutdown(); }
 
   inline IHUAnyThreadInterface& GetAnyThreadInterface() { return *this; }
+  static std::map<std::string, int> getResolutions();
+  static std::map<std::string, int> getFPS();
 
 protected:
   IHUConnectionThreadEventCallbacks& callbacks;
@@ -273,6 +277,8 @@ protected:
 
     //Can be called from any thread
   virtual int hu_queue_command(IHUAnyThreadInterface::HUThreadCommand&& command) override;
+private:
+  std::map<std::string, std::string> settings;
 };
 
 enum class HU_INIT_MESSAGE : uint16_t
