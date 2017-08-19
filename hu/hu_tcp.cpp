@@ -181,7 +181,11 @@
 
     //readfd = -1;
     while (readfd < 0) {                                             // While we don't have an IO socket file descriptor...
-      itcp_accept (100);                                                // Try to get one with 100 ms timeout
+      ret = itcp_accept (100);                                                // Try to get one with 100 ms timeout
+      if(ret < 0 ){
+          loge("Error while trying to read from TCP stream");
+          return (-1);
+      }
     }
     logd ("itcp_accept done");
 
