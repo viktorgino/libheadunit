@@ -273,7 +273,13 @@ void VideoOutput::input_thread_func()
                     case KEY_R: // NAV
                         printf("KEY_R\n");
                         if (isPressed) {
-                            //maybe this will let us get video focus back when making a call
+					/* ************************************************* \
+					// This totally works, press the nav button to take	 |
+					// back video focus if it's stolen by The Mazda call |
+					// screen. But contextChange needs to be stopped as	 |  
+					// you will see you lose focus again after the call  |
+					// but you can press nav button again to get it back |
+					// ************************************************ */
                             callbacks->takeVideoFocus();
                         }
                         break;
