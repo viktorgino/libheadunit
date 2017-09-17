@@ -900,6 +900,10 @@
             return (0);
         }
       }
+      else if (chan == AA_CH_BT)
+      {
+        logw("BLUETOOTH CHANNEL MESSAGE = chan %d - msg_type: %d", chan, msg_type);
+      }
       else if (chan == AA_CH_AUD || chan == AA_CH_AU1 || chan == AA_CH_AU2 || chan == AA_CH_VID || chan == AA_CH_MIC)
       {
         switch((HU_MEDIA_CHANNEL_MESSAGE)msg_type)

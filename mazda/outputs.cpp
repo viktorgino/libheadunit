@@ -272,16 +272,7 @@ void VideoOutput::input_thread_func()
                         break;
                     case KEY_R: // NAV
                         printf("KEY_R\n");
-                        if (isPressed) {
-					/* ************************************************* \
-					// This totally works, press the nav button to take	 |
-					// back video focus if it's stolen by The Mazda call |
-					// screen. But contextChange needs to be stopped as	 |  
-					// you will see you lose focus again after the call  |
-					// but you can press nav button again to get it back |
-					// ************************************************ */
-                            callbacks->takeVideoFocus();
-                        }
+                        scanCode = HUIB_HOME;
                         break;
                     case KEY_Z: // CALL ANS
                         printf("KEY_Z\n");
@@ -293,7 +284,9 @@ void VideoOutput::input_thread_func()
                         break;
                     case KEY_T: // FAV
                         printf("KEY_T\n");
-                        scanCode = HUIB_HOME;
+                        if (isPressed) {
+                          callbacks->takeVideoFocus();
+                        }
                         break;
                     }
                     if (scanCode != 0 || scrollAmount != 0)
