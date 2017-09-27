@@ -159,6 +159,7 @@ public:
 
   //returning a empty string means no bluetooth
   virtual std::string GetCarBluetoothAddress() { return std::string(); }
+  virtual void PhoneBluetoothReceived(std::string address) {}
 
   virtual void AudioFocusRequest(int chan, const HU::AudioFocusRequest& request) = 0;
   virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) = 0;
