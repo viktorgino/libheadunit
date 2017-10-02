@@ -1,0 +1,16 @@
+../mazda/m3-toolchain/arm-cortexa9_neon-linux-gnueabi/sysroot/usr/include/gstreamer-0.10
+../mazda/m3-toolchain/arm-cortexa9_neon-linux-gnueabi/sysroot/usr/include/libxml2
+../mazda/m3-toolchain/arm-cortexa9_neon-linux-gnueabi/sysroot/usr/include/libusb-1.0
+../mazda/m3-toolchain/arm-cortexa9_neon-linux-gnueabi/sysroot/usr/local/ssl/include
+../mazda/m3-toolchain/arm-cortexa9_neon-linux-gnueabi/sysroot/usr/include/glib-2.0
+../mazda/m3-toolchain/arm-cortexa9_neon-linux-gnueabi/sysroot/usr/lib/glib-2.0/include
+../mazda/m3-toolchain/arm-cortexa9_neon-linux-gnueabi/sysroot/usr/include/dbus-c++-1
+../mazda/m3-toolchain/arm-cortexa9_neon-linux-gnueabi/sysroot/usr/include/dbus-1.0
+../mazda/m3-toolchain/arm-cortexa9_neon-linux-gnueabi/sysroot/usr/lib/dbus-1.0/include
+../mazda/m3-toolchain/arm-cortexa9_neon-linux-gnueabi/sysroot/usr/include/alsa
+../hu
+../common
+../hu/generated.arm
+../mazda/protobuf-2.6.1-arm/include
+../mazda/libunwind-1.2-rc1/include
+../mazda/gps/nematode/include
