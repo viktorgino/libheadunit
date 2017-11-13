@@ -34,6 +34,7 @@ class VideoOutput {
     int input_thread_quit_pipe_write = -1;
     int touch_fd = -1, kbd_fd = -1, ui_fd = -1;
     void input_thread_func();
+    void pass_key_to_mzd(int type, int code, int val);
 
 public:
     VideoOutput(MazdaEventCallbacks* callbacks);

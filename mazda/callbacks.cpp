@@ -273,9 +273,10 @@ void AudioManagerClient::aaRegisterStream()
 		try
 		{
 			// First open a new Stream
+            // There values did not produce sound
 			json sessArgs = {
-				{ "busName", "com.xsembedded.ServiceProvider" },
-				{ "objectPath", "/com/xse/service/AudioManagement/AudioApplication" },
+				{ "busName", "com.xsembedded.service.AudioManagement" },  // Try changing these values
+				{ "objectPath", "/com/xse/service/AudioManagement/AudioApplication" }, // to make this work 
 				{ "destination", "Cabin" }
 			};
 			std::string sessString = Request("openSession", sessArgs.dump());
@@ -291,7 +292,7 @@ void AudioManagerClient::aaRegisterStream()
 				{ "streamType", "Media" }
 			};
 			std::string regString = Request("registerAudioStream", regArgs.dump());
-			printf("dumpState(%s)\n%s\n", regArgs.dump().c_str(), regString.c_str());
+			printf("registerAudioStream(%s)\n%s\n", regArgs.dump().c_str(), regString.c_str());
 		}
 		catch (const std::domain_error& ex)
 		{

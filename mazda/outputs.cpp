@@ -110,9 +110,9 @@ void emit(int fd, int type, int code, int val)
 * Passes the keystroke to MZD by "ungrabbing" the kbd on key-down, simulating the same keystroke with uinput,
 * then "re-grabbing" the kbd on key-up.
 */
-void pass_key_to_mzd(int kbd_fd, int ui_fd, int type, int code, int val, int pressed)
+void VideoOutput::pass_key_to_mzd(int type, int code, int val)
 {
-  if (pressed && ioctl(kbd_fd, EVIOCGRAB, 0) < 0)
+  if (val && ioctl(kbd_fd, EVIOCGRAB, 0) < 0)
   {
     fprintf(stderr, "EVIOCGRAB failed to release %s\n", EVENT_DEVICE_KBD);
   }
@@ -120,7 +120,7 @@ void pass_key_to_mzd(int kbd_fd, int ui_fd, int type, int code, int val, int pre
   emit(ui_fd, type, code, val);
   emit(ui_fd, EV_SYN, SYN_REPORT, 0);
 
-  if(!pressed && ioctl(kbd_fd, EVIOCGRAB, 1) < 0)
+  if(!val && ioctl(kbd_fd, EVIOCGRAB, 1) < 0)
   {
     fprintf(stderr, "EVIOCGRAB failed to grab %s\n", EVENT_DEVICE_KBD);
   }
@@ -247,7 +247,18 @@ void VideoOutput::input_thread_func()
                     //Make the music button play/pause
                     case KEY_E:
                         printf("KEY_E\n");
-                        scanCode = HUIB_PLAYPAUSE;
+                        if (hasAudioFocus)
+                        {
+                          if(isPressed)
+                          {
+                              callbacks->releaseAudioFocus();
+                              pass_key_to_mzd(event.type, event.code, event.value);
+                          }
+                        }
+                        else
+                        {
+                            scanCode = HUIB_PLAYPAUSE;
+                        }
                         break;
                     case KEY_LEFTBRACE:
                         printf("KEY_LEFTBRACE\n");
@@ -257,7 +268,7 @@ void VideoOutput::input_thread_func()
                         }
                         else
                         {
-                          pass_key_to_mzd(kbd_fd, ui_fd, event.type, event.code, event.value, isPressed);
+                          pass_key_to_mzd(event.type, event.code, event.value);
                         }
                         break;
                     case KEY_RIGHTBRACE:
@@ -268,7 +279,7 @@ void VideoOutput::input_thread_func()
                         }
                         else
                         {
-                          pass_key_to_mzd(kbd_fd, ui_fd, event.type, event.code, event.value, isPressed);
+                          pass_key_to_mzd(event.type, event.code, event.value);
                         }
                         break;
                     case KEY_BACKSPACE:
@@ -335,9 +346,14 @@ void VideoOutput::input_thread_func()
                         break;
                     case KEY_T: // FAV
                         printf("KEY_T\n");
-                        if (hasAudioFocus && isPressed) // we could give this button different actions for different scenerios
-                        { // this is for testing
+                        if (hasAudioFocus && isPressed)
+                        {
                           callbacks->releaseAudioFocus();
+                          pass_key_to_mzd(event.type, KEY_E, event.value);
+                        }
+                        else
+                        {
+                            scanCode = HUIB_PLAYPAUSE;
                         }
                         break;
                     }
@@ -417,6 +433,10 @@ VideoOutput::VideoOutput(MazdaEventCallbacks* callbacks)
     if (ioctl(ui_fd, UI_SET_KEYBIT, KEY_RIGHTBRACE) < 0)
     {
         fprintf(stderr, "UI_SET_KEYBIT failed on %s\n", KEY_RIGHTBRACE);
+    }
+    if (ioctl(ui_fd, UI_SET_KEYBIT, KEY_E) < 0)
+    {
+        fprintf(stderr, "UI_SET_KEYBIT failed on %s\n", KEY_E);
     }
     struct uinput_user_dev uidev;
     memset(&uidev, 0, sizeof(uidev));
