@@ -78,6 +78,9 @@ void MazdaEventCallbacks::CustomizeOutputChannel(int chan, HU::ChannelDescriptor
 #endif
 }
 
+void MazdaEventCallbacks::releaseAudioFocus()  {
+  audioMgrClient->audioMgrReleaseAudioFocus(0);
+}
 void MazdaEventCallbacks::AudioFocusRequest(int chan, const HU::AudioFocusRequest &request)  {
 
     run_on_main_thread([this, chan, request](){
@@ -261,6 +264,48 @@ std::string MazdaCommandServerCallbacks::GetLogPath() const
     return "/tmp/mnt/data/headunit.log";
 }
 
+void AudioManagerClient::aaRegisterStream()
+{
+	if(!aaStreamRegistered)
+	{
+		// so we dont accedentally try to register this twice
+		aaStreamRegistered = true;
+		try
+		{
+			// First open a new Stream
+			json sessArgs = {
+				{ "busName", "com.xsembedded.ServiceProvider" },
+				{ "objectPath", "/com/xse/service/AudioManagement/AudioApplication" },
+				{ "destination", "Cabin" }
+			};
+			std::string sessString = Request("openSession", sessArgs.dump());
+			printf("openSession(%s)\n%s\n", sessArgs.dump().c_str(), sessString.c_str());
+			aaSessionID = json::parse(sessString)["sessionId"];
+
+			// Register the stream
+			json regArgs = {
+				{ "sessionId", aaSessionID },
+				{ "streamName", aaStreamName },
+				{ "streamModeName", aaStreamName },
+				{ "focusType", "permanent" },
+				{ "streamType", "Media" }
+			};
+			std::string regString = Request("registerAudioStream", regArgs.dump());
+			printf("dumpState(%s)\n%s\n", regArgs.dump().c_str(), regString.c_str());
+		}
+		catch (const std::domain_error& ex)
+		{
+			loge("Failed to parse state json: %s", ex.what());
+		}
+		catch (const std::invalid_argument& ex)
+		{
+			loge("Failed to parse state json: %s", ex.what());
+		}
+
+		// Stream is registered add it to the array
+		streamToSessionIds[aaStreamName] = aaSessionID;
+	}
+}
 void AudioManagerClient::populateStreamTable()
 {
     streamToSessionIds.clear();
@@ -308,11 +353,16 @@ void AudioManagerClient::populateStreamTable()
             printf("Found stream %s session id %i\n", streamName.c_str(), sessionId);
             streamToSessionIds[streamName] = sessionId;
 
-            if (streamName == "USB")
+            if(streamName == aaStreamName)
             {
-                usbSessionID = sessionId;
+                aaSessionID = sessionId;
             }
         }
+		// Create and register stream (only if we need to)
+		if (aaSessionID < 0)
+		{
+			aaRegisterStream();
+		}
     }
     catch (const std::domain_error& ex)
     {
@@ -330,11 +380,11 @@ AudioManagerClient::AudioManagerClient(MazdaEventCallbacks& callbacks, DBus::Con
     : DBus::ObjectProxy(connection, "/com/xse/service/AudioManagement/AudioApplication", "com.xsembedded.service.AudioManagement")
     , callbacks(callbacks)
 {
-    populateStreamTable();
-    if (usbSessionID < 0)
-    {
-        loge("Can't find USB stream. Audio will not work");
-    }
+	populateStreamTable();
+	if (aaSessionID < 0)
+	{
+		loge("Can't find USB stream. Audio will not work");
+	}
 }
 
 AudioManagerClient::~AudioManagerClient()
@@ -347,7 +397,7 @@ AudioManagerClient::~AudioManagerClient()
     }
 }
 
-bool AudioManagerClient::canSwitchAudio() { return usbSessionID >= 0; }
+bool AudioManagerClient::canSwitchAudio() { return aaSessionID >= 0; }
 
 void AudioManagerClient::audioMgrRequestAudioFocus(int chan)
 {
@@ -369,7 +419,7 @@ void AudioManagerClient::audioMgrRequestAudioFocus(int chan)
 
     waitingForFocusLostEvent = true;
     previousSessionID = -1;
-    json args = { { "sessionId", usbSessionID } };
+    json args = { { "sessionId", aaSessionID } };
     std::string result = Request("requestAudioFocus", args.dump());
     printf("requestAudioFocus(%s)\n%s\n", args.dump().c_str(), result.c_str());
 }
@@ -381,6 +431,7 @@ void AudioManagerClient::audioMgrReleaseAudioFocus(int chan)
     bool hadFocus = channelsWithFocus.size() > 0;
     channelsWithFocus.erase(chan);
     channelsWaitingForFocus.erase(chan);
+    callbacks.audioFocus = false;
 
     if (previousSessionID >= 0 && hadFocus && channelsWithFocus.size() == 0)
     {
@@ -423,9 +474,9 @@ void AudioManagerClient::Notify(const std::string &signalName, const std::string
                     waitingForFocusLostEvent = false;
                 }
 
-                if (eventSessionID == usbSessionID)
+                if (eventSessionID == aaSessionID)
                 {
-                    bool hasFocus = newFocus != "lost";
+                    bool hasFocus = newFocus == "gained";
                     callbacks.audioFocus = hasFocus;
                     if (hasFocus)
                     {
