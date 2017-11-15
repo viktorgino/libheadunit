@@ -273,10 +273,9 @@ void AudioManagerClient::aaRegisterStream()
 		try
 		{
 			// First open a new Stream
-            // There values did not produce sound
 			json sessArgs = {
-				{ "busName", "com.xsembedded.service.AudioManagement" },  // Try changing these values
-				{ "objectPath", "/com/xse/service/AudioManagement/AudioApplication" }, // to make this work 
+				{ "busName", "com.jci.usbm_am_client" },
+				{ "objectPath", "/com/jci/usbm_am_client" },
 				{ "destination", "Cabin" }
 			};
 			std::string sessString = Request("openSession", sessArgs.dump());

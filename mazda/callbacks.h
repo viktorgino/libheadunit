@@ -62,7 +62,7 @@ class AudioManagerClient : public com::xsembedded::ServiceProvider_proxy,
                      public DBus::ObjectProxy
 {
     std::map<std::string, int> streamToSessionIds;
-    std::string aaStreamName = "AA";
+    std::string aaStreamName = "USB";
     int aaSessionID = -1;
     int previousSessionID = -1;
     bool aaStreamRegistered = false;

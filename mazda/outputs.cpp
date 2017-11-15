@@ -249,15 +249,25 @@ void VideoOutput::input_thread_func()
                         printf("KEY_E\n");
                         if (hasAudioFocus)
                         {
-                          if(isPressed)
-                          {
-                              callbacks->releaseAudioFocus();
+                            if (isPressed)
+                            {
                               pass_key_to_mzd(event.type, event.code, event.value);
-                          }
+                            }
+                            else
+                            {
+                                scanCode = HUIB_PLAYPAUSE;
+                            }
                         }
                         else
                         {
-                            scanCode = HUIB_PLAYPAUSE;
+                            if (isPressed)
+                            {
+                                scanCode = HUIB_PLAYPAUSE;
+                            }
+                            else
+                            {
+                                pass_key_to_mzd(event.type, event.code, event.value);
+                            }
                         }
                         break;
                     case KEY_LEFTBRACE:
@@ -346,14 +356,28 @@ void VideoOutput::input_thread_func()
                         break;
                     case KEY_T: // FAV
                         printf("KEY_T\n");
-                        if (hasAudioFocus && isPressed)
+                        if (hasAudioFocus)
                         {
-                          callbacks->releaseAudioFocus();
-                          pass_key_to_mzd(event.type, KEY_E, event.value);
+                            if (isPressed)
+                            {
+                              callbacks->releaseAudioFocus();
+                              pass_key_to_mzd(event.type, KEY_E, event.value);
+                            }
+                            else
+                            {
+                                scanCode = HUIB_PLAYPAUSE;
+                            }
                         }
                         else
                         {
-                            scanCode = HUIB_PLAYPAUSE;
+                            if (isPressed)
+                            {
+                                scanCode = HUIB_PLAYPAUSE;
+                            }
+                            else
+                            {
+                                pass_key_to_mzd(event.type, KEY_E, event.value);
+                            }
                         }
                         break;
                     }
