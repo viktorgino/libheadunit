@@ -253,25 +253,11 @@ void VideoOutput::input_thread_func()
                         /*
                         if (hasMediaAudioFocus)
                         {
-                            if (isPressed)
-                            {
-                              pass_key_to_mzd(event.type, event.code, event.value);
-                            }
-                            else
-                            {
-                                scanCode = HUIB_PLAYPAUSE;
-                            }
+                            callbacks->releaseAudioFocus();
                         }
                         else
                         {
-                            if (isPressed)
-                            {
-                                scanCode = HUIB_PLAYPAUSE;
-                            }
-                            else
-                            {
-                                pass_key_to_mzd(event.type, event.code, event.value);
-                            }
+                            scanCode = HUIB_PLAYPAUSE;
                         }
                         */
                         break;
