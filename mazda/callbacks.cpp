@@ -14,10 +14,10 @@ MazdaEventCallbacks::MazdaEventCallbacks(DBus::Connection& serviceBus, DBus::Con
     , hmiBus(hmiBus)
     , connected(false)
     , videoFocus(false)
-    , audioFocus(false)
+    , audioFocus(AudioManagerClient::FocusType::NONE)
 {
     //no need to create/destroy this
-    audioOutput.reset(new AudioOutput("entertainmentUsb", false));
+    audioOutput.reset(new AudioOutput("entertainmentUsb"));
     audioMgrClient.reset(new AudioManagerClient(*this, serviceBus));
     videoMgrClient.reset(new VideoManagerClient(*this, hmiBus));
 }
@@ -79,16 +79,23 @@ void MazdaEventCallbacks::CustomizeOutputChannel(int chan, HU::ChannelDescriptor
 }
 
 void MazdaEventCallbacks::releaseAudioFocus()  {
-  audioMgrClient->audioMgrReleaseAudioFocus(0);
+    run_on_main_thread([this](){
+        audioMgrClient->audioMgrReleaseAudioFocus();
+        return false;
+    });
 }
 void MazdaEventCallbacks::AudioFocusRequest(int chan, const HU::AudioFocusRequest &request)  {
 
-    run_on_main_thread([this, chan, request](){
+    run_on_main_thread([this, request](){
+        //The chan passed here is always AA_CH_CTR but internally we pass the channel AA means
         if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_RELEASE) {
-            audioMgrClient->audioMgrReleaseAudioFocus(chan);
-        } else {
-            audioMgrClient->audioMgrRequestAudioFocus(chan);
+            audioMgrClient->audioMgrReleaseAudioFocus();
+        } else if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_GAIN_TRANSIENT) {
+            audioMgrClient->audioMgrRequestAudioFocus(AudioManagerClient::FocusType::TRANSIENT); //assume navigation
+        } else if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_GAIN || request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_UNKNOWN) {
+            audioMgrClient->audioMgrRequestAudioFocus(AudioManagerClient::FocusType::PERMANENT); //assume media
         }
+
         return false;
     });
 }
@@ -136,13 +143,25 @@ void MazdaEventCallbacks::VideoFocusHappened(bool hasFocus, bool unrequested) {
     });
 }
 
-void MazdaEventCallbacks::AudioFocusHappend(int chan, bool hasFocus) {
+void MazdaEventCallbacks::AudioFocusHappend(AudioManagerClient::FocusType type) {
+    printf("AudioFocusHappend(%i)\n", int(type));
+    audioFocus = type;
     HU::AudioFocusResponse response;
-    response.set_focus_type(hasFocus ? HU::AudioFocusResponse::AUDIO_FOCUS_STATE_GAIN : HU::AudioFocusResponse::AUDIO_FOCUS_STATE_LOSS);
-    g_hu->hu_queue_command([chan, response](IHUConnectionThreadInterface & s) {
-        s.hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::AudioFocusResponse, response);
+    switch(type) {
+        case AudioManagerClient::FocusType::NONE:
+            response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_LOSS);
+            break;
+        case AudioManagerClient::FocusType::PERMANENT:
+            response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_GAIN);
+            break;
+        case AudioManagerClient::FocusType::TRANSIENT:
+            response.set_focus_type(HU::AudioFocusResponse::AUDIO_FOCUS_STATE_GAIN_TRANSIENT);
+            break;
+    }
+    g_hu->hu_queue_command([response](IHUConnectionThreadInterface & s) {
+        s.hu_aap_enc_send_message(0, AA_CH_CTR, HU_PROTOCOL_MESSAGE::AudioFocusResponse, response);
     });
-    logd("Sent channel %i HU_PROTOCOL_MESSAGE::AudioFocusResponse %s\n", chan,  HU::AudioFocusResponse::AUDIO_FOCUS_STATE_Name(response.focus_type()).c_str());
+    logd("Sent channel %i HU_PROTOCOL_MESSAGE::AudioFocusResponse %s\n", AA_CH_CTR,  HU::AudioFocusResponse::AUDIO_FOCUS_STATE_Name(response.focus_type()).c_str());
 }
 
 VideoManagerClient::VideoManagerClient(MazdaEventCallbacks& callbacks, DBus::Connection& hmiBus)
@@ -237,7 +256,7 @@ bool MazdaCommandServerCallbacks::HasAudioFocus() const
 {
     if (eventCallbacks)
     {
-        return eventCallbacks->audioFocus;
+        return eventCallbacks->audioFocus != AudioManagerClient::FocusType::NONE;
     }
     return false;
 }
@@ -266,45 +285,45 @@ std::string MazdaCommandServerCallbacks::GetLogPath() const
 
 void AudioManagerClient::aaRegisterStream()
 {
-	if(!aaStreamRegistered)
-	{
-		// so we dont accedentally try to register this twice
-		aaStreamRegistered = true;
-		try
-		{
-			// First open a new Stream
-			json sessArgs = {
-				{ "busName", "com.jci.usbm_am_client" },
-				{ "objectPath", "/com/jci/usbm_am_client" },
-				{ "destination", "Cabin" }
-			};
-			std::string sessString = Request("openSession", sessArgs.dump());
-			printf("openSession(%s)\n%s\n", sessArgs.dump().c_str(), sessString.c_str());
-			aaSessionID = json::parse(sessString)["sessionId"];
+    if(!aaStreamRegistered)
+    {
+        // so we dont accedentally try to register this twice
+        aaStreamRegistered = true;
+        try
+        {
+            // First open a new Stream
+            json sessArgs = {
+                { "busName", "com.jci.usbm_am_client" },
+                { "objectPath", "/com/jci/usbm_am_client" },
+                { "destination", "Cabin" }
+            };
+            std::string sessString = Request("openSession", sessArgs.dump());
+            printf("openSession(%s)\n%s\n", sessArgs.dump().c_str(), sessString.c_str());
+            aaSessionID = json::parse(sessString)["sessionId"];
 
-			// Register the stream
-			json regArgs = {
-				{ "sessionId", aaSessionID },
-				{ "streamName", aaStreamName },
-				{ "streamModeName", aaStreamName },
-				{ "focusType", "permanent" },
-				{ "streamType", "Media" }
-			};
-			std::string regString = Request("registerAudioStream", regArgs.dump());
-			printf("registerAudioStream(%s)\n%s\n", regArgs.dump().c_str(), regString.c_str());
-		}
-		catch (const std::domain_error& ex)
-		{
-			loge("Failed to parse state json: %s", ex.what());
-		}
-		catch (const std::invalid_argument& ex)
-		{
-			loge("Failed to parse state json: %s", ex.what());
-		}
+            // Register the stream
+            json regArgs = {
+                { "sessionId", aaSessionID },
+                { "streamName", aaStreamName },
+                { "streamModeName", aaStreamName },
+                { "focusType", "permanent" },
+                { "streamType", "Media" }
+            };
+            std::string regString = Request("registerAudioStream", regArgs.dump());
+            printf("registerAudioStream(%s)\n%s\n", regArgs.dump().c_str(), regString.c_str());
+        }
+        catch (const std::domain_error& ex)
+        {
+            loge("Failed to parse state json: %s", ex.what());
+        }
+        catch (const std::invalid_argument& ex)
+        {
+            loge("Failed to parse state json: %s", ex.what());
+        }
 
-		// Stream is registered add it to the array
-		streamToSessionIds[aaStreamName] = aaSessionID;
-	}
+        // Stream is registered add it to the array
+        streamToSessionIds[aaStreamName] = aaSessionID;
+    }
 }
 void AudioManagerClient::populateStreamTable()
 {
@@ -358,11 +377,12 @@ void AudioManagerClient::populateStreamTable()
                 aaSessionID = sessionId;
             }
         }
-		// Create and register stream (only if we need to)
-		if (aaSessionID < 0)
-		{
-			aaRegisterStream();
-		}
+        // Create and register stream (only if we need to)
+        if (aaSessionID < 0)
+        {
+            logw("When using the USB stream we should never have to register since it should be already there");
+            aaRegisterStream();
+        }
     }
     catch (const std::domain_error& ex)
     {
@@ -380,16 +400,16 @@ AudioManagerClient::AudioManagerClient(MazdaEventCallbacks& callbacks, DBus::Con
     : DBus::ObjectProxy(connection, "/com/xse/service/AudioManagement/AudioApplication", "com.xsembedded.service.AudioManagement")
     , callbacks(callbacks)
 {
-	populateStreamTable();
-	if (aaSessionID < 0)
-	{
-		loge("Can't find USB stream. Audio will not work");
-	}
+    populateStreamTable();
+    if (aaSessionID < 0)
+    {
+        loge("Can't find USB stream. Audio will not work");
+    }
 }
 
 AudioManagerClient::~AudioManagerClient()
 {
-    if (channelsWithFocus.size() > 0 && previousSessionID >= 0)
+    if (currentFocus != FocusType::NONE && previousSessionID >= 0)
     {
         json args = { { "sessionId", previousSessionID } };
         std::string result = Request("requestAudioFocus", args.dump());
@@ -399,24 +419,34 @@ AudioManagerClient::~AudioManagerClient()
 
 bool AudioManagerClient::canSwitchAudio() { return aaSessionID >= 0; }
 
-void AudioManagerClient::audioMgrRequestAudioFocus(int chan)
+void AudioManagerClient::audioMgrRequestAudioFocus(FocusType type)
 {
-    if (channelsWithFocus.size() > 0)
+    if (type == FocusType::NONE)
     {
-        //no need to do anything
-        callbacks.AudioFocusHappend(chan, true);
-        channelsWithFocus.insert(chan);
+        audioMgrReleaseAudioFocus();
         return;
     }
 
-    bool sentRequestAudioFocus = channelsWaitingForFocus.size() > 0;
-    channelsWaitingForFocus.insert(chan);
-    if (sentRequestAudioFocus)
+    printf("audioMgrRequestAudioFocus(%i)\n", int(type));
+    if (currentFocus != FocusType::NONE)
+    {
+        //no need to do anything
+        if (type != currentFocus)
+        {
+            currentFocus = type;
+            callbacks.AudioFocusHappend(currentFocus);
+        }
+        return;
+    }
+
+    pendingFocus = type;
+    if (requestPending && !releasePending)
     {
         //already asked
         return;
     }
 
+    requestPending = true;
     waitingForFocusLostEvent = true;
     previousSessionID = -1;
     json args = { { "sessionId", aaSessionID } };
@@ -424,22 +454,32 @@ void AudioManagerClient::audioMgrRequestAudioFocus(int chan)
     printf("requestAudioFocus(%s)\n%s\n", args.dump().c_str(), result.c_str());
 }
 
-void AudioManagerClient::audioMgrReleaseAudioFocus(int chan)
+void AudioManagerClient::audioMgrReleaseAudioFocus()
 {
-    //say it happened right away
-    callbacks.AudioFocusHappend(chan, false);
-    bool hadFocus = channelsWithFocus.size() > 0;
-    channelsWithFocus.erase(chan);
-    channelsWaitingForFocus.erase(chan);
-    callbacks.audioFocus = false;
-
-    if (previousSessionID >= 0 && hadFocus && channelsWithFocus.size() == 0)
+    printf("audioMgrReleaseAudioFocus()\n");
+    if (currentFocus == FocusType::NONE && !requestPending)
     {
-        //We released the last one, give up audio focus for real
-        json args = { { "sessionId", previousSessionID } };
-        std::string result = Request("requestAudioFocus", args.dump());
-        printf("requestAudioFocus(%s)\n%s\n", args.dump().c_str(), result.c_str());
-        previousSessionID = -1;
+        //nothing to do
+        pendingFocus = FocusType::NONE;
+        return;
+    }
+    bool hadFocus = currentFocus != FocusType::NONE;
+    if ((hadFocus || requestPending) && !releasePending)
+    {
+        if (previousSessionID >= 0)
+        {
+            //We released the last one, give up audio focus for real
+            json args = { { "sessionId", previousSessionID } };
+            std::string result = Request("requestAudioFocus", args.dump());
+            printf("requestAudioFocus(%s)\n%s\n", args.dump().c_str(), result.c_str());
+            previousSessionID = -1;
+            releasePending = true;
+        }
+        else
+        {
+            currentFocus = FocusType::NONE;
+            callbacks.AudioFocusHappend(currentFocus);
+        }
     }
 }
 
@@ -477,26 +517,22 @@ void AudioManagerClient::Notify(const std::string &signalName, const std::string
                 if (eventSessionID == aaSessionID)
                 {
                     bool hasFocus = newFocus == "gained";
-                    callbacks.audioFocus = hasFocus;
                     if (hasFocus)
                     {
-                        for (int chan : channelsWaitingForFocus)
-                        {
-                            callbacks.AudioFocusHappend(chan, true);
-                            channelsWithFocus.insert(chan);
-                        }
-                        channelsWaitingForFocus.clear();
+                        requestPending = false;
                     }
                     else
                     {
-                        for (int chan : channelsWithFocus)
-                        {
-                            callbacks.AudioFocusHappend(chan, false);
-                        }
-                        channelsWithFocus.clear();
-                        //never gonna happen :(
-                        channelsWaitingForFocus.clear();
+                        releasePending = false;
+                        pendingFocus = FocusType::NONE;
                     }
+
+                    if (pendingFocus != currentFocus)
+                    {
+                        currentFocus = pendingFocus;
+                        callbacks.AudioFocusHappend(currentFocus);
+                    }
+                    pendingFocus = FocusType::NONE;
                 }
             }
         }

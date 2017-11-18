@@ -27,6 +27,22 @@ enum HU_STATE
 };
 
 const char* state_get(int s);
+const char* chan_get(int chan);
+
+inline const char * chan_get (int chan) {
+  switch (chan) {
+    case AA_CH_CTR: return ("AA_CH_CTR");
+    case AA_CH_TOU: return ("AA_CH_TOU");
+    case AA_CH_SEN: return ("AA_CH_SEN");
+    case AA_CH_VID: return ("AA_CH_VID");
+    case AA_CH_AUD: return ("AA_CH_AUD");
+    case AA_CH_AU1: return ("AA_CH_AU1");
+    case AA_CH_AU2: return ("AA_CH_AU2");
+    case AA_CH_MIC: return ("AA_CH_MIC");
+    case AA_CH_BT: return ("AA_CH_BT");
+  }
+  return ("<Invalid>");
+}
 
 enum HU_FRAME_FLAGS
 {

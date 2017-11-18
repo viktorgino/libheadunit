@@ -1,7 +1,6 @@
 #include "audio.h"
 
-AudioOutput::AudioOutput(const char *outDev, bool halfVolume)
-    : halfVolume(halfVolume)
+AudioOutput::AudioOutput(const char *outDev)
 {
     printf("snd_asoundlib_version: %s\n", snd_asoundlib_version());
     logd("Device name %s\n", outDev);
@@ -54,24 +53,6 @@ void AudioOutput::MediaPacketAU1(uint64_t timestamp, const byte *buf, int len)
 
 void AudioOutput::MediaPacket(snd_pcm_t *pcm, const byte *buf, int len)
 {
-    //The output is super-loud on the car
-    if (halfVolume)
-    {
-        const int intCount = len / sizeof(int16_t);
-        if (audio_temp.size() < intCount)
-            audio_temp.resize(intCount);
-
-        int16_t* temp = audio_temp.data();
-        memcpy(temp, buf, intCount * sizeof(int16_t));
-        int16_t* tempEnd = temp + intCount;
-        while(temp < tempEnd)
-        {
-            //halve the volume
-            *temp >>= 1;
-            temp++;
-        }
-        buf = reinterpret_cast<byte*>(audio_temp.data());
-    }
     snd_pcm_sframes_t framecount = snd_pcm_bytes_to_frames(pcm, len);
     snd_pcm_sframes_t frames = snd_pcm_writei(pcm, buf, framecount);
     if (frames < 0) {

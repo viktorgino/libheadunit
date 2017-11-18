@@ -14,11 +14,8 @@ class AudioOutput
     snd_pcm_t* au1_handle = nullptr;
 
     void MediaPacket(snd_pcm_t* pcm, const byte * buf, int len);
-
-    bool halfVolume = false;
-    std::vector<int16_t> audio_temp;
 public:
-    AudioOutput(const char* outDev = "default", bool halfVolume = false);
+    AudioOutput(const char* outDev = "default");
     ~AudioOutput();
 
     void MediaPacketAUD(uint64_t timestamp, const byte * buf, int len);

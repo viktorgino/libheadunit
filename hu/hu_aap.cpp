@@ -25,19 +25,6 @@
     return ("hu_STATE Unknown error");
   }
 
-  const char * chan_get (int chan) {
-    switch (chan) {
-      case AA_CH_CTR: return ("CTR");
-      case AA_CH_VID: return ("VID");
-      case AA_CH_TOU: return ("TOU");
-      case AA_CH_SEN: return ("SEN");
-      case AA_CH_MIC: return ("MIC");
-      case AA_CH_AUD: return ("AUD");
-      case AA_CH_AU1: return ("AU1");
-      case AA_CH_AU2: return ("AU2");
-    }
-    return ("UNK");
-  }
 #include "hu_usb.h"
 #include "hu_tcp.h"
 

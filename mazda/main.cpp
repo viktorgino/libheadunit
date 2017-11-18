@@ -188,7 +188,7 @@ int main (int argc, char *argv[])
 
             callbacks.connected = false;
             callbacks.videoFocus = false;
-            callbacks.audioFocus = false;
+            callbacks.audioFocus = AudioManagerClient::FocusType::NONE;
 
             printf("quitting...\n");
             //wake up night mode polling thread
