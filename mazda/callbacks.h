@@ -62,9 +62,10 @@ class AudioManagerClient : public com::xsembedded::ServiceProvider_proxy,
                      public DBus::ObjectProxy
 {
     std::map<std::string, int> streamToSessionIds;
-    //"USB" as far as the audio manager cares is the normal ALSA sound output
-    int usbSessionID = -1;
+    std::string aaStreamName = "USB";
+    int aaSessionID = -1;
     int previousSessionID = -1;
+    bool aaStreamRegistered = false;
     bool waitingForFocusLostEvent = false;
     MazdaEventCallbacks& callbacks;
     std::set<int> channelsWaitingForFocus;
@@ -72,6 +73,7 @@ class AudioManagerClient : public com::xsembedded::ServiceProvider_proxy,
 
     //These IDs are usually the same, but they depend on the startup order of the services on the car so we can't assume them 100% reliably
     void populateStreamTable();
+    void aaRegisterStream();
 public:
     AudioManagerClient(MazdaEventCallbacks& callbacks, DBus::Connection &connection);
     ~AudioManagerClient();
@@ -138,6 +140,7 @@ public:
 
     void takeVideoFocus();
     void releaseVideoFocus();
+    void releaseAudioFocus();
 
     void VideoFocusHappened(bool hasFocus, bool unrequested);
     void AudioFocusHappend(int chan, bool hasFocus);
