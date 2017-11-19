@@ -17,7 +17,7 @@ MazdaEventCallbacks::MazdaEventCallbacks(DBus::Connection& serviceBus, DBus::Con
     , audioFocus(AudioManagerClient::FocusType::NONE)
 {
     //no need to create/destroy this
-    audioOutput.reset(new AudioOutput("entertainmentUsb"));
+    audioOutput.reset(new AudioOutput("entertainmentMl"));
     audioMgrClient.reset(new AudioManagerClient(*this, serviceBus));
     videoMgrClient.reset(new VideoManagerClient(*this, hmiBus));
 }
@@ -375,6 +375,14 @@ void AudioManagerClient::populateStreamTable()
             if(streamName == aaStreamName)
             {
                 aaSessionID = sessionId;
+            }
+            else if(streamName == "USB")
+            {
+                usbSessionID = sessionId;
+            }
+            else if(streamName == "FM")
+            {
+                fmSessionID = sessionId;
             }
         }
         // Create and register stream (only if we need to)

@@ -70,8 +70,10 @@ public:
     };
 private:
     std::map<std::string, int> streamToSessionIds;
-    std::string aaStreamName = "USB";
+    std::string aaStreamName = "MLENT";
     int aaSessionID = -1;
+    int usbSessionID = -1;
+    int fmSessionID = -1;
     int previousSessionID = -1;
     bool aaStreamRegistered = false;
     bool waitingForFocusLostEvent = false;
