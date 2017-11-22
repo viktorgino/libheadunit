@@ -1,85 +1,97 @@
+
+#include <dbus/dbus.h>
+#include <dbus-c++/dbus.h>
+#include <dbus-c++/glib-integration.h>
+
+#include "../dbus/generated_cmu.h"
+
+#define LOGTAG "mazda-nm"
+
+#include "hu_uti.h"
+
 #include "mzd_gps.h"
 
-#include <cstdlib>
-#include <cstdio>
-#include <cstring>
-#include <pthread.h>
-#include <inttypes.h>
-#include <ctime>
+#define SERVICE_BUS_ADDRESS "unix:path=/tmp/dbus_service_socket"
 
-#define LOGTAG "mzd-gps"
-#include "../hu/hu_uti.h"
-
-#include "nmeaparse/NMEAParser.h"
-#include "nmeaparse/GPSService.h"
-
-static volatile bool running = false;
-
-void* process_gps(void* arg) {
-    auto callbackPtr = (void(*)(uint64_t, double, double, double, double, double, double))arg;
-
-    printf("GPS thread started...");
-
-    FILE* fp;
-    char* gps_line = NULL;
-    size_t len = 0;
-    ssize_t read;
-
-    // GPS hardware is attached to ttymxc2 on CMU and communicates
-    // via text NMEA protocol.
-    fp = fopen("/dev/ttymxc2", "r");
-    if (fp == NULL) return NULL;
-
-    // We need to parse NMEA sentences into a solid fix.
-    nmea::NMEAParser parser;
-    nmea::GPSService gps(parser);
-
-    uint64_t last_timestamp = 0;
-
-    // GPS update callback
-    gps.onUpdate += [&gps, callbackPtr, &last_timestamp]() {
-        // First check if we have a positive fix, don't report broken fixes.
-        auto& fix = gps.fix;
-        if (!fix.locked() || fix.horizontalAccuracy() > 80) return;
-        if (fix.latitude == 0 && fix.longitude == 0) return;    // Sometimes we get zero here, ignore it then.
-
-        // Don't flood the sensors channel
-        if (static_cast<uint64_t>(fix.timestamp.getTime()) - last_timestamp < 500) return;
-        last_timestamp = static_cast<uint64_t>(fix.timestamp.getTime());
-
-        // epoch timestamp, latitude, longitude, bearing, speed, altitude, accuracy
-        (*callbackPtr)(fix.timestamp.getTime(),
-                    fix.latitude,
-                    fix.longitude,
-                    fix.travelAngle,
-                    fix.speed,
-                    fix.altitude,
-                    fix.horizontalAccuracy());
-    };
-
-    while (running && ((read = getline(&gps_line, &len, fp)) != -1)) {
-        try {
-            parser.readLine(gps_line);
-        } catch (nmea::NMEAParseError& e) {
-            loge("GPS parse error: %s.", e.message.c_str());
-        }
+class GPSLDSCLient : public com::jci::lds::data_proxy,
+                     public DBus::ObjectProxy
+{
+public:
+    GPSLDSCLient(DBus::Connection &connection, const char *path, const char *name)
+        : DBus::ObjectProxy(connection, path, name)
+    {
     }
 
-    fclose(fp);
-    return nullptr;
+    virtual void GPSDiagnostics(const uint8_t& dTCId, const uint8_t& dTCAction) override {}
+};
+
+
+static DBus::Connection *gpservice_bus = NULL;
+static GPSLDSCLient *gps_client = NULL;
+
+void mzd_gps2_start() {
+    if (gpservice_bus != NULL)
+        return;
+
+    try
+    {
+        gpservice_bus = new DBus::Connection(SERVICE_BUS_ADDRESS, false);
+        gpservice_bus->register_bus();
+        gps_client = new GPSLDSCLient(*gpservice_bus, "/com/jci/lds/data", "com.jci.lds.data");
+    }
+    catch(DBus::Error& error)
+    {
+        loge("DBUS: Failed to connect to SERVICE bus %s: %s", error.name(), error.message());
+        delete gps_client;
+        delete gpservice_bus;
+        gps_client = nullptr;
+        gpservice_bus = nullptr;
+        return;
+    }
+
+    printf("GPS service connection established.\n");
 }
 
-static pthread_t gps_thread = 0;
+int mzd_gps2_get(int32_t& p1, uint64_t& p2, double& p3, double& p4, int32_t& p5, double& p6, double& p7, double& p8, double& p9) {
+	
+	int32_t  positionAccuracy;
+	uint64_t uTCtime;
+	double latitude, longitude;
+	int32_t  altitude;
+	double heading,  velocity, horizontalAccuracy,  verticalAccuracy;
+	
+	
+    if (gpservice_bus == NULL) return
+            GPS_NO_VALUE;
 
-void mzd_gps_start(void(*callbackPtr)(uint64_t, double, double, double, double, double, double)) {
-    running = true;
+    try
+    {
+         gps_client->GetPosition(positionAccuracy, uTCtime, latitude, longitude, altitude, heading, velocity, horizontalAccuracy, verticalAccuracy);
 
-    // Using std::thread and/or passing std::function throws an exception on CMU for
-    // some reason. Hence store it as a static.
-    pthread_create(&gps_thread, NULL, &process_gps, (void*)callbackPtr);
+		 p1 = positionAccuracy;
+		 p2 = uTCtime;
+		 p3 = latitude;
+		 p4 = longitude;
+		 p5 = altitude;
+		 p6 = heading;
+		 p7 = velocity;
+		 p8 = horizontalAccuracy;
+		 p9 = verticalAccuracy;
+
+		 return GPS_OK;
+  
+//		 printf("GPS data: %d %d %f %f %d %f %f %f %f   \n",positionAccuracy, uTCtime, latitude, longitude, altitude, heading, velocity, horizontalAccuracy, verticalAccuracy);
+    }
+    catch(DBus::Error& error)
+    {
+        loge("DBUS: GetPosition failed %s: %s", error.name(), error.message());
+        return GPS_NO_VALUE;
+    }
 }
 
-void mzd_gps_stop() {
-    running = false;
-    pthread_join(gps_thread, NULL);
+void mzd_gps2_stop() {
+    delete gps_client;
+    delete gpservice_bus;
+    gps_client = nullptr;
+    gpservice_bus = nullptr;
 }

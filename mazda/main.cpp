@@ -74,34 +74,64 @@ static void nightmode_thread_func(std::condition_variable& quitcv, std::mutex& q
     mzd_nightmode_stop();
 }
 
-void gps_location_handler(uint64_t timestamp, double lat, double lng, double bearing, double speed, double alt, double accuracy) {
-    logd("[LOC][%" PRIu64 "] - Lat: %f Lng: %f Brng: %f Spd: %f Alt: %f Acc: %f \n",
-            timestamp, lat, lng, bearing, speed, alt, accuracy);
-
-    g_hu->hu_queue_command([timestamp, lat, lng, bearing, speed, alt, accuracy](IHUConnectionThreadInterface& s)
+static void gps_thread_func(std::condition_variable& quitcv2, std::mutex& quitmutex2)
+{
+    int gpsts;
+    int32_t  positionAccuracy;
+    uint64_t uTCtime;
+    double latitude, longitude;
+    int32_t  altitude;
+    double heading,  velocity, horizontalAccuracy,  verticalAccuracy;
+	
+    mzd_gps2_start();
+    while (true)
     {
-        HU::SensorEvent sensorEvent;
-        HU::SensorEvent::LocationData* location = sensorEvent.add_location_data();
-        location->set_timestamp(timestamp);
-        location->set_latitude(static_cast<int32_t>(lat * 1E7));
-        location->set_longitude(static_cast<int32_t>(lng * 1E7));
+                gpsts = mzd_gps2_get(positionAccuracy, uTCtime, latitude, longitude, altitude, heading, velocity, horizontalAccuracy, verticalAccuracy);
 
-        if (bearing != 0) {
-            location->set_bearing(static_cast<int32_t>(bearing * 1E6));
+//		printf("GPS data: %d %d %f %f %d %f %f %f %f   \n",positionAccuracy, uTCtime, latitude, longitude, altitude, heading, velocity, horizontalAccuracy, verticalAccuracy);
+
+		if (gpsts == GPS_OK)
+		{	
+	  	    g_hu->hu_queue_command([uTCtime, latitude, longitude, heading, velocity, altitude, horizontalAccuracy](IHUConnectionThreadInterface& s)
+		    {
+			HU::SensorEvent sensorEvent;
+			HU::SensorEvent::LocationData* location = sensorEvent.add_location_data();
+			location->set_timestamp(uTCtime);
+			location->set_latitude(static_cast<int32_t>(latitude * 1E7));
+			location->set_longitude(static_cast<int32_t>(longitude * 1E7));
+
+			if (heading != 0) {
+				location->set_bearing(static_cast<int32_t>(heading * 1E6));
+			}
+
+			// AA expects speed in knots, so convert back
+			location->set_speed(static_cast<int32_t>((velocity / 1.852) * 1E3));
+
+			if (altitude != 0) {
+				location->set_altitude(static_cast<int32_t>(altitude * 1E2));
+			}
+
+			location->set_accuracy(static_cast<int32_t>(horizontalAccuracy * 1E3));
+
+			s.hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
+	            });
+		}	
+		
+		
+		
+        {
+            std::unique_lock<std::mutex> lk(quitmutex2);
+            if (quitcv2.wait_for(lk, std::chrono::milliseconds(1000)) == std::cv_status::no_timeout)
+            {
+                break;
+            }
         }
+    }
 
-        // AA expects speed in knots, so convert back
-        location->set_speed(static_cast<int32_t>((speed / 1.852) * 1E3));
-
-        if (alt != 0) {
-            location->set_altitude(static_cast<int32_t>(alt * 1E2));
-        }
-
-        location->set_accuracy(static_cast<int32_t>(accuracy * 1E3));
-
-        s.hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
-    });
+    mzd_gps2_stop();
 }
+
+
 
 
 int main (int argc, char *argv[])
@@ -175,10 +205,14 @@ int main (int argc, char *argv[])
 
             std::thread nm_thread([&quitcv, &quitmutex](){ nightmode_thread_func(quitcv, quitmutex); } );
 
+            std::condition_variable quitcv2;
+            std::mutex quitmutex2;
+
+            std::thread gp_thread([&quitcv2, &quitmutex2](){ gps_thread_func(quitcv2, quitmutex2); } );			
+			
             /* Start gstreamer pipeline and main loop */
 
-            // GPS processing
-            mzd_gps_start(&gps_location_handler);
+
 
             printf("Starting Android Auto...\n");
 
@@ -193,12 +227,16 @@ int main (int argc, char *argv[])
             printf("quitting...\n");
             //wake up night mode polling thread
             quitcv.notify_all();
+			
+			//wake up GPS polling thread
+			
+			quitcv2.notify_all();
 
             printf("waiting for nm_thread\n");
             nm_thread.join();
 
             printf("waiting for gps_thread\n");
-            mzd_gps_stop();
+			gp_thread.join();
 
             printf("shutting down\n");
 
