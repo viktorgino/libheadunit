@@ -98,8 +98,8 @@ modify_cmu_files()
     log_message "Changing opera.ini file ... "
     # -- Enable userjs and allow file XMLHttpRequest in /jci/opera/opera_home/opera.ini - backup first - then edit
     if [ ! -f /jci/opera/opera_home/opera.ini.org ]; then
-        cp -a /jci/opera/opera_home/opera.ini /jci/opera/opera_home/opera.ini.org
         log_message "backing up file first ... "
+        cp -a /jci/opera/opera_home/opera.ini /jci/opera/opera_home/opera.ini.org
     else
         log_message "backup exists ... "
     fi
@@ -110,13 +110,13 @@ modify_cmu_files()
     else
         sed -i 's/Allow File XMLHttpRequest=.*/Allow File XMLHttpRequest=1/g' /jci/opera/opera_home/opera.ini
     fi
-    log_message "OK\n"
+    log_message "DONE\n"
 
     #Rename this since once we turn on userJs we don't want a FPS indicator everywhere
     if [ ! -f /jci/opera/opera_dir/userjs/fps.js.bak ]; then
         log_message "Disabling fps.js ... "
         if mv /jci/opera/opera_dir/userjs/fps.js /jci/opera/opera_dir/userjs/fps.js.bak; then
-            log_message "OK\n"
+            log_message "DONE\n"
         else
             log_message "FAILED\n"
         fi
@@ -142,7 +142,10 @@ modify_cmu_files()
                 log_message "backup failed so leaving file as is - there will be no autostart. FAILED\n"
             fi
         else
-            log_message "backup exists so leaving file as is - there will be no autostart. FAILED\n"
+            log_message "backup exists ... "
+            echo "# Android Auto start" >> /jci/scripts/stage_wifi.sh
+            echo "headunit-wrapper &" >> /jci/scripts/stage_wifi.sh
+            log_message "autostart entry added to /jci/scripts/stage_wifi.sh ... DONE\n"
         fi
     fi
 }
@@ -154,8 +157,8 @@ revert_cmu_files()
     # -- Revert /jci/opera/opera_home/opera.ini from backup
     if [ -f /jci/opera/opera_home/opera.ini.org ]; then
         log_message "from backup ... "
-        if cp -a /jci/opera/opera_home/opera.ini.org /jci/opera/opera_home/opera.ini; then
-            log_message "OK\n"
+        if mv -a /jci/opera/opera_home/opera.ini.org /jci/opera/opera_home/opera.ini; then
+            log_message "DONE\n"
             reverted=1
         else
             log_message "FAILED ... trying the same "
@@ -166,7 +169,7 @@ revert_cmu_files()
         sed -i 's/User JavaScript=1/User JavaScript=0/g' /jci/opera/opera_home/opera.ini &&
             sed -i 'Allow File XMLHttpRequest=1/d' /jci/opera/opera_home/opera.ini
         if [ $? == 0 ]; then
-            log_message "OK\n"
+            log_message "DONE\n"
         else
             log_message "FAILED\n"
         fi
@@ -175,7 +178,7 @@ revert_cmu_files()
     if [ -f /jci/opera/opera_dir/userjs/fps.js.bak ]; then
         log_message "Reverting fps.js from backup ... "
         if mv /jci/opera/opera_dir/userjs/fps.js.bak /jci/opera/opera_dir/userjs/fps.js; then
-            log_message "OK\n"
+            log_message "DONE\n"
         else
             log_message "FAILED\n"
         fi
@@ -185,8 +188,8 @@ revert_cmu_files()
         reverted=0
         if [ -f "/jci/scripts/stage_wifi.sh.bak" ]; then
             log_message " from backup ... "
-            if cp /jci/scripts/stage_wifi.sh.bak /jci/scripts/stage_wifi.sh; then
-                log_message "OK\n"
+            if mv /jci/scripts/stage_wifi.sh.bak /jci/scripts/stage_wifi.sh; then
+                log_message "DONE\n"
                 reverted=1
             else
                 log_message "FAILED ... trying the same "
@@ -197,7 +200,7 @@ revert_cmu_files()
             sed -i '/# Android Auto start/d' /jci/scripts/stage_wifi.sh &&
                 sed -i '/headunit-wrapper/d' /jci/scripts/stage_wifi.sh
             if [ $? == 0 ]; then
-                log_message "OK\n"
+                log_message "DONE\n"
             else
                 log_message "FAILED\n"
             fi
