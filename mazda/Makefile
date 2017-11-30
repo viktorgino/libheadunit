@@ -8,7 +8,7 @@ CXX=$(M3TOOLCHAIN)/bin/arm-cortexa9_neon-linux-gnueabi-g++
 LD=$(M3TOOLCHAIN)/bin/arm-cortexa9_neon-linux-gnueabi-ld
 SYSROOT=$(M3TOOLCHAIN)/arm-cortexa9_neon-linux-gnueabi/sysroot
 
-INCLUDES=$(shell ./pkg-config-wrapper $(SYSROOT) --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0  libcrypto openssl glib-2.0 dbus-c++-1 dbus-c++-glib-1 libudev alsa) -I$(TOP)/hu -I$(TOP)/common -I$(TOP)/hu/generated.arm  -I$(PROTOTOOLCHAIN)/include -I$(LIBUNWIND)/include -Igps/nematode/include
+INCLUDES=$(shell ./pkg-config-wrapper $(SYSROOT) --cflags gstreamer-0.10 gstreamer-app-0.10 gstreamer-video-0.10 dbus-1 libusb-1.0  libcrypto openssl glib-2.0 dbus-c++-1 dbus-c++-glib-1 libudev alsa) -I$(TOP)/hu -I$(TOP)/common -I$(TOP)/hu/generated.arm  -I$(PROTOTOOLCHAIN)/include -I$(LIBUNWIND)/include
 
 CFLAGS=-O3 -g -rdynamic -pthread --sysroot=$(SYSROOT) -DCMU=1 -D__STDC_FORMAT_MACROS -march=armv7-a -mtune=cortex-a9 -mfpu=neon
 CXXFLAGS=$(CFLAGS) -std=c++11 -static-libstdc++ -D_GLIBCXX_USE_C99
@@ -31,11 +31,6 @@ SRCS += $(TOP)/common/command_server.cpp
 SRCS += $(TOP)/common/web++/web++.cpp
 
 SRCS += nm/mzd_nightmode.cpp
-SRCS += gps/nematode/src/GPSFix.cpp
-SRCS += gps/nematode/src/GPSService.cpp
-SRCS += gps/nematode/src/NMEACommand.cpp
-SRCS += gps/nematode/src/NMEAParser.cpp
-SRCS += gps/nematode/src/NumberConversion.cpp
 SRCS += gps/mzd_gps.cpp
 SRCS += bt/mzd_bluetooth.cpp
 

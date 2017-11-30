@@ -2,7 +2,6 @@
 
 #include <dbus/dbus.h>
 #include <dbus-c++/dbus.h>
-#include <dbus-c++/glib-integration.h>
 
 #include "../dbus/generated_cmu.h"
 
@@ -59,35 +58,33 @@ public:
 };
 
 
-static DBus::Connection *service_bus = NULL;
 static Navi2NNGClient *navi_client = NULL;
 
-void mzd_nightmode_start() {
-    if (service_bus != NULL)
+void mzd_nightmode_start()
+{
+    if (navi_client != NULL)
         return;
 
     try
     {
-        service_bus = new DBus::Connection(SERVICE_BUS_ADDRESS, false);
-        service_bus->register_bus();
-        navi_client = new Navi2NNGClient(*service_bus, "/com/jci/navi2NNG", "com.jci.navi2NNG");
+        DBus::Connection service_bus(SERVICE_BUS_ADDRESS, false);
+        service_bus.register_bus();
+        navi_client = new Navi2NNGClient(service_bus, "/com/jci/navi2NNG", "com.jci.navi2NNG");
     }
     catch(DBus::Error& error)
     {
         loge("DBUS: Failed to connect to SERVICE bus %s: %s", error.name(), error.message());
-        delete navi_client;
-        delete service_bus;
-        navi_client = nullptr;
-        service_bus = nullptr;
+        mzd_nightmode_stop();
         return;
     }
 
     printf("Nightmode service connection established.\n");
 }
 
-int mzd_is_night_mode_set() {
-    if (service_bus == NULL) return
-            NM_NO_VALUE;
+int mzd_is_night_mode_set()
+{
+    if (navi_client == NULL)
+        return NM_NO_VALUE;
 
     try
     {
@@ -101,9 +98,8 @@ int mzd_is_night_mode_set() {
     }
 }
 
-void mzd_nightmode_stop() {
+void mzd_nightmode_stop()
+{
     delete navi_client;
-    delete service_bus;
     navi_client = nullptr;
-    service_bus = nullptr;
 }
