@@ -57,6 +57,9 @@ bool mzd_gps2_get(GPSData& data)
     {
         gps_client->GetPosition(data.positionAccuracy, data.uTCtime, data.latitude, data.longitude, data.altitude, data.heading, data.velocity, data.horizontalAccuracy, data.verticalAccuracy);
         logd("GPS data: %d %d %f %f %d %f %f %f %f   \n",data.positionAccuracy, data.uTCtime, data.latitude, data.longitude, data.altitude, data.heading, data.velocity, data.horizontalAccuracy, data.verticalAccuracy);
+        if (data.uTCtime == 0 || data.positionAccuracy == 0 || data.horizontalAccuracy > 80)
+            return false;
+
         return true;
     }
     catch(DBus::Error& error)
@@ -71,3 +74,19 @@ void mzd_gps2_stop()
     delete gps_client;
     gps_client = nullptr;
 }
+
+bool GPSData::IsSame(const GPSData& other) const
+{
+    if (uTCtime == 0 && other.uTCtime == 0)
+        return true; //other members don't matter
+    return positionAccuracy == other.positionAccuracy &&
+            uTCtime == other.uTCtime &&
+            int32_t(latitude * 1E7) == int32_t(other.latitude * 1E7) &&
+            int32_t(longitude * 1E7) == int32_t(other.longitude * 1E7) &&
+            altitude == other.altitude &&
+            int32_t(heading * 1E7) == int32_t(other.heading * 1E7) &&
+            int32_t(velocity * 1E7) == int32_t(other.velocity * 1E7) &&
+            int32_t(horizontalAccuracy * 1E7) == int32_t(other.horizontalAccuracy * 1E7) &&
+            int32_t(verticalAccuracy * 1E7) == int32_t(other.verticalAccuracy * 1E7);
+}
+
