@@ -16,16 +16,29 @@ class GPSLDSCLient : public com::jci::lds::data_proxy,
         public DBus::ObjectProxy
 {
 public:
-    GPSLDSCLient(DBus::Connection &connection, const char *path, const char *name)
-        : DBus::ObjectProxy(connection, path, name)
+    GPSLDSCLient(DBus::Connection &connection)
+        : DBus::ObjectProxy(connection, "/com/jci/lds/data", "com.jci.lds.data")
     {
     }
 
     virtual void GPSDiagnostics(const uint8_t& dTCId, const uint8_t& dTCAction) override {}
 };
 
+class GPSLDSControl : public com::jci::lds::control_proxy,
+        public DBus::ObjectProxy
+{
+public:
+    GPSLDSControl(DBus::Connection &connection)
+        : DBus::ObjectProxy(connection, "/com/jci/lds/control", "com.jci.lds.control")
+    {
+    }
+
+    virtual void ReadStatus(const int32_t& commandReply, const int32_t& status) override {}
+};
+
 
 static GPSLDSCLient *gps_client = NULL;
+static GPSLDSControl *gps_control = NULL;
 
 void mzd_gps2_start()
 {
@@ -36,7 +49,10 @@ void mzd_gps2_start()
     {
         DBus::Connection gpservice_bus(SERVICE_BUS_ADDRESS, false);
         gpservice_bus.register_bus();
-        gps_client = new GPSLDSCLient(gpservice_bus, "/com/jci/lds/data", "com.jci.lds.data");
+        gps_client = new GPSLDSCLient(gpservice_bus);
+        gps_control = new GPSLDSControl(gpservice_bus);
+        //Turn on good quality mode
+        gps_control->ReadControl(1);
     }
     catch(DBus::Error& error)
     {
@@ -71,8 +87,21 @@ bool mzd_gps2_get(GPSData& data)
 
 void mzd_gps2_stop()
 {
+    if (gps_control)
+    {
+        try
+        {
+            gps_control->ReadControl(0);
+        }
+        catch(DBus::Error& error)
+        {
+            loge("DBUS: ReadControl failed %s: %s", error.name(), error.message());
+        }
+    }
     delete gps_client;
     gps_client = nullptr;
+    delete gps_control;
+    gps_control = nullptr;
 }
 
 bool GPSData::IsSame(const GPSData& other) const
