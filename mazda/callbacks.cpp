@@ -66,6 +66,14 @@ void MazdaEventCallbacks::MediaSetupComplete(int chan) {
 
 void MazdaEventCallbacks::DisconnectionOrError() {
     printf("DisconnectionOrError\n");
+
+    {
+        std::lock_guard<std::mutex> lg(disconnectionNotifiesMutex);
+        for (auto& f : disconnectionNotifies)
+            f();
+        disconnectionNotifies.clear();
+    }
+
     g_main_loop_quit(gst_app.loop);
 }
 
@@ -162,6 +170,12 @@ void MazdaEventCallbacks::AudioFocusHappend(AudioManagerClient::FocusType type) 
         s.hu_aap_enc_send_message(0, AA_CH_CTR, HU_PROTOCOL_MESSAGE::AudioFocusResponse, response);
     });
     logd("Sent channel %i HU_PROTOCOL_MESSAGE::AudioFocusResponse %s\n", AA_CH_CTR,  HU::AudioFocusResponse::AUDIO_FOCUS_STATE_Name(response.focus_type()).c_str());
+}
+
+void MazdaEventCallbacks::AddDisconnectionNotify(std::function<void()>&& n)
+{
+    std::lock_guard<std::mutex> lg(disconnectionNotifiesMutex);
+    disconnectionNotifies.emplace_back(std::move(n));
 }
 
 VideoManagerClient::VideoManagerClient(MazdaEventCallbacks& callbacks, DBus::Connection& hmiBus)

@@ -33,7 +33,11 @@ public:
     {
     }
 
-    virtual void ReadStatus(const int32_t& commandReply, const int32_t& status) override {}
+    virtual void ReadStatus(const int32_t& commandReply, const int32_t& status) override
+    {
+        //not sure what this does yet
+        logw("Read status changed commandReply %i status %i\n", commandReply, status);
+    }
 };
 
 
@@ -51,8 +55,6 @@ void mzd_gps2_start()
         gpservice_bus.register_bus();
         gps_client = new GPSLDSCLient(gpservice_bus);
         gps_control = new GPSLDSControl(gpservice_bus);
-        //Turn on good quality mode
-        gps_control->ReadControl(1);
     }
     catch(DBus::Error& error)
     {
@@ -72,8 +74,7 @@ bool mzd_gps2_get(GPSData& data)
     try
     {
         gps_client->GetPosition(data.positionAccuracy, data.uTCtime, data.latitude, data.longitude, data.altitude, data.heading, data.velocity, data.horizontalAccuracy, data.verticalAccuracy);
-        logd("GPS data: %d %d %f %f %d %f %f %f %f   \n",data.positionAccuracy, data.uTCtime, data.latitude, data.longitude, data.altitude, data.heading, data.velocity, data.horizontalAccuracy, data.verticalAccuracy);
-        if (data.uTCtime == 0 || data.positionAccuracy == 0 || data.horizontalAccuracy > 80)
+        if (data.uTCtime == 0 || data.positionAccuracy == 0)
             return false;
 
         return true;
@@ -85,19 +86,23 @@ bool mzd_gps2_get(GPSData& data)
     }
 }
 
-void mzd_gps2_stop()
+void mzd_gps2_set_highaccuracy(bool ha)
 {
     if (gps_control)
     {
         try
         {
-            gps_control->ReadControl(0);
+            gps_control->ReadControl(ha ? 1 : 0);
         }
         catch(DBus::Error& error)
         {
             loge("DBUS: ReadControl failed %s: %s", error.name(), error.message());
         }
     }
+}
+
+void mzd_gps2_stop()
+{
     delete gps_client;
     gps_client = nullptr;
     delete gps_control;

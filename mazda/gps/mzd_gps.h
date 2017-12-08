@@ -18,6 +18,7 @@ struct GPSData
 void mzd_gps2_start();
 
 bool mzd_gps2_get(GPSData& data);
+void mzd_gps2_set_highaccuracy(bool ha);
 
 void mzd_gps2_stop();
 

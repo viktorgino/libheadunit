@@ -78,19 +78,39 @@ static void nightmode_thread_func(std::condition_variable& quitcv, std::mutex& q
     mzd_nightmode_stop();
 }
 
-static void gps_thread_func(std::condition_variable& quitcv, std::mutex& quitmutex)
+static void gps_thread_func(MazdaEventCallbacks& eventCallbacks, std::condition_variable& quitcv, std::mutex& quitmutex)
 {
     GPSData data, newData;
-
+    uint64_t oldTs = 0;
+    int debugLogCount = 0;
     mzd_gps2_start();
+
+    //Turn on good quality mode
+    mzd_gps2_set_highaccuracy(true);
+
+    eventCallbacks.AddDisconnectionNotify([]()
+    {
+        //must be called while the dbus events are still going
+        mzd_gps2_set_highaccuracy(false);
+    });
+
     while (true)
     {
         if (mzd_gps2_get(newData) && !data.IsSame(newData))
         {
             data = newData;
+
             timeval tv;
             gettimeofday(&tv, nullptr);
             uint64_t timestamp = tv.tv_sec * 1000000 + tv.tv_usec;
+            if (debugLogCount < 50)
+            {
+                printf("GPS data: %d %d %f %f %d %f %f %f %f   \n",data.positionAccuracy, data.uTCtime, data.latitude, data.longitude, data.altitude, data.heading, data.velocity, data.horizontalAccuracy, data.verticalAccuracy);
+                printf("Delta %f\n", (timestamp - oldTs)/1000000.0);
+                debugLogCount++;
+            }
+            oldTs = timestamp;
+
             g_hu->hu_queue_command([data, timestamp](IHUConnectionThreadInterface& s)
             {
                 HU::SensorEvent sensorEvent;
@@ -102,7 +122,9 @@ static void gps_thread_func(std::condition_variable& quitcv, std::mutex& quitmut
                 location->set_longitude(static_cast<int32_t>(data.longitude * 1E7));
 
                 location->set_bearing(static_cast<int32_t>(data.heading * 1E6));
-                location->set_speed(static_cast<int32_t>(data.velocity * 1E3));
+                //assuming these are the same units as the Android Location API (the rest are)
+                double velocityMetersPerSecond = data.velocity * 0.277778; //convert km/h to m/s
+                location->set_speed(static_cast<int32_t>(velocityMetersPerSecond * 1E3));
 
                 location->set_altitude(static_cast<int32_t>(data.altitude * 1E2));
                 location->set_accuracy(static_cast<int32_t>(data.horizontalAccuracy * 1E3));
@@ -196,7 +218,7 @@ int main (int argc, char *argv[])
             std::mutex quitmutex;
 
             std::thread nm_thread([&quitcv, &quitmutex](){ nightmode_thread_func(quitcv, quitmutex); } );
-            std::thread gp_thread([&quitcv, &quitmutex](){ gps_thread_func(quitcv, quitmutex); } );
+            std::thread gp_thread([&callbacks, &quitcv, &quitmutex](){ gps_thread_func(callbacks, quitcv, quitmutex); } );
 
             /* Start gstreamer pipeline and main loop */
 
