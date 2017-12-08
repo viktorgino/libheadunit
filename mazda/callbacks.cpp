@@ -90,8 +90,6 @@ void MazdaEventCallbacks::AudioFocusRequest(int chan, const HU::AudioFocusReques
         //The chan passed here is always AA_CH_CTR but internally we pass the channel AA means
         if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_RELEASE) {
             audioMgrClient->audioMgrReleaseAudioFocus();
-        } else if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_GAIN_TRANSIENT) {
-            audioMgrClient->audioMgrRequestAudioFocus(AudioManagerClient::FocusType::TRANSIENT); //assume navigation
         } else if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_GAIN || request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_UNKNOWN) {
             audioMgrClient->audioMgrRequestAudioFocus(AudioManagerClient::FocusType::PERMANENT); //assume media
         }
@@ -388,7 +386,7 @@ void AudioManagerClient::populateStreamTable()
         // Create and register stream (only if we need to)
         if (aaSessionID < 0)
         {
-            logw("When using the USB stream we should never have to register since it should be already there");
+            //logw("When using the USB stream we should never have to register since it should be already there");
             aaRegisterStream();
         }
     }
@@ -501,6 +499,7 @@ void AudioManagerClient::Notify(const std::string &signalName, const std::string
             auto result = json::parse(payload);
             std::string streamName = result["streamName"].get<std::string>();
             std::string newFocus = result["newFocus"].get<std::string>();
+            std::string focusType = result["focusType"].get<std::string>();
 
             auto findIt = streamToSessionIds.find(streamName);
             int eventSessionID = -1;
@@ -524,12 +523,12 @@ void AudioManagerClient::Notify(const std::string &signalName, const std::string
 
                 if (eventSessionID == aaSessionID)
                 {
-                    bool hasFocus = newFocus == "gained";
-                    if (hasFocus)
+                    if (newFocus == "gained")
                     {
                         requestPending = false;
+                        pendingFocus = FocusType::PERMANENT;
                     }
-                    else
+                    else if (newFocus != "temporarilyLost")
                     {
                         releasePending = false;
                         pendingFocus = FocusType::NONE;
@@ -540,7 +539,10 @@ void AudioManagerClient::Notify(const std::string &signalName, const std::string
                         currentFocus = pendingFocus;
                         callbacks.AudioFocusHappend(currentFocus);
                     }
-                    pendingFocus = FocusType::NONE;
+                    if (newFocus != "temporarilyLost")
+                    {
+                      pendingFocus = FocusType::NONE;
+                    }
                 }
             }
         }
