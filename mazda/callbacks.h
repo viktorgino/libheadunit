@@ -2,7 +2,6 @@
 
 #include <atomic>
 #include <set>
-#include <mutex>
 #include "hu_aap.h"
 
 #include "command_server.h"
@@ -136,8 +135,6 @@ class MazdaEventCallbacks : public IHUConnectionThreadEventCallbacks {
 
     std::unique_ptr<AudioManagerClient> audioMgrClient;
     std::unique_ptr<VideoManagerClient> videoMgrClient;
-    std::mutex disconnectionNotifiesMutex;
-    std::vector<std::function<void()>> disconnectionNotifies;
 public:
     MazdaEventCallbacks(DBus::Connection& serviceBus, DBus::Connection& hmiBus);
     ~MazdaEventCallbacks();
@@ -159,10 +156,6 @@ public:
 
     void VideoFocusHappened(bool hasFocus, bool unrequested);
     void AudioFocusHappend(AudioManagerClient::FocusType type);
-
-    //Some stuff needs to be cleaned up before we stop the Glib main loop (like sending dbus messages)
-    //Safe to call from any thread, callbacks run on the HU thread
-    void AddDisconnectionNotify(std::function<void()>&& n);
 
     std::atomic<bool> connected;
     std::atomic<bool> videoFocus;

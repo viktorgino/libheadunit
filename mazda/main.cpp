@@ -78,7 +78,7 @@ static void nightmode_thread_func(std::condition_variable& quitcv, std::mutex& q
     mzd_nightmode_stop();
 }
 
-static void gps_thread_func(MazdaEventCallbacks& eventCallbacks, std::condition_variable& quitcv, std::mutex& quitmutex)
+static void gps_thread_func(std::condition_variable& quitcv, std::mutex& quitmutex)
 {
     GPSData data, newData;
     uint64_t oldTs = 0;
@@ -88,18 +88,11 @@ static void gps_thread_func(MazdaEventCallbacks& eventCallbacks, std::condition_
     //Turn on good quality mode
     mzd_gps2_set_highaccuracy(true);
 
-//    eventCallbacks.AddDisconnectionNotify([]()
-//    {
-//        //must be called while the dbus events are still going
-
-//    });
-
     while (true)
     {
         if (mzd_gps2_get(newData) && !data.IsSame(newData))
         {
             data = newData;
-
             timeval tv;
             gettimeofday(&tv, nullptr);
             uint64_t timestamp = tv.tv_sec * 1000000 + tv.tv_usec;
@@ -220,7 +213,7 @@ int main (int argc, char *argv[])
             std::mutex quitmutex;
 
             std::thread nm_thread([&quitcv, &quitmutex](){ nightmode_thread_func(quitcv, quitmutex); } );
-            std::thread gp_thread([&callbacks, &quitcv, &quitmutex](){ gps_thread_func(callbacks, quitcv, quitmutex); } );
+            std::thread gp_thread([&quitcv, &quitmutex](){ gps_thread_func(quitcv, quitmutex); } );
 
             /* Start gstreamer pipeline and main loop */
 
