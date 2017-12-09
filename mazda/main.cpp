@@ -88,11 +88,11 @@ static void gps_thread_func(MazdaEventCallbacks& eventCallbacks, std::condition_
     //Turn on good quality mode
     mzd_gps2_set_highaccuracy(true);
 
-    eventCallbacks.AddDisconnectionNotify([]()
-    {
-        //must be called while the dbus events are still going
-        mzd_gps2_set_highaccuracy(false);
-    });
+//    eventCallbacks.AddDisconnectionNotify([]()
+//    {
+//        //must be called while the dbus events are still going
+
+//    });
 
     while (true)
     {
@@ -135,12 +135,14 @@ static void gps_thread_func(MazdaEventCallbacks& eventCallbacks, std::condition_
 
         {
             std::unique_lock<std::mutex> lk(quitmutex);
-            if (quitcv.wait_for(lk, std::chrono::milliseconds(100)) == std::cv_status::no_timeout)
+            if (quitcv.wait_for(lk, std::chrono::milliseconds(500)) == std::cv_status::no_timeout)
             {
                 break;
             }
         }
     }
+
+    mzd_gps2_set_highaccuracy(false);
 
     mzd_gps2_stop();
 }

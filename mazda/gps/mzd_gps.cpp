@@ -43,6 +43,7 @@ public:
 
 static GPSLDSCLient *gps_client = NULL;
 static GPSLDSControl *gps_control = NULL;
+static int get_data_errors_in_a_row = 0;
 
 void mzd_gps2_start()
 {
@@ -74,6 +75,13 @@ bool mzd_gps2_get(GPSData& data)
     try
     {
         gps_client->GetPosition(data.positionAccuracy, data.uTCtime, data.latitude, data.longitude, data.altitude, data.heading, data.velocity, data.horizontalAccuracy, data.verticalAccuracy);
+
+        if (get_data_errors_in_a_row > 0)
+        {
+            loge("DBUS: GetPosition hid %i failures", get_data_errors_in_a_row);
+            get_data_errors_in_a_row = 0;
+        }
+
         if (data.uTCtime == 0 || data.positionAccuracy == 0)
             return false;
 
@@ -81,7 +89,12 @@ bool mzd_gps2_get(GPSData& data)
     }
     catch(DBus::Error& error)
     {
-        loge("DBUS: GetPosition failed %s: %s", error.name(), error.message());
+        get_data_errors_in_a_row++;
+        //prevent insane log spam
+        if (get_data_errors_in_a_row < 10)
+        {
+            loge("DBUS: GetPosition failed %s: %s", error.name(), error.message());
+        }
         return false;
     }
 }
