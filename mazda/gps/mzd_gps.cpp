@@ -1,6 +1,8 @@
 
 #include <dbus/dbus.h>
 #include <dbus-c++/dbus.h>
+#include <mutex>
+#include <memory>
 
 #include "../dbus/generated_cmu.h"
 
@@ -33,20 +35,30 @@ public:
     {
     }
 
-    virtual void ReadStatus(const int32_t& commandReply, const int32_t& status) override
-    {
-        //not sure what this does yet
-        logw("Read status changed commandReply %i status %i\n", commandReply, status);
-    }
+    virtual void ReadStatus(const int32_t& commandReply, const int32_t& status) override;
 };
 
-
-static GPSLDSCLient *gps_client = NULL;
-static GPSLDSControl *gps_control = NULL;
+static std::mutex gps_client_mutex;
+static std::unique_ptr<GPSLDSCLient> gps_client;
+static std::unique_ptr<GPSLDSControl> gps_control;
 static int get_data_errors_in_a_row = 0;
+
+void GPSLDSControl::ReadStatus(const int32_t& commandReply, const int32_t& status)
+{
+    //not sure what this does yet
+    logw("Read status changed commandReply %i status %i\n", commandReply, status);
+    //reinit the client
+    std::lock_guard<std::mutex> lg(gps_client_mutex);
+    if (gps_client)
+    {
+        gps_client.reset(new GPSLDSCLient(this->conn()));
+    }
+}
+
 
 void mzd_gps2_start()
 {
+    std::lock_guard<std::mutex> lg(gps_client_mutex);
     if (gps_client != NULL)
         return;
 
@@ -54,13 +66,14 @@ void mzd_gps2_start()
     {
         DBus::Connection gpservice_bus(SERVICE_BUS_ADDRESS, false);
         gpservice_bus.register_bus();
-        gps_client = new GPSLDSCLient(gpservice_bus);
-        gps_control = new GPSLDSControl(gpservice_bus);
+        gps_client.reset(new GPSLDSCLient(gpservice_bus));
+        gps_control.reset(new GPSLDSControl(gpservice_bus));
     }
     catch(DBus::Error& error)
     {
         loge("DBUS: Failed to connect to SERVICE bus %s: %s", error.name(), error.message());
-        mzd_gps2_stop();
+        gps_client.reset();
+        gps_control.reset();
         return;
     }
 
@@ -69,6 +82,7 @@ void mzd_gps2_start()
 
 bool mzd_gps2_get(GPSData& data)
 {
+    std::lock_guard<std::mutex> lg(gps_client_mutex);
     if (gps_client == NULL)
         return false;
 
@@ -116,10 +130,9 @@ void mzd_gps2_set_highaccuracy(bool ha)
 
 void mzd_gps2_stop()
 {
-    delete gps_client;
-    gps_client = nullptr;
-    delete gps_control;
-    gps_control = nullptr;
+    std::lock_guard<std::mutex> lg(gps_client_mutex);
+    gps_client.reset();
+    gps_control.reset();
 }
 
 bool GPSData::IsSame(const GPSData& other) const
