@@ -86,7 +86,7 @@ static void gps_thread_func(std::condition_variable& quitcv, std::mutex& quitmut
     mzd_gps2_start();
 
     //Turn on good quality mode
-    mzd_gps2_set_highaccuracy(true);
+    mzd_gps2_set_enabled(true);
 
     while (true)
     {
@@ -128,14 +128,14 @@ static void gps_thread_func(std::condition_variable& quitcv, std::mutex& quitmut
 
         {
             std::unique_lock<std::mutex> lk(quitmutex);
-            if (quitcv.wait_for(lk, std::chrono::milliseconds(500)) == std::cv_status::no_timeout)
+            if (quitcv.wait_for(lk, std::chrono::milliseconds(250)) == std::cv_status::no_timeout)
             {
                 break;
             }
         }
     }
 
-    mzd_gps2_set_highaccuracy(false);
+    mzd_gps2_set_enabled(false);
 
     mzd_gps2_stop();
 }

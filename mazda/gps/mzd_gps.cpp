@@ -14,6 +14,12 @@
 
 #define SERVICE_BUS_ADDRESS "unix:path=/tmp/dbus_service_socket"
 
+enum LDSControl
+{
+    LDS_READ_START = 0,
+    LDS_READ_STOP = 1
+};
+
 class GPSLDSCLient : public com::jci::lds::data_proxy,
         public DBus::ObjectProxy
 {
@@ -113,13 +119,13 @@ bool mzd_gps2_get(GPSData& data)
     }
 }
 
-void mzd_gps2_set_highaccuracy(bool ha)
+void mzd_gps2_set_enabled(bool ha)
 {
     if (gps_control)
     {
         try
         {
-            gps_control->ReadControl(ha ? 1 : 0);
+            gps_control->ReadControl(ha ? LDS_READ_START : LDS_READ_STOP);
         }
         catch(DBus::Error& error)
         {
