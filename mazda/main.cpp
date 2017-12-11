@@ -18,6 +18,7 @@
 
 #include <dbus-c++/dbus.h>
 #include <dbus-c++/glib-integration.h>
+#include <sys/time.h>
 
 #include "hu_uti.h"
 #include "hu_aap.h"
@@ -79,32 +80,46 @@ static void nightmode_thread_func(std::condition_variable& quitcv, std::mutex& q
 
 static void gps_thread_func(std::condition_variable& quitcv, std::mutex& quitmutex)
 {
-    GPSData data;
-
+    GPSData data, newData;
+    uint64_t oldTs = 0;
+    int debugLogCount = 0;
     mzd_gps2_start();
+
+    //Not sure if this is actually required but the built-in Nav code on CMU does it
+    mzd_gps2_set_enabled(true);
+
     while (true)
     {
-        if (mzd_gps2_get(data))
+        if (mzd_gps2_get(newData) && !data.IsSame(newData))
         {
-            g_hu->hu_queue_command([data](IHUConnectionThreadInterface& s)
+            data = newData;
+            timeval tv;
+            gettimeofday(&tv, nullptr);
+            uint64_t timestamp = tv.tv_sec * 1000000 + tv.tv_usec;
+            if (debugLogCount < 50) //only print the first 50 to avoid spamming the log and breaking the opera text box
+            {
+                logd("GPS data: %d %d %f %f %d %f %f %f %f   \n",data.positionAccuracy, data.uTCtime, data.latitude, data.longitude, data.altitude, data.heading, data.velocity, data.horizontalAccuracy, data.verticalAccuracy);
+                logd("Delta %f\n", (timestamp - oldTs)/1000000.0);
+                debugLogCount++;
+            }
+            oldTs = timestamp;
+
+            g_hu->hu_queue_command([data, timestamp](IHUConnectionThreadInterface& s)
             {
                 HU::SensorEvent sensorEvent;
                 HU::SensorEvent::LocationData* location = sensorEvent.add_location_data();
-                location->set_timestamp(data.uTCtime);
+                //AA uses uS and the gps data just has seconds, just use the current time to get more precision so AA can
+                //interpolate better
+                location->set_timestamp(timestamp);
                 location->set_latitude(static_cast<int32_t>(data.latitude * 1E7));
                 location->set_longitude(static_cast<int32_t>(data.longitude * 1E7));
 
-                if (data.heading != 0) {
-                    location->set_bearing(static_cast<int32_t>(data.heading * 1E6));
-                }
+                location->set_bearing(static_cast<int32_t>(data.heading * 1E6));
+                //assuming these are the same units as the Android Location API (the rest are)
+                double velocityMetersPerSecond = data.velocity * 0.277778; //convert km/h to m/s
+                location->set_speed(static_cast<int32_t>(velocityMetersPerSecond * 1E3));
 
-                // AA expects speed in knots, so convert back
-                location->set_speed(static_cast<int32_t>((data.velocity / 1.852) * 1E3));
-
-                if (data.altitude != 0) {
-                    location->set_altitude(static_cast<int32_t>(data.altitude * 1E2));
-                }
-
+                location->set_altitude(static_cast<int32_t>(data.altitude * 1E2));
                 location->set_accuracy(static_cast<int32_t>(data.horizontalAccuracy * 1E3));
 
                 s.hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
@@ -113,12 +128,15 @@ static void gps_thread_func(std::condition_variable& quitcv, std::mutex& quitmut
 
         {
             std::unique_lock<std::mutex> lk(quitmutex);
-            if (quitcv.wait_for(lk, std::chrono::milliseconds(1000)) == std::cv_status::no_timeout)
+            //The timestamps on the GPS events are in seconds, but based on logging the data actually changes faster with the same timestamp
+            if (quitcv.wait_for(lk, std::chrono::milliseconds(250)) == std::cv_status::no_timeout)
             {
                 break;
             }
         }
     }
+
+    mzd_gps2_set_enabled(false);
 
     mzd_gps2_stop();
 }
