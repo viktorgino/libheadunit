@@ -40,6 +40,8 @@ int MazdaEventCallbacks::MediaPacket(int chan, uint64_t timestamp, const byte *b
 
 int MazdaEventCallbacks::MediaStart(int chan) {
     if (chan == AA_CH_MIC) {
+        // We ignored transient requests to avoid capturing phone calls so we handle the request here
+        audioMgrClient->audioMgrRequestAudioFocus(AudioManagerClient::FocusType::TRANSIENT);
         printf("SHAI1 : Mic Started\n");
         micInput.Start(g_hu);
     }
@@ -90,7 +92,7 @@ void MazdaEventCallbacks::AudioFocusRequest(int chan, const HU::AudioFocusReques
         //The chan passed here is always AA_CH_CTR but internally we pass the channel AA means
         if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_RELEASE) {
             audioMgrClient->audioMgrReleaseAudioFocus();
-        } else if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_GAIN || request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_UNKNOWN) {
+        } else if (request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_GAIN || request.focus_type() == HU::AudioFocusRequest::AUDIO_FOCUS_GAIN_NAVI) {
             audioMgrClient->audioMgrRequestAudioFocus(AudioManagerClient::FocusType::PERMANENT); //assume media
         }
 

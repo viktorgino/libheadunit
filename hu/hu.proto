@@ -583,7 +583,7 @@ message AudioFocusRequest
     {
         AUDIO_FOCUS_GAIN = 1;
         AUDIO_FOCUS_GAIN_TRANSIENT = 2;
-        AUDIO_FOCUS_UNKNOWN = 3;
+        AUDIO_FOCUS_GAIN_NAVI = 3;
         AUDIO_FOCUS_RELEASE = 4;
     }
     required AUDIO_FOCUS focus_type = 1;
