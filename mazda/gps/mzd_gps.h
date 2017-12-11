@@ -18,7 +18,7 @@ struct GPSData
 void mzd_gps2_start();
 
 bool mzd_gps2_get(GPSData& data);
-void mzd_gps2_set_enabled(bool ha);
+void mzd_gps2_set_enabled(bool bEnabled);
 
 void mzd_gps2_stop();
 

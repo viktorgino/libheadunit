@@ -85,7 +85,7 @@ static void gps_thread_func(std::condition_variable& quitcv, std::mutex& quitmut
     int debugLogCount = 0;
     mzd_gps2_start();
 
-    //Turn on good quality mode
+    //Not sure if this is actually required but the built-in Nav code on CMU does it
     mzd_gps2_set_enabled(true);
 
     while (true)
@@ -96,10 +96,10 @@ static void gps_thread_func(std::condition_variable& quitcv, std::mutex& quitmut
             timeval tv;
             gettimeofday(&tv, nullptr);
             uint64_t timestamp = tv.tv_sec * 1000000 + tv.tv_usec;
-            if (debugLogCount < 50)
+            if (debugLogCount < 50) //only print the first 50 to avoid spamming the log and breaking the opera text box
             {
-                printf("GPS data: %d %d %f %f %d %f %f %f %f   \n",data.positionAccuracy, data.uTCtime, data.latitude, data.longitude, data.altitude, data.heading, data.velocity, data.horizontalAccuracy, data.verticalAccuracy);
-                printf("Delta %f\n", (timestamp - oldTs)/1000000.0);
+                logd("GPS data: %d %d %f %f %d %f %f %f %f   \n",data.positionAccuracy, data.uTCtime, data.latitude, data.longitude, data.altitude, data.heading, data.velocity, data.horizontalAccuracy, data.verticalAccuracy);
+                logd("Delta %f\n", (timestamp - oldTs)/1000000.0);
                 debugLogCount++;
             }
             oldTs = timestamp;
@@ -128,6 +128,7 @@ static void gps_thread_func(std::condition_variable& quitcv, std::mutex& quitmut
 
         {
             std::unique_lock<std::mutex> lk(quitmutex);
+            //The timestamps on the GPS events are in seconds, but based on logging the data actually changes faster with the same timestamp
             if (quitcv.wait_for(lk, std::chrono::milliseconds(250)) == std::cv_status::no_timeout)
             {
                 break;

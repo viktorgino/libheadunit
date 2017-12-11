@@ -1,7 +1,6 @@
 
 #include <dbus/dbus.h>
 #include <dbus-c++/dbus.h>
-#include <mutex>
 #include <memory>
 
 #include "../dbus/generated_cmu.h"
@@ -44,7 +43,6 @@ public:
     virtual void ReadStatus(const int32_t& commandReply, const int32_t& status) override;
 };
 
-static std::mutex gps_client_mutex;
 static std::unique_ptr<GPSLDSCLient> gps_client;
 static std::unique_ptr<GPSLDSControl> gps_control;
 static int get_data_errors_in_a_row = 0;
@@ -53,18 +51,11 @@ void GPSLDSControl::ReadStatus(const int32_t& commandReply, const int32_t& statu
 {
     //not sure what this does yet
     logw("Read status changed commandReply %i status %i\n", commandReply, status);
-    //reinit the client
-    std::lock_guard<std::mutex> lg(gps_client_mutex);
-    if (gps_client)
-    {
-        gps_client.reset(new GPSLDSCLient(this->conn()));
-    }
 }
 
 
 void mzd_gps2_start()
 {
-    std::lock_guard<std::mutex> lg(gps_client_mutex);
     if (gps_client != NULL)
         return;
 
@@ -88,7 +79,6 @@ void mzd_gps2_start()
 
 bool mzd_gps2_get(GPSData& data)
 {
-    std::lock_guard<std::mutex> lg(gps_client_mutex);
     if (gps_client == NULL)
         return false;
 
@@ -102,6 +92,7 @@ bool mzd_gps2_get(GPSData& data)
             get_data_errors_in_a_row = 0;
         }
 
+        //timestamp 0 means "invalid" and positionAccuracy 0 means "no lock"
         if (data.uTCtime == 0 || data.positionAccuracy == 0)
             return false;
 
@@ -119,13 +110,13 @@ bool mzd_gps2_get(GPSData& data)
     }
 }
 
-void mzd_gps2_set_enabled(bool ha)
+void mzd_gps2_set_enabled(bool bEnabled)
 {
     if (gps_control)
     {
         try
         {
-            gps_control->ReadControl(ha ? LDS_READ_START : LDS_READ_STOP);
+            gps_control->ReadControl(bEnabled ? LDS_READ_START : LDS_READ_STOP);
         }
         catch(DBus::Error& error)
         {
@@ -136,7 +127,6 @@ void mzd_gps2_set_enabled(bool ha)
 
 void mzd_gps2_stop()
 {
-    std::lock_guard<std::mutex> lg(gps_client_mutex);
     gps_client.reset();
     gps_control.reset();
 }
@@ -144,7 +134,7 @@ void mzd_gps2_stop()
 bool GPSData::IsSame(const GPSData& other) const
 {
     if (uTCtime == 0 && other.uTCtime == 0)
-        return true; //other members don't matter
+        return true; //other members don't matter since timestamp 0 means "invalid"
     return positionAccuracy == other.positionAccuracy &&
             uTCtime == other.uTCtime &&
             int32_t(latitude * 1E7) == int32_t(other.latitude * 1E7) &&
