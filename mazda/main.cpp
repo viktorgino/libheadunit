@@ -107,6 +107,9 @@ static void gps_thread_func(std::condition_variable& quitcv, std::mutex& quitmut
 
                 location->set_accuracy(static_cast<int32_t>(data.horizontalAccuracy * 1E3));
 
+#ifdef NAV_DEBUG
+                printf("GPS data: %d %d %f %f %d %f %f %f %f   \n",data.positionAccuracy, data.uTCtime, data.latitude, data.longitude, data.altitude, data.heading, data.velocity, data.horizontalAccuracy, data.verticalAccuracy);
+#endif
                 s.hu_aap_enc_send_message(0, AA_CH_SEN, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
             });
         }
