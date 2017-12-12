@@ -248,32 +248,7 @@ void VideoOutput::input_thread_func()
                     //Make the music button play/pause
                     case KEY_E:
                         printf("KEY_E\n");
-                        //The FAV key basically does this right? We need a normal Play/Pause button
                         scanCode = HUIB_PLAYPAUSE;
-                        /*
-                        if (hasMediaAudioFocus)
-                        {
-                            if (isPressed)
-                            {
-                              pass_key_to_mzd(event.type, event.code, event.value);
-                            }
-                            else
-                            {
-                                scanCode = HUIB_PLAYPAUSE;
-                            }
-                        }
-                        else
-                        {
-                            if (isPressed)
-                            {
-                                scanCode = HUIB_PLAYPAUSE;
-                            }
-                            else
-                            {
-                                pass_key_to_mzd(event.type, event.code, event.value);
-                            }
-                        }
-                        */
                         break;
                     case KEY_LEFTBRACE:
                         printf("KEY_LEFTBRACE (next track with media focus: %i)\n",  hasMediaAudioFocus ? 1 : 0);
