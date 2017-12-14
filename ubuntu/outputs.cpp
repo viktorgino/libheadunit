@@ -265,7 +265,7 @@ VideoOutput::VideoOutput(DesktopEventCallbacks* callbacks) : callbacks(callbacks
         #endif
                                  "videoscale name=myconvert ! "
                                  "videoconvert ! "
-                                 "xvimagesink name=mysink";
+                                 "ximagesink name=mysink";
     vid_pipeline = gst_parse_launch(vid_launch_str, &error);
 
     bus = gst_pipeline_get_bus(GST_PIPELINE(vid_pipeline));
