@@ -266,6 +266,10 @@ protected:
   int hu_handle_GenericNotificationResponse(int chan, byte * buf, int len);
   int hu_handle_StartGenericNotifications(int chan, byte * buf, int len);
   int hu_handle_StopGenericNotifications(int chan, byte * buf, int len);
+  int hu_handle_BluetoothPairingRequest(int chan, byte * buf, int len);
+  int hu_handle_BluetoothAuthData(int chan, byte * buf, int len);
+
+
 
     //Can be called from any thread
   virtual int hu_queue_command(IHUAnyThreadInterface::HUThreadCommand&& command) override;
@@ -329,6 +333,13 @@ enum class HU_PHONE_STATUS_CHANNEL_MESSAGE : uint16_t
 {
   PhoneStatus = 0x8001,
   PhoneStatusInput = 0x8002,
+};
+
+enum class HU_BLUETOOTH_CHANNEL_MESSAGE : uint16_t
+{
+  BluetoothPairingRequest = 0x8001,
+  BluetoothPairingResponse = 0x8002,
+  BluetoothAuthData = 0x8003,
 };
 
 //Not sure if these are right

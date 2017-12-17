@@ -531,12 +531,15 @@
       callbacks.CustomizeInputChannel(AA_CH_MIC, *inner);
     }
 
+    //Doesn't work yet
+    /*
     HU::ChannelDescriptor* notificationChannel = carInfo.add_channels();
     notificationChannel->set_channel_id(AA_CH_NOT);
     {
       auto inner = notificationChannel->mutable_generic_notification_service();
       //nothing to set here actually
     }
+    */
 
     std::string carBTAddress = callbacks.GetCarBluetoothAddress();
     if (carBTAddress.size() > 0)
@@ -547,8 +550,8 @@
         {
           auto inner = btChannel->mutable_bluetooth_service();
           inner->set_car_address(carBTAddress);
-          inner->add_supported_pairing_methods(HU::ChannelDescriptor_BluetoothService::BLUETOOTH_PARING_METHOD_A2DP);
-          inner->add_supported_pairing_methods(HU::ChannelDescriptor_BluetoothService::BLUETOOTH_PARING_METHOD_HFP);
+          inner->add_supported_pairing_methods(HU::BLUETOOTH_PARING_METHOD_A2DP);
+          inner->add_supported_pairing_methods(HU::BLUETOOTH_PARING_METHOD_HFP);
           callbacks.CustomizeBluetoothService(AA_CH_BT, *inner);
         }
 
@@ -880,6 +883,41 @@
       return 0;
   }
 
+  int HUServer::hu_handle_BluetoothPairingRequest(int chan, byte * buf, int len){
+      HU::BluetoothPairingRequest request;
+      if (!request.ParseFromArray(buf, len))
+      {
+        loge ("BluetoothPairingRequest Focus Request");
+        return -1;
+      }
+      else
+      {
+        logd ("BluetoothPairingRequest Focus Request");
+      }
+      printf("BluetoothPairingRequest: %s\n",request.DebugString().c_str());
+
+      HU::BluetoothPairingResponse response;
+      response.set_already_paired(true);
+      response.set_status(HU::BluetoothPairingResponse::PAIRING_STATUS_1);
+
+      return hu_aap_enc_send_message(0, chan, HU_BLUETOOTH_CHANNEL_MESSAGE::BluetoothPairingResponse, response);
+  }
+
+  int HUServer::hu_handle_BluetoothAuthData(int chan, byte * buf, int len) {
+      HU::BluetoothAuthData request;
+      if (!request.ParseFromArray(buf, len))
+      {
+        loge ("BluetoothAuthData Focus Request");
+        return -1;
+      }
+      else
+      {
+        logd ("BluetoothAuthData Focus Request");
+      }
+      printf("BluetoothAuthData: %s\n",request.DebugString().c_str());
+      return 0;
+  }
+
   int HUServer::iaap_msg_process (int chan, uint16_t msg_type, byte * buf, int len) {
 
     if (ena_log_verbo)
@@ -963,7 +1001,16 @@
       }
       else if (chan == AA_CH_BT)
       {
-        logw("BLUETOOTH CHANNEL MESSAGE = chan %d - msg_type: %d", chan, msg_type);
+        switch((HU_BLUETOOTH_CHANNEL_MESSAGE)msg_type)
+        {
+        case HU_BLUETOOTH_CHANNEL_MESSAGE::BluetoothPairingRequest:
+          return hu_handle_BluetoothPairingRequest(chan, buf, len);
+        case HU_BLUETOOTH_CHANNEL_MESSAGE::BluetoothAuthData:
+          return hu_handle_BluetoothAuthData(chan, buf, len);
+        default:
+          logw("BLUETOOTH CHANNEL MESSAGE = chan %d - msg_type: %d", chan, msg_type);
+          return (0);
+        }
       }
       else if (chan == AA_CH_PSTAT)
       {

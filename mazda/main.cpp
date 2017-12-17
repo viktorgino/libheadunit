@@ -227,6 +227,7 @@ int main (int argc, char *argv[])
             callbacks.connected = false;
             callbacks.videoFocus = false;
             callbacks.audioFocus = AudioManagerClient::FocusType::NONE;
+            callbacks.inCall = false;
 
             printf("quitting...\n");
             //wake up night mode  and gps polling threads

@@ -297,6 +297,14 @@ message AudioCofig
     required uint32 channel_count = 3;
 }
 
+enum BluetoothPairingMethod
+{
+    BLUETOOTH_PARING_METHOD_1 = 1;
+    BLUETOOTH_PARING_METHOD_A2DP = 2;
+    BLUETOOTH_PARING_METHOD_3 = 3;
+    BLUETOOTH_PARING_METHOD_HFP = 4;
+}
+
 message ChannelDescriptor
 {
     required uint32 channel_id = 1;
@@ -367,13 +375,6 @@ message ChannelDescriptor
 
     message BluetoothService
     {
-        enum BluetoothPairingMethod
-        {
-            BLUETOOTH_PARING_METHOD_1 = 1;
-            BLUETOOTH_PARING_METHOD_A2DP = 2;
-            BLUETOOTH_PARING_METHOD_3 = 3;
-            BLUETOOTH_PARING_METHOD_HFP = 4;
-        }
         required string car_address = 1;
         repeated BluetoothPairingMethod supported_pairing_methods = 2;
     }
@@ -670,4 +671,26 @@ message StartGenericNotifications
 
 message StopGenericNotifications
 {
+}
+
+message BluetoothPairingRequest
+{
+    required string phone_address = 1;
+    optional BluetoothPairingMethod pairing_method = 2;
+}
+
+message BluetoothPairingResponse
+{
+    enum PAIRING_STATUS
+    {
+        PAIRING_STATUS_1 = 1;
+        PAIRING_STATUS_2 = 2;
+    }
+    optional bool already_paired = 1;
+    optional PAIRING_STATUS status = 2;
+}
+
+message BluetoothAuthData
+{
+    optional string data = 1;
 }
