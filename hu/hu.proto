@@ -399,6 +399,12 @@ message ChannelDescriptor
     //nav==8
     //mediaplayback == 9
     //phonestatus = 10
+
+    message PhoneStatusService
+    {
+    }
+    optional PhoneStatusService phone_status_service = 10;
+
     //mediabrowser=11
 
     message VendorExtensionService
@@ -412,6 +418,10 @@ message ChannelDescriptor
 
     //vendor extension==12
     //genericnotification==13
+    message GenericNotificationService
+    {
+    }
+    optional GenericNotificationService generic_notification_service = 13;
 }
 
 message ServiceDiscoveryRequest
@@ -607,4 +617,57 @@ message AudioFocusResponse
 message AuthCompleteResponse
 {
     required STATUS status = 1;
+}
+
+message PhoneStatus
+{
+    enum PHONE_STATE
+    {
+        PHONE_STATE_IN_CALL = 1;
+        PHONE_STATE_ON_HOLD = 2;
+        PHONE_STATE_HANGINGUP = 3;
+        PHONE_STATE_INCOMING = 4;
+        PHONE_STATE_UNKNOWN_5 = 5;
+        PHONE_STATE_UNKNOWN_6 = 6;
+    }
+    message Call
+    {
+        optional PHONE_STATE state = 1;
+        //in seconds
+        optional uint32 call_time = 2;
+        optional string phone_number = 3;
+        optional string caller_id = 4;
+        optional string phone_number_type = 5;
+        optional string thumbnail = 6;
+    }
+
+    repeated Call calls = 1;
+    optional uint32 signal_strength = 2;
+}
+
+message PhoneStatusInput
+{
+    optional string caller_number = 1;
+    optional string caller_id = 2;
+}
+
+message GenericNotificationRequest
+{
+    required string id = 1;
+    optional string text = 2;
+    optional string icon = 3;
+}
+
+message GenericNotificationResponse
+{
+    required string id = 1;
+    required bool handled = 2;
+}
+
+message StartGenericNotifications
+{
+}
+
+message StopGenericNotifications
+{
 }

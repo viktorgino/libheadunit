@@ -615,10 +615,25 @@ BTHFClient::BTHFClient(MazdaEventCallbacks &callbacks, DBus::Connection &hmiBus)
 
 void BTHFClient::CallStatus(const uint32_t& bthfstate, const uint32_t& call1status, const uint32_t& call2status, const ::DBus::Struct< std::vector< uint8_t > >& call1Number, const ::DBus::Struct< std::vector< uint8_t > >& call2Number)
 {
-    logw("CallStatus: bthfstate %u call1status %u call2status %u call1Number (%zu bytes) call2Number (%zu bytes)", bthfstate, call1status, call2status, call1Number._1.size(), call2Number._1.size());
+    logd("CallStatus: bthfstate %u call1status %u call2status %u call1Number (%zu bytes) call2Number (%zu bytes)", bthfstate, call1status, call2status, call1Number._1.size(), call2Number._1.size());
 
+    //unfortunately this seems to come after the phone requests audio focus :(
     CallStatusState cs1 = (CallStatusState)call1status;
     CallStatusState cs2 = (CallStatusState)call2status;
-    callbacks.inCall = (cs1 != CallStatusState::Inactive || cs2 != CallStatusState::Inactive);
+    bool bInCall = (cs1 != CallStatusState::Inactive || cs2 != CallStatusState::Inactive);
+    callbacks.inCall = bInCall;
+
+    if (bInCall)
+    {
+        run_on_main_thread([this](){
+            //Check again since it could have changed since we queued it
+            if (callbacks.audioFocus != AudioManagerClient::FocusType::NONE && callbacks.inCall)
+            {
+                logw("We are in a call, giving up focus");
+                callbacks.releaseAudioFocus();
+            }
+            return false;
+        });
+    }
 }
 

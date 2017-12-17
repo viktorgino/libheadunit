@@ -15,6 +15,8 @@
 #define AA_CH_AU2 6
 #define AA_CH_MIC 7
 #define AA_CH_BT  8
+#define AA_CH_PSTAT  9
+#define AA_CH_NOT 10
 #define AA_CH_MAX 256
 
 enum HU_STATE
@@ -40,6 +42,8 @@ inline const char * chan_get (int chan) {
     case AA_CH_AU2: return ("AA_CH_AU2");
     case AA_CH_MIC: return ("AA_CH_MIC");
     case AA_CH_BT: return ("AA_CH_BT");
+    case AA_CH_PSTAT: return ("AA_CH_PSTAT");
+    case AA_CH_NOT: return ("AA_CH_NOT");
   }
   return ("<Invalid>");
 }
@@ -161,6 +165,16 @@ public:
 
   virtual void AudioFocusRequest(int chan, const HU::AudioFocusRequest& request) = 0;
   virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) = 0;
+
+  virtual void HandlePhoneStatus(IHUConnectionThreadInterface& stream, const HU::PhoneStatus& phoneStatus) {}
+
+  //Doesn't actually work yet
+  /*
+  //A lot times we probably don't care about this, except maybe to resend if there was a failure
+  virtual void HandleGenericNotificationResponse(IHUConnectionThreadInterface& stream, const HU::GenericNotificationResponse& response) {}
+
+  virtual void ShowingGenericNotifications(IHUConnectionThreadInterface& stream, bool bIsShowing) {}
+  */
 };
 
 
@@ -248,6 +262,10 @@ protected:
   int hu_handle_MicRequest (int chan, byte * buf, int len);
   int hu_handle_MediaDataWithTimestamp (int chan, byte * buf, int len);
   int hu_handle_MediaData(int chan, byte * buf, int len);
+  int hu_handle_PhoneStatus(int chan, byte * buf, int len);
+  int hu_handle_GenericNotificationResponse(int chan, byte * buf, int len);
+  int hu_handle_StartGenericNotifications(int chan, byte * buf, int len);
+  int hu_handle_StopGenericNotifications(int chan, byte * buf, int len);
 
     //Can be called from any thread
   virtual int hu_queue_command(IHUAnyThreadInterface::HUThreadCommand&& command) override;
@@ -305,6 +323,21 @@ enum class HU_INPUT_CHANNEL_MESSAGE : uint16_t
   InputEvent = 0x8001,
   BindingRequest = 0x8002,
   BindingResponse = 0x8003,
+};
+
+enum class HU_PHONE_STATUS_CHANNEL_MESSAGE : uint16_t
+{
+  PhoneStatus = 0x8001,
+  PhoneStatusInput = 0x8002,
+};
+
+//Not sure if these are right
+enum class HU_GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE : uint16_t
+{
+  StartGenericNotifications = 0x8001,
+  StopGenericNotifications = 0x8002,
+  GenericNotificationRequest = 0x8003,
+  GenericNotificationResponse = 0x8004,
 };
 
 enum HU_INPUT_BUTTON

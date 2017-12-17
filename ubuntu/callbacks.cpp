@@ -93,6 +93,16 @@ std::string DesktopEventCallbacks::GetCarBluetoothAddress()
     return get_bluetooth_mac_address();
 }
 
+void DesktopEventCallbacks::HandlePhoneStatus(IHUConnectionThreadInterface& stream, const HU::PhoneStatus& phoneStatus) {
+    printf("HandlePhoneStatus: %s\n", phoneStatus.DebugString().c_str());
+}
+
+/*
+void DesktopEventCallbacks::ShowingGenericNotifications(IHUConnectionThreadInterface& stream, bool bIsShowing) {
+    printf("ShowingGenericNotifications: %s\n", bIsShowing ? "true" : "false");
+}
+*/
+
 void DesktopEventCallbacks::VideoFocusHappened(bool hasFocus, VIDEO_FOCUS_REQUESTOR videoFocusRequestor) {
     run_on_main_thread([this, hasFocus, videoFocusRequestor](){
         if ((bool)videoOutput != hasFocus) {

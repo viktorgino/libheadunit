@@ -201,7 +201,7 @@ gboolean VideoOutput::sdl_poll_event() {
                     if (event.type == SDL_KEYUP) {
                         nightmodenow = !nightmodenow;
                     }
-                } else if (key->keysym.sym = SDLK_F2) {
+                } else if (key->keysym.sym == SDLK_F2) {
                     if (event.type == SDL_KEYUP) {
                         // Send a fake location in germany
                         HU::SensorEvent sensorEvent;
@@ -221,6 +221,19 @@ gboolean VideoOutput::sdl_poll_event() {
                         });
 
                         printf("Sending fake location.");
+                    }
+                } else if (key->keysym.sym == SDLK_F3) {
+                    if (event.type == SDL_KEYUP) {
+                        HU::GenericNotificationRequest notificationReq;
+                        notificationReq.set_id("test");
+                        notificationReq.set_text("This is a test");
+
+                        g_hu->hu_queue_command([notificationReq](IHUConnectionThreadInterface& s)
+                        {
+                            s.hu_aap_enc_send_message(0, AA_CH_NOT, HU_GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE::GenericNotificationRequest, notificationReq);
+                        });
+
+                        printf("Sending notification.");
                     }
                 }
 

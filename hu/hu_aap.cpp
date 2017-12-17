@@ -530,7 +530,12 @@
       callbacks.CustomizeInputChannel(AA_CH_MIC, *inner);
     }
 
-    callbacks.CustomizeCarInfo(carInfo);
+    HU::ChannelDescriptor* notificationChannel = carInfo.add_channels();
+    notificationChannel->set_channel_id(AA_CH_NOT);
+    {
+      auto inner = notificationChannel->mutable_generic_notification_service();
+      //nothing to set here actually
+    }
 
     std::string carBTAddress = callbacks.GetCarBluetoothAddress();
     if (carBTAddress.size() > 0)
@@ -545,11 +550,20 @@
           inner->add_supported_pairing_methods(HU::ChannelDescriptor_BluetoothService::BLUETOOTH_PARING_METHOD_HFP);
           callbacks.CustomizeBluetoothService(AA_CH_BT, *inner);
         }
+
+        HU::ChannelDescriptor* phoneStatusChannel = carInfo.add_channels();
+        phoneStatusChannel->set_channel_id(AA_CH_PSTAT);
+        {
+          auto inner = phoneStatusChannel->mutable_phone_status_service();
+          //nothing to set here actually
+        }
     }
     else
     {
         logw("No Bluetooth or finding BT address failed. Not exposing Bluetooth service");
     }
+
+    callbacks.CustomizeCarInfo(carInfo);
 
     return hu_aap_enc_send_message(0, chan, HU_PROTOCOL_MESSAGE::ServiceDiscoveryResponse, carInfo);
   }
@@ -805,6 +819,65 @@
     return hu_aap_enc_send_message(0, chan, HU_MEDIA_CHANNEL_MESSAGE::MediaAck, mediaAck);
   }
 
+  int HUServer::hu_handle_PhoneStatus(int chan, byte * buf, int len) {
+      HU::PhoneStatus request;
+      if (!request.ParseFromArray(buf, len))
+      {
+        loge ("PhoneStatus Focus Request");
+        return -1;
+      }
+      else
+      {
+        logd ("PhoneStatus Focus Request");
+      }
+      callbacks.HandlePhoneStatus(*this, request);
+      return 0;
+  }
+
+  int HUServer::hu_handle_GenericNotificationResponse(int chan, byte * buf, int len) {
+      HU::GenericNotificationResponse request;
+      if (!request.ParseFromArray(buf, len))
+      {
+        loge ("GenericNotificationResponse Focus Request");
+        return -1;
+      }
+      else
+      {
+        logd ("GenericNotificationResponse Focus Request");
+      }
+      //callbacks.HandleGenericNotificationResponse(*this, request);
+      return 0;
+  }
+
+  int HUServer::hu_handle_StartGenericNotifications(int chan, byte * buf, int len) {
+      HU::StartGenericNotifications request;
+      if (!request.ParseFromArray(buf, len))
+      {
+        loge ("StartGenericNotifications Focus Request");
+        return -1;
+      }
+      else
+      {
+        logd ("StartGenericNotifications Focus Request");
+      }
+      //callbacks.ShowingGenericNotifications(*this, true);
+      return 0;
+  }
+
+  int HUServer::hu_handle_StopGenericNotifications(int chan, byte * buf, int len) {
+      HU::StopGenericNotifications request;
+      if (!request.ParseFromArray(buf, len))
+      {
+        loge ("StopGenericNotifications Focus Request");
+        return -1;
+      }
+      else
+      {
+        logd ("StopGenericNotifications Focus Request");
+      }
+      //callbacks.ShowingGenericNotifications(*this, false);
+      return 0;
+  }
 
   int HUServer::iaap_msg_process (int chan, uint16_t msg_type, byte * buf, int len) {
 
@@ -890,6 +963,32 @@
       else if (chan == AA_CH_BT)
       {
         logw("BLUETOOTH CHANNEL MESSAGE = chan %d - msg_type: %d", chan, msg_type);
+      }
+      else if (chan == AA_CH_PSTAT)
+      {
+          switch((HU_PHONE_STATUS_CHANNEL_MESSAGE)msg_type)
+          {
+            case HU_PHONE_STATUS_CHANNEL_MESSAGE::PhoneStatus:
+              return hu_handle_PhoneStatus(chan, buf, len);
+            default:
+              loge ("Unknown msg_type: %d", msg_type);
+              return (0);
+          }
+      }
+      else if (chan == AA_CH_NOT)
+      {
+          switch((HU_GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE)msg_type)
+          {
+            case HU_GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE::StartGenericNotifications:
+              return hu_handle_StartGenericNotifications(chan, buf, len);
+            case HU_GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE::StopGenericNotifications:
+              return hu_handle_StopGenericNotifications(chan, buf, len);
+            case HU_GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE::GenericNotificationResponse:
+              return hu_handle_GenericNotificationResponse(chan, buf, len);
+            default:
+              loge ("Unknown msg_type: %d", msg_type);
+              return (0);
+          }
       }
       else if (chan == AA_CH_AUD || chan == AA_CH_AU1 || chan == AA_CH_AU2 || chan == AA_CH_VID || chan == AA_CH_MIC)
       {

@@ -34,6 +34,10 @@ public:
         virtual void AudioFocusRequest(int chan, const HU::AudioFocusRequest& request) override;
         virtual void VideoFocusRequest(int chan, const HU::VideoFocusRequest& request) override;
 
+        virtual void HandlePhoneStatus(IHUConnectionThreadInterface& stream, const HU::PhoneStatus& phoneStatus) override;
+        //Doesn't actually work yet
+        //virtual void ShowingGenericNotifications(IHUConnectionThreadInterface& stream, bool bIsShowing) override;
+
         virtual std::string GetCarBluetoothAddress() override;
 
         void VideoFocusHappened(bool hasFocus, VIDEO_FOCUS_REQUESTOR videoFocusRequestor);
