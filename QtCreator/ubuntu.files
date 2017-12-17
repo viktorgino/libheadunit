@@ -27,5 +27,7 @@
 ../ubuntu/callbacks.h
 ../ubuntu/bt/ub_bluetooth.cpp
 ../ubuntu/bt/ub_bluetooth.h
+../ubuntu/main.cpp
+../ubuntu/main.h
 ../ubuntu/outputs.cpp
 ../ubuntu/outputs.h
