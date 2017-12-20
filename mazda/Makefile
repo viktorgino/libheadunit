@@ -75,7 +75,9 @@ clean:
 
 install: all
 	cp -a -f headunit installer/config/androidauto/data_persist/dev/bin/
-	zip -r $(APPLICATION_NAME)_$(APPLICATION_VERSION).zip installer/
+
+release: install
+	zip -r -FS $(APPLICATION_NAME)_$(APPLICATION_VERSION).zip installer/
 
 -include $(DEPS)
 

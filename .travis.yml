@@ -5,7 +5,7 @@ addons:
     - libdbus-c++-bin
 language: cpp
 before_script: cd mazda
-script: make clean install
+script: make clean release
 deploy:
   - provider: releases
     api_key: $GITHUB_TOKEN
