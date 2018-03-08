@@ -65,7 +65,7 @@
   }
 
 
-  int HUServer::ihu_tra_start (bool waitForDevice) {
+  int HUServer::ihu_tra_start (bool waitForDevice, bool waitForDeviceReconnect) {
     std::map<std::string, std::string> conf;
     if (settings["transport_type"] == "network") {
       conf["network_address"] = settings["network_address"];
@@ -83,7 +83,7 @@
       loge("Unknown transport type");
       return -1;
     }
-    return transport->Start(waitForDevice);
+    return transport->Start(waitForDevice, waitForDeviceReconnect);
   }
 
   int HUServer::ihu_tra_stop() {
@@ -1250,7 +1250,7 @@
 
   static_assert(PIPE_BUF >= sizeof(IHUAnyThreadInterface::HUThreadCommand*), "PIPE_BUF is tool small for a pointer?");
 
-  int HUServer::hu_aap_start (bool waitForDevice) {                // Starts Transport/USBACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
+  int HUServer::hu_aap_start (bool waitForDevice, bool waitForDeviceReconnect) {                // Starts Transport/USBACC/OAP, then AA protocol w/ VersReq(1), SSL handshake, Auth Complete
 
     if (iaap_state == hu_STATE_STARTED || iaap_state == hu_STATE_STARTIN) {
       loge ("CHECK: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
@@ -1262,7 +1262,7 @@
     iaap_state = hu_STATE_STARTIN;
     logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
 
-    int ret = ihu_tra_start (waitForDevice);                   // Start Transport/USBACC/OAP
+    int ret = ihu_tra_start (waitForDevice, waitForDeviceReconnect);                   // Start Transport/USBACC/OAP
     if (ret) {
       iaap_state = hu_STATE_STOPPED;
       logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));

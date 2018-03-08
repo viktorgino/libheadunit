@@ -19,7 +19,7 @@ class HUTransportStreamTCP : public HUTransportStream
  public:
     ~HUTransportStreamTCP();
     HUTransportStreamTCP(std::map<std::string, std::string> _settings);
-    virtual int Start(bool waitForDevice) override;
+    virtual int Start(bool waitForDevice, bool waitForDeviceReconnect) override;
     virtual int Stop() override;
     virtual int Write(const byte* buf, int len, int tmo) override;
 };

@@ -202,7 +202,7 @@
   }
 
 
-  int HUTransportStreamTCP::Start(bool waitForDevice) {
+  int HUTransportStreamTCP::Start(bool waitForDevice, bool waitForDeviceReconnect) {
     int ret = 0;
 
     if (itcp_state == hu_STATE_STARTED) {

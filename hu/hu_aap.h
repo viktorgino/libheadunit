@@ -71,7 +71,7 @@ protected:
 public:
   virtual ~HUTransportStream() {}
   inline HUTransportStream(std::map<std::string, std::string>) {}
-  virtual int Start(bool waitForDevice) = 0;
+  virtual int Start(bool waitForDevice, bool waitForDeviceReconnect) = 0;
   virtual int Stop() = 0;
   virtual int Write(const byte* buf, int len, int tmo) = 0;
 
@@ -180,7 +180,7 @@ class HUServer : protected IHUConnectionThreadInterface
 {
 public:
   //Must be called from the "main" thread (as defined by the user)
-  int hu_aap_start    (bool waitForDevice);
+  int hu_aap_start    (bool waitForDevice, bool waitForDeviceReconnect);
   int hu_aap_shutdown ();
 
   HUServer(IHUConnectionThreadEventCallbacks& callbacks, std::map<std::string, std::string>);
@@ -222,7 +222,7 @@ protected:
   int hu_ssl_begin_handshake ();
   int hu_handle_SSLHandshake(int chan, byte * buf, int len);
 
-  int ihu_tra_start (bool waitForDevice);
+  int ihu_tra_start (bool waitForDevice, bool waitForDeviceReconnect);
   int ihu_tra_stop();
   int iaap_msg_process (int chan, uint16_t msg_type, byte * buf, int len);
 
