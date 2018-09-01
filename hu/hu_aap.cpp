@@ -1246,6 +1246,7 @@
       }
     }
     logd("hu_thread_main exit");
+    iaap_state = hu_STATE_STOPPED;
   }
 
   static_assert(PIPE_BUF >= sizeof(IHUAnyThreadInterface::HUThreadCommand*), "PIPE_BUF is tool small for a pointer?");
@@ -1257,7 +1258,7 @@
       return (0);
     }
 
-    pthread_setname_np(pthread_self(), "main_thread");
+    pthread_setname_np(pthread_self(), "aa_main_thread");
 
     iaap_state = hu_STATE_STARTIN;
     logd ("  SET: iaap_state: %d (%s)", iaap_state, state_get (iaap_state));
