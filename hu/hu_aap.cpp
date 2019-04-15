@@ -438,8 +438,8 @@
     carInfo.set_headunit_model(settings["headunit_model"]);
     carInfo.set_sw_build(settings["sw_build"]);
     carInfo.set_sw_version(settings["sw_version"]);
-    carInfo.set_can_play_native_media_during_vr(std::stoi(settings["can_play_native_media_during_vr"]));
-    carInfo.set_hide_clock(std::stoi(settings["hide_clock"]));
+    carInfo.set_can_play_native_media_during_vr(settings["can_play_native_media_during_vr"] == "true");
+    carInfo.set_hide_clock(settings["hide_clock"] == "true");
 
     carInfo.mutable_channels()->Reserve(AA_CH_MAX);
 
@@ -500,7 +500,7 @@
       videoConfig->set_margin_width(std::stoi(settings["margin_width"]));
       videoConfig->set_margin_height(std::stoi(settings["margin_height"]));
       videoConfig->set_dpi(std::stoi(settings["dpi"]));
-      inner->set_available_while_in_call(std::stoi(settings["available_while_in_call"]));
+      inner->set_available_while_in_call(settings["available_while_in_call"] == "true");
 
       callbacks.CustomizeOutputChannel(AA_CH_VID, *inner);
     }
@@ -515,7 +515,7 @@
       audioConfig->set_sample_rate(48000);
       audioConfig->set_bit_depth(16);
       audioConfig->set_channel_count(2);
-      inner->set_available_while_in_call(std::stoi(settings["available_while_in_call"]));
+      inner->set_available_while_in_call(settings["available_while_in_call"] == "true");
 
       callbacks.CustomizeOutputChannel(AA_CH_AUD, *inner);
     }
