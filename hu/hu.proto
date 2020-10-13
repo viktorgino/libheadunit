@@ -643,7 +643,7 @@ message PhoneStatus
         optional string phone_number = 3;
         optional string caller_id = 4;
         optional string phone_number_type = 5;
-        optional string thumbnail = 6;
+        optional bytes thumbnail = 6;
     }
 
     repeated Call calls = 1;
