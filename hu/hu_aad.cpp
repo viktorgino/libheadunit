@@ -226,6 +226,11 @@ Channel specified for each service:
 
     if (alen == 0)
       return (rmv);
+    if (alen < 0) {
+      if (log_dmp)
+        loge ("iaad_dmp_arry alen: %ld", alen);
+      return (rmv);
+    }
 
     if (log_dmp) {
       //logd ("iaad_dmp_arry n: %d  num: %d  alen: %ld", n, num, alen); // Dump raw array
@@ -280,7 +285,7 @@ Channel specified for each service:
       //loge ("!!!! 2  n: %d  adj: %d  len: %d  lft: %d  rmv: %d  buf: %p", n, adj, len, lft, rmv, buf);
     }
 
-    if (lft != 0 || rmv != len)
+    if (lft != 0 || rmv != len || rmv < 0)
       if (log_dmp)
         loge ("iaad_dmp_n after content len: %d  lft: %d  rmv: %d  buf: %p", len, lft, rmv, buf);
     return (rmv);
@@ -374,7 +379,7 @@ Channel specified for each service:
 
     iaad_adj (& rmv, & buf, & lft, adj);                                // Adjust past the content (to nothing, presumably)
 
-    if (lft != 0 || static_cast<int>(rmv) != len)                              // If content left... (must be malformed)
+    if (lft != 0 || static_cast<int>(rmv) != len || rmv < 0)                    // If content left... (must be malformed)
       loge ("hu_aad_dmp after content len: %d  lft: %d  rmv: %d  buf: %p", len, lft, rmv, buf);
 
     logd ("--------------------------------------------------------");  // Empty line / 56 characters

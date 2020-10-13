@@ -390,7 +390,12 @@ message ChannelDescriptor
         }
 
         required uint32 minimum_interval_ms = 1;
-        required uint32 type = 2;
+        enum CLUSTER_TYPE
+        {
+            CUSTOM_IMAGES_SUPPORTED = 1;
+            IMAGE_CODES_ONLY = 2;
+        }
+        required CLUSTER_TYPE type = 2;
         optional ImageOptions image_options = 3;
     }
     optional NavigationStatusService navigation_status_service = 8;
@@ -417,10 +422,9 @@ message ChannelDescriptor
 
     optional VendorExtensionService vendor_extension_service = 12;
 
-    //vendor extension==12
-    //genericnotification==13
     message GenericNotificationService
     {
+        optional string name = 1;
     }
     optional GenericNotificationService generic_notification_service = 13;
 }
@@ -693,4 +697,69 @@ message BluetoothPairingResponse
 message BluetoothAuthData
 {
     optional string data = 1;
+}
+
+message NAVMessagesStatus
+{
+    enum STATUS
+    {
+        START = 1;
+        STOP = 2;
+    }
+    optional STATUS status = 1;
+}
+
+message NAVTurnMessage
+{
+    optional string event_name = 1;
+    enum TURN_SIDE
+    {
+        TURN_LEFT = 1;
+        TURN_RIGHT = 2;
+        TURN_UNSPECIFIED = 3;
+    }
+    optional TURN_SIDE turn_side = 2;
+    enum TURN_EVENT
+    {
+        TURN_UNKNOWN = 0;
+        TURN_DEPART = 1;
+        TURN_NAME_CHANGE = 2;
+        TURN_SLIGHT_TURN = 3;
+        TURN_TURN = 4;
+        TURN_SHARP_TURN = 5;
+        TURN_U_TURN = 6;
+        TURN_ON_RAMP = 7;
+        TURN_OFF_RAMP = 8;
+        TURN_FORK = 9;
+        TURN_MERGE = 10;
+        TURN_ROUNDABOUT_ENTER = 11;
+        TURN_ROUNDABOUT_EXIT = 12;
+        TURN_ROUNDABOUT_ENTER_AND_EXIT = 13;
+        TURN_STRAIGHT = 14;
+        TURN_FERRY_BOAT = 16;
+        TURN_FERRY_TRAIN = 17;
+        TURN_DESTINATION = 19;
+    }
+    optional TURN_EVENT turn_event = 3;
+    optional bytes image = 4; // image in png format
+    optional int32 turn_number = 5;
+    optional int32 turn_angle = 6;
+}
+
+//32773   (0x8005)
+message NAVDistanceMessage
+{
+    optional int32 distance = 1; //meters
+    optional int32 time_until = 2; //seconds
+    optional uint64 display_distance = 3; //distance rounded for display
+    enum DISPLAY_DISTANCE_UNIT
+    {
+        METERS = 1;       // meters * 1000, used when rounded distance < 1000m
+        KILOMETERS10 = 2; // kilometers * 1000, used when rounded distance > 10km, not same as just meters because "km" is displayed on screen
+        KILOMETERS = 3;   // kilometers * 1000, used when rounded distance between 1km and 10km, not same as just meters because "km" is displayed on screen
+        MILES10 = 4;      // miles * 1000, used when rounded distance > 10mi
+        MILES = 5;        // miles * 1000, used when rounded distance between 1mi and 10mi
+        FEET = 6;         // feet * 1000
+    }
+    optional DISPLAY_DISTANCE_UNIT display_distance_unit = 4;
 }

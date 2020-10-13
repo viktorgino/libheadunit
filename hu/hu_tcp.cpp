@@ -3,6 +3,7 @@
   #include "hu_tcp.h"
 
   int itcp_state = 0; // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
+  int last_errno = 0; //store last error printed
 
   #include <sys/types.h>
   #include <sys/time.h>
@@ -12,6 +13,7 @@
   #include <netinet/in.h>
   #include <netinet/ip.h>
   #include <netinet/tcp.h>
+  #include <arpa/inet.h>
 
   #include <netinet/in.h>
   #include <netdb.h>
@@ -86,8 +88,8 @@
   #define CS_SOCK_TYPE    SOCK_STREAM
   #define   RES_DATA_MAX  65536
 
-
-  int HUTransportStreamTCP::itcp_accept (int tmo) {
+  int HUTransportStreamTCP::itcp_accept ()
+  {
 
     if (tcp_so_fd < 0)
       return (-1);
@@ -112,13 +114,18 @@
       //logd ("cli_len: %d  fam: %d  addr: 0x%x  port: %d",cli_len,cli_addr.sin_family, ntohl (cli_addr.sin_addr.s_addr), ntohs (cli_addr.sin_port));
 
       ret = connect (tcp_so_fd, (const struct sockaddr *) & cli_addr, cli_len);
-      if (ret != 0) {
-        loge ("Error connect errno: %d (%s)", errno, strerror (errno));
+      if (ret != 0)
+      {
+        if (errno != last_errno) //avoid spamming the log with the same error
+        {
+            loge ("Error connect errno: %d (%s)", errno, strerror (errno));
+            last_errno = errno;
+        }
+        sleep(5);
         return (-1);
       }
       readfd = tcp_so_fd;
     }
-
 
     return (tcp_so_fd);
   }
@@ -128,6 +135,7 @@
 
     int net_port = 30515;
 
+    int cmd_len = 0, ctr = 0;
     //struct hostent *hp;
 
     errno = 0;
@@ -181,7 +189,7 @@
 
     //readfd = -1;
     while (readfd < 0) {                                             // While we don't have an IO socket file descriptor...
-      ret = itcp_accept (100);                                                // Try to get one with 100 ms timeout
+      ret = itcp_accept ();                                                // Try to get one with 100 ms timeout
       if(ret < 0 ){
           loge("Error while trying to read from TCP stream");
           return (-1);

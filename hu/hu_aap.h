@@ -19,6 +19,7 @@
 #define AA_CH_BT  8
 #define AA_CH_PSTAT  9
 #define AA_CH_NOT 10
+#define AA_CH_NAVI 11
 #define AA_CH_MAX 256
 
 enum HU_STATE
@@ -46,6 +47,7 @@ inline const char * chan_get (int chan) {
     case AA_CH_BT: return ("AA_CH_BT");
     case AA_CH_PSTAT: return ("AA_CH_PSTAT");
     case AA_CH_NOT: return ("AA_CH_NOT");
+    case AA_CH_NAVI: return ("AA_CH_NAVI");
   }
   return ("<Invalid>");
 }
@@ -173,6 +175,9 @@ public:
 
   virtual void ShowingGenericNotifications(IHUConnectionThreadInterface& stream, bool bIsShowing) {}
   */
+   virtual void HandleNaviStatus(IHUConnectionThreadInterface& stream, const HU::NAVMessagesStatus &request) {}
+   virtual void HandleNaviTurn(IHUConnectionThreadInterface& stream, const HU::NAVTurnMessage &request) {}
+   virtual void HandleNaviTurnDistance(IHUConnectionThreadInterface& stream, const HU::NAVDistanceMessage &request) {}
 };
 
 
@@ -196,7 +201,8 @@ protected:
   HU_STATE iaap_state = hu_STATE_INITIAL;
   int iaap_tra_recv_tmo = 150;//100;//1;//10;//100;//250;//100;//250;//100;//25; // 10 doesn't work ? 100 does
   int iaap_tra_send_tmo = 500;//2;//25;//250;//500;//100;//500;//250;
-  std::vector<uint8_t> temp_assembly_buffer;
+  std::vector<uint8_t>* temp_assembly_buffer = new std::vector<uint8_t>();
+  std::map<int, std::vector<uint8_t>*> channel_assembly_buffers;
   byte enc_buf[MAX_FRAME_SIZE] = {0};
   int32_t channel_session_id[AA_CH_MAX] = {0};
 
@@ -268,7 +274,9 @@ protected:
   int hu_handle_StopGenericNotifications(int chan, byte * buf, int len);
   int hu_handle_BluetoothPairingRequest(int chan, byte * buf, int len);
   int hu_handle_BluetoothAuthData(int chan, byte * buf, int len);
-
+  int hu_handle_NaviStatus(int chan, byte * buf, int len);
+  int hu_handle_NaviTurn(int chan, byte * buf, int len);
+  int hu_handle_NaviTurnDistance(int chan, byte * buf, int len);
 
 
     //Can be called from any thread
@@ -375,5 +383,18 @@ enum HU_INPUT_BUTTON
     HUIB_STOP = 0x7F,
     HUIB_MUSIC = 0xD1,
     HUIB_SCROLLWHEEL = 65536,
+    HUIB_MEDIA = 65537,
+    HUIB_NAVIGATION = 65538,
+    HUIB_RADIO = 65539,
+    HUIB_TEL = 65540,
+    HUIB_PRIMARY_BUTTON = 65541,
+    HUIB_SECONDARY_BUTTON = 65542,
+    HUIB_TERTIARY_BUTTON = 65543,
+};
 
+enum class HU_NAVI_CHANNEL_MESSAGE : uint16_t
+{
+    Status = 0x8003,
+    Turn = 0x8004,
+    TurnDistance = 0x8005,
 };
