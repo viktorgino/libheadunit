@@ -117,13 +117,12 @@
         FD_SET(errorfd, &sock_set);
       }
 
-      timeval tv_timeout;
-      tv_timeout.tv_sec = tmo / 1000;
-      tv_timeout.tv_usec = tmo * 1000;
+      timeval tv_timeout = {1, 0};
 
-      int ret = select(maxfd+1, &sock_set, NULL, NULL, (tmo > 0) ? &tv_timeout : NULL);
+      int ret = select(maxfd+1, &sock_set, NULL, NULL, &tv_timeout);
       if (ret < 0)
       {
+        loge("error when select : %s (%d)", strerror(errno), errno);
         return ret;
       }
       else if (errorfd >= 0 && FD_ISSET(errorfd, &sock_set))
