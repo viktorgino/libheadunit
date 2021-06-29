@@ -33,26 +33,11 @@ extern int ena_log_verbo;
 
 typedef unsigned char byte;
 
-
-#ifdef __ANDROID_API__
-  #include <android/log.h>
-#else
-    // UNKNOWN    0
-  #define ANDROID_LOG_DEFAULT 1
-  #define ANDROID_LOG_VERBOSE 2
-  #define ANDROID_LOG_DEBUG   3
-    // INFO       4
-  #define ANDROID_LOG_WARN    5
-  #define ANDROID_LOG_ERROR   6
-    // FATAL      7
-    // SILENT     8
-#endif
-
-#define hu_LOG_EXT   ANDROID_LOG_DEFAULT
-#define hu_LOG_VER   ANDROID_LOG_VERBOSE
-#define hu_LOG_DEB   ANDROID_LOG_DEBUG
-#define hu_LOG_WAR   ANDROID_LOG_WARN
-#define hu_LOG_ERR   ANDROID_LOG_ERROR
+#define hu_LOG_EXT   1
+#define hu_LOG_VER   2
+#define hu_LOG_DEB   3
+#define hu_LOG_WAR   5
+#define hu_LOG_ERR   6
 
 #ifdef NDEBUG
 
@@ -73,12 +58,6 @@ typedef unsigned char byte;
 #define  logw(...)  hu_log(hu_LOG_WAR,__FILE__ ":" STR(__LINE__),__FUNCTION__,__VA_ARGS__)
 #define  loge(...)  hu_log(hu_LOG_ERR,__FILE__ ":" STR(__LINE__),__FUNCTION__,__VA_ARGS__)
 
-//!!
-//  #define  logx(...)
-//  #define  logv(...)
-//  #define  logd(...)
-//  #define  logw(...)
-
 #endif
 
 int hu_log (int prio, const char * tag, const char * func, const char * fmt, ...);
@@ -89,19 +68,3 @@ void hex_dump                 (const char * prefix, int width, unsigned char * b
 
 void hu_log_library_versions();
 
-void hu_install_crash_handler();
-
-int wait_for_device_connection();
-#ifndef __ANDROID_API__
-  #define strlcpy   strncpy
-  #define strlcat   strncat
-#endif
-
-#if CMU
-
-inline int pthread_setname_np (pthread_t __target_thread, const char *__name)
-{
-  return 0;
-}
-
-#endif

@@ -1,23 +1,20 @@
 #pragma once
-  #include <openssl/bio.h>
-  #include <openssl/ssl.h>
-  #include <openssl/err.h>
-  #include <openssl/pem.h>
-  #include <openssl/x509.h>
-  #include <openssl/x509_vfy.h>
+#include <openssl/bio.h>
+#include <openssl/err.h>
+#include <openssl/pem.h>
+#include <openssl/ssl.h>
+#include <openssl/x509.h>
+#include <openssl/x509_vfy.h>
 
-  //SSL_METHOD  * hu_ssl_method  = NULL;
-  //SSL_CTX     * hu_ssl_ctx     = NULL;
 
-  // Internal:
+#ifdef MR_SSL_INTERNAL
+// 2048 bits,  Signature Algorithm: sha256WithRSAEncryption
 
-#ifdef  MR_SSL_INTERNAL
-  // 2048 bits,  Signature Algorithm: sha256WithRSAEncryption
+#define cert_buf hu_ssl_cert_mr_buf
+#define pkey_buf hu_ssl_pkey_mr_buf
 
-  #define cert_buf  hu_ssl_cert_mr_buf
-  #define pkey_buf  hu_ssl_pkey_mr_buf
-
-   char hu_ssl_cert_mr_buf [] = "-----BEGIN CERTIFICATE-----\n\
+char hu_ssl_cert_mr_buf[] =
+    "-----BEGIN CERTIFICATE-----\n\
 MIIDKjCCAhICARswDQYJKoZIhvcNAQELBQAwWzELMAkGA1UEBhMCVVMxEzARBgNV\n\
 BAgMCkNhbGlmb3JuaWExFjAUBgNVBAcMDU1vdW50YWluIFZpZXcxHzAdBgNVBAoM\n\
 Fkdvb2dsZSBBdXRvbW90aXZlIExpbmswJhcRMTQwNzA0MDAwMDAwLTA3MDAXETQ1\n\
@@ -37,7 +34,8 @@ YmsbkPVNYZn37FlY7e2Z4FUphh0A7yME2Eh/e57QxWrJ1wubdzGnX8mrABc67ADU\n\
 U5r9tlTRqMs7FGOk6QS2Cxp4pqeVQsrPts4OEwyPUyb3LfFNo3+sP111D9zEow==\n\
 -----END CERTIFICATE-----\n";
 
-    char hu_ssl_pkey_mr_buf [] = "-----BEGIN RSA PRIVATE KEY-----\n\
+char hu_ssl_pkey_mr_buf[] =
+    "-----BEGIN RSA PRIVATE KEY-----\n\
 MIIEowIBAAKCAQEAz3XWY2dR/H5Ym3G6TToY7uRdFb+BdRU1AGRsAVmZV1U28ugR\n\
 A22GLZfxYI7Bfqfqgw/FTYwYme+Jw/fqQGp8eF9DYW+qV/tiOOGAEeHSWopKFU/E\n\
 i91q0GNVDvprKbkfcamSKAsaSZ7KJWhU7yhzdwnVs73rAVGaTuQlthwSNDJqQ4M8\n\

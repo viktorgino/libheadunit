@@ -2,6 +2,7 @@
 #include "hu_aap.h"
 #include <netinet/in.h>
 
+namespace AndroidAuto {
 class HUTransportStreamTCP : public HUTransportStream
 {
     int tcp_so_fd = -1;
@@ -18,7 +19,8 @@ class HUTransportStreamTCP : public HUTransportStream
  public:
     ~HUTransportStreamTCP();
     HUTransportStreamTCP(std::map<std::string, std::string> _settings);
-    virtual int Start(bool waitForDevice, bool waitForDeviceReconnect) override;
+    virtual int Start() override;
     virtual int Stop() override;
     virtual int Write(const byte* buf, int len, int tmo) override;
 };
+}

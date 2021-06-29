@@ -1,11 +1,5 @@
 // Utilities: Used by many
 
-//#ifndef UTILS_INCLUDED
-
-//#define UTILS_INCLUDED
-
-//#define  GENERIC_CLIENT
-
 #define LOGTAG "hu_uti"
 #include "hu_uti.h"
 #include "hu.pb.h"
@@ -140,16 +134,16 @@ void hex_dump (const char * prefix, int width, unsigned char * buf, int len) {
   line [0] = 0;
 
   if (prefix)
-    //strlcpy (line, prefix, sizeof (line));
-    strlcat (line, prefix, sizeof(line) - strlen(line) - 1);
+    //strncpy (line, prefix, sizeof (line));
+    strncat (line, prefix, sizeof(line) - strlen(line) - 1);
 
   snprintf (tmp, sizeof (tmp), " %8.8x ", 0);
-  strlcat (line, tmp, sizeof(line) - strlen(line) - 1);
+  strncat (line, tmp, sizeof(line) - strlen(line) - 1);
 
   for (i = 0, n = 1; i < len; i ++, n ++) {                           // i keeps incrementing, n gets reset to 0 each line
 
     snprintf (tmp, sizeof (tmp), "%2.2x ", buf [i]);
-    strlcat (line, tmp, sizeof(line) - strlen(line) - 1);                 // Append 2 bytes hex and space to line
+    strncat (line, tmp, sizeof(line) - strlen(line) - 1);                 // Append 2 bytes hex and space to line
 
     if (n == width) {                                                 // If at specified line width
       n = 0;                                                          // Reset position in line counter
@@ -157,12 +151,12 @@ void hex_dump (const char * prefix, int width, unsigned char * buf, int len) {
 
       line [0] = 0;
       if (prefix)
-        //strlcpy (line, prefix, sizeof (line));
-        strlcat (line, prefix, sizeof(line) - strlen(line) - 1);
+        //strncpy (line, prefix, sizeof (line));
+        strncat (line, prefix, sizeof(line) - strlen(line) - 1);
 
       //snprintf (tmp, sizeof (tmp), " %8.8x ", i + 1);
       snprintf (tmp, sizeof (tmp), "     %4.4x ", i + 1);
-      strlcat (line, tmp, sizeof(line) - strlen(line) - 1);
+      strncat (line, tmp, sizeof(line) - strlen(line) - 1);
     }
     else if (i == len - 1)                                            // Else if at last byte
       logd (line);                                                    // Log line
@@ -189,72 +183,4 @@ void hu_log_library_versions()
 
   SSL_library_init();
   printf("openssl version: %s (%#010lx)\n", SSLeay_version(SSLEAY_VERSION), SSLeay());
-}
-
-int wait_for_device_connection(){  
-        int ret;
-
-        struct udev *udev = udev_new();
-        struct udev_device *dev;
-        struct udev_monitor *mon;
-        int fd;
-	/* Set up a monitor to monitor USB devices */
-	mon = udev_monitor_new_from_netlink(udev, "udev");
-        if(mon == NULL) {
-                loge("udev_monitor_new_from_netlink returned NULL\n");
-                return -2;
-        }
-
-        ret = udev_monitor_filter_add_match_subsystem_devtype(mon, "usb", "usb_device");
-	if(ret != 0) {
-                loge("udev_monitor_filter_add_match_subsystem_devtype error : %d \n",ret);
-                return -2;
-        }
-
-	ret = udev_monitor_enable_receiving(mon);
-        if(ret != 0){
-                loge("udev_monitor_enable_receiving error : %d \n",ret);
-                return -2;
-        }
-
-	fd = udev_monitor_get_fd(mon);
-
-	while (1) {
-		fd_set fds;
-		struct timeval tv;
-		int ret;
-
-		FD_ZERO(&fds);
-		FD_SET(fd, &fds);
-		tv.tv_sec = 0;
-		tv.tv_usec = 0;
-
-		ret = select(fd+1, &fds, NULL, NULL, &tv);
-
-		/* Check if our file descriptor has received data. */
-		if (ret > 0 && FD_ISSET(fd, &fds)) {
-			logv("\nselect() says there should be data\n");
-
-			/* Make the call to receive the device.
-			   select() ensured that this will not block. */
-			dev = udev_monitor_receive_device(mon);
-			if (dev) {
-				logw("udev device %sed | node:%s, subsystem:%s, devtype:%s\n",
-                                        udev_device_get_action(dev),
-                                        udev_device_get_devnode(dev),
-                                        udev_device_get_subsystem(dev),
-                                        udev_device_get_devtype(dev));
-
-                                if(strcmp(udev_device_get_action(dev),"add") == 0){
-                                        udev_device_unref(dev);
-                                        return 0;
-                                }
-				udev_device_unref(dev);
-			}
-			else {
-				loge("udev_monitor_receive_device error: no new device\n");
-			}
-		}
-		usleep(25*1000);
-	}
 }
