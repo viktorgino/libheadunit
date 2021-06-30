@@ -1067,7 +1067,7 @@ int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte* buf,
     if (iaap_state == hu_STATE_STARTIN) {
         switch ((HU_INIT_MESSAGE)msg_type) {
             case HU_INIT_MESSAGE::VersionResponse:
-                return handle_VersionResponse(buf, len);
+                return handle_VersionResponse(chan, buf, len);
             case HU_INIT_MESSAGE::SSLHandshake:
                 return handleSSLHandshake(buf, len);
             default:
