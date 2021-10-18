@@ -86,7 +86,7 @@ int HUServer::sendSSLHandshakePacket() {
         loge("BIO_read() HS client req ret: %d", len);
         return (-1);
     }
-    logw("BIO_read() HS client req ret: %d", len);
+    logd("BIO_read() HS client req ret: %d", len);
 
     int ret =
         sendUnencodedBlob(0, ControlChannel,
@@ -238,7 +238,7 @@ int HUServer::beginSSLHandshake() {
     SSL_set_verify(m_ssl, SSL_VERIFY_NONE, NULL);
 
     ret = SSL_do_handshake(m_ssl);  // Do current handshake step processing
-    logw("SSL_do_handshake() ret: %d", ret);
+    logd("SSL_do_handshake() ret: %d", ret);
 
     // We should need input data
     if ((SSL_get_error(m_ssl, ret) == SSL_ERROR_WANT_READ)) {
@@ -259,10 +259,10 @@ int HUServer::handleSSLHandshake(byte *buf, int len) {
         //        g_free(hs_buf);
         return (-1);
     }
-    logw("BIO_write() server rsp ret: %d", ret);
+    logd("BIO_write() server rsp ret: %d", ret);
 
     ret = SSL_do_handshake(m_ssl);  // Do current handshake step processing
-    logw("SSL_do_handshake() ret: %d", ret);
+    logd("SSL_do_handshake() ret: %d", ret);
 
     if ((SSL_get_error(m_ssl, ret) == SSL_ERROR_WANT_READ)) {
         // keep going
@@ -288,7 +288,7 @@ int HUServer::handleSSLHandshake(byte *buf, int len) {
     logSSLInfo();
 
     iaap_state = hu_STATE_STARTED;
-    logw("  SET: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
+    logd("  SET: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
 
     return 0;
 }

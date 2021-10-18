@@ -198,7 +198,7 @@ void HUTransportStreamUSB::usb_recv_thread_main() {
            0) {
         // wakeup, something happened
         if (usb_thread_event_fds[0].revents == usb_thread_event_fds[0].events) {
-            logw("Requested to exit");
+            logd("Requested to exit");
             break;
         }
         int iusb_state =
@@ -207,10 +207,10 @@ void HUTransportStreamUSB::usb_recv_thread_main() {
             break;
         }
     }
-    logw("libusb_handle_events_completed: %d (%s)", m_state,
+    logd("libusb_handle_events_completed: %d (%s)", m_state,
          state_get(m_state));
 
-    logw("USB thread exit");
+    logd("USB thread exit");
 
     // Wake up the reader if required
     int errData = -1;
@@ -344,7 +344,7 @@ int HUTransportStreamUSB::Start() {
                 loge("Error getting descriptor");
                 continue;
             }
-            logw("Opening device 0x%04x : 0x%04x", desc.idVendor,
+            logd("Opening device 0x%04x : 0x%04x", desc.idVendor,
                  desc.idProduct);
             libusb_device_handle* handle = nullptr;
             usb_err = libusb_open(devices[i], &handle);
@@ -362,7 +362,7 @@ int HUTransportStreamUSB::Start() {
                 if (oap_proto_ver < 1) {
                     continue;
                 }
-                logw("Device 0x%04x : 0x%04x responded with protocol ver %u",
+                logd("Device 0x%04x : 0x%04x responded with protocol ver %u",
                      desc.idVendor, desc.idProduct, oap_proto_ver);
                 usb_err = iusb_control_transfer(
                     handle, USB_DIR_OUT | USB_TYPE_VENDOR, ACC_REQ_SEND_STRING,
@@ -437,13 +437,13 @@ int HUTransportStreamUSB::Start() {
         // Try right away just incase
         m_usbDeviceHandle = find_oap_device();
         if (m_usbDeviceHandle == nullptr) {
-          logw("Can't find any OAP devices");
+          logd("OAP Device hasn't reconnected yet will try again");
           Stop();
           return (-1);
         }
     }
 
-    logw("Found OAP Device");
+    logd("Found OAP Device");
 
     int usb_err = libusb_claim_interface(m_usbDeviceHandle, 0);
     if (usb_err) {
@@ -452,7 +452,7 @@ int HUTransportStreamUSB::Start() {
         Stop();
         return (-1);
     }
-    logw("OK libusb_claim_interface usb_err: %d (%s)", usb_err,
+    logd("OK libusb_claim_interface usb_err: %d (%s)", usb_err,
          libusb_strerror((libusb_error)usb_err));
 
     libusb_device* got_device = libusb_get_device(m_usbDeviceHandle);
@@ -471,7 +471,7 @@ int HUTransportStreamUSB::Start() {
     }
 
     int num_int = config->bNumInterfaces;  // Get number of interfaces
-    logw("Done get_config_descriptor config: %p  num_int: %d", config, num_int);
+    logd("Done get_config_descriptor config: %p  num_int: %d", config, num_int);
 
     for (int idx = 0; idx < num_int && (iusb_ep_in < 0 || iusb_ep_out < 0);
          idx++) {  // For all interfaces...
@@ -497,12 +497,12 @@ int HUTransportStreamUSB::Start() {
                     if (ep_add & LIBUSB_ENDPOINT_DIR_MASK) {
                         if (iusb_ep_in < 0) {
                             iusb_ep_in = ep_add;  // Set input endpoint
-                            logw("iusb_ep_in: 0x%02x", iusb_ep_in);
+                            logd("iusb_ep_in: 0x%02x", iusb_ep_in);
                         }
                     } else {
                         if (iusb_ep_out < 0) {
                             iusb_ep_out = ep_add;  // Set output endpoint
-                            logw("iusb_ep_out: 0x%02x", iusb_ep_out);
+                            logd("iusb_ep_out: 0x%02x", iusb_ep_out);
                         }
                     }
                 }

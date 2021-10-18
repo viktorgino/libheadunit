@@ -159,7 +159,7 @@ int HUServer::sendTransportPacket(
 
 int HUServer::sendEncodedMessage(int retry, ServiceChannels chan, uint16_t messageCode,
     const google::protobuf::MessageLite& message, int overrideTimeout) {
-    const int messageSize = message.ByteSize();
+    const int messageSize = message.ByteSizeLong();
     const int requiredSize = messageSize + 2;
     if (temp_assembly_buffer->size() <
         static_cast<unsigned int>(requiredSize)) {
@@ -404,7 +404,7 @@ int HUServer::sendUnencodedBlob(int retry, ServiceChannels chan, uint16_t messag
 
 int HUServer::sendUnencodedMessage(int retry, ServiceChannels chan, uint16_t messageCode,
     const google::protobuf::MessageLite& message, int overrideTimeout) {
-    const int messageSize = message.ByteSize();
+    const int messageSize = message.ByteSizeLong();
     const int requiredSize = messageSize + 2;
     if (temp_assembly_buffer->size() <
         static_cast<unsigned int>(requiredSize)) {
@@ -578,22 +578,6 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
         callbacks.CustomizeOutputChannel(Audio1Channel, *inner);
     }
 
-#ifdef PLAY_GUIDANCE_FROM_PHONE_SPEAKER
-    HU::ChannelDescriptor* audioChannel2 = carInfo.add_channels();
-    audioChannel2->set_channel_id(AA_CH_AU2);
-    {
-        auto inner = audioChannel1->mutable_output_stream_channel();
-        inner->set_type(HU::STREAM_TYPE_AUDIO);
-        inner->set_audio_type(HU::AUDIO_TYPE_SYSTEM);
-        auto audioConfig = inner->add_audio_configs();
-        audioConfig->set_sample_rate(16000);
-        audioConfig->set_bit_depth(16);
-        audioConfig->set_channel_count(1);
-
-        callbacks.CustomizeOutputChannel(AA_CH_AU2, *inner);
-    }
-#endif
-
     HU::ChannelDescriptor* micChannel = carInfo.add_channels();
     micChannel->set_channel_id(MicrophoneChannel);
     {
@@ -606,15 +590,9 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
         callbacks.CustomizeInputChannel(MicrophoneChannel, *inner);
     }
 
-    // Doesn't work yet
-    /*
-  HU::ChannelDescriptor* notificationChannel = carInfo.add_channels();
-  notificationChannel->set_channel_id(AA_CH_NOT);
-  {
-    auto inner = notificationChannel->mutable_generic_notification_service();
-    //nothing to set here actually
-  }
-  */
+
+    HU::ChannelDescriptor* notificationChannel = carInfo.add_channels();
+    notificationChannel->set_channel_id(NotificationChannel);
 
     HU::ChannelDescriptor* navigationChannel = carInfo.add_channels();
     navigationChannel->set_channel_id(NavigationChannel);
@@ -632,7 +610,7 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
 
     std::string carBTAddress = callbacks.GetCarBluetoothAddress();
     if (carBTAddress.size() > 0) {
-        logw("Found BT address %s. Exposing Bluetooth service",
+        logd("Found BT address %s. Exposing Bluetooth service",
              carBTAddress.c_str());
         HU::ChannelDescriptor* btChannel = carInfo.add_channels();
         btChannel->set_channel_id(BluetoothChannel);
@@ -648,10 +626,7 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
 
         HU::ChannelDescriptor* phoneStatusChannel = carInfo.add_channels();
         phoneStatusChannel->set_channel_id(PhoneStatusChannel);
-        {
-            auto inner = phoneStatusChannel->mutable_phone_status_service();
-            // nothing to set here actually
-        }
+
     } else {
         logw(
             "No Bluetooth or finding BT address failed. Not exposing Bluetooth "
@@ -741,7 +716,7 @@ int HUServer::handle_AudioFocusRequest(
     if (!request.ParseFromArray(buf, len))
         loge("AudioFocusRequest Focus Request");
     else
-        logw("AudioFocusRequest Focus Request %s: %d", getChannel(chan),
+        logd("AudioFocusRequest Focus Request %s: %d", getChannel(chan),
              request.focus_type());
 
     callbacks.AudioFocusRequest(chan, request);
@@ -805,7 +780,7 @@ int HUServer::handle_VideoFocusRequest(ServiceChannels chan, byte* buf, int len)
     if (!request.ParseFromArray(buf, len))
         loge("VideoFocusRequest");
     else
-        logw("VideoFocusRequest: %d", request.disp_index());
+        logd("VideoFocusRequest: %d", request.disp_index());
 
     callbacks.VideoFocusRequest(chan, request);
 
@@ -951,7 +926,7 @@ int HUServer::handle_GenericNotificationResponse(ServiceChannels chan, byte* buf
     } else {
         logd("GenericNotificationResponse Focus Request");
     }
-    // callbacks.HandleGenericNotificationResponse(*this, request);
+    callbacks.HandleGenericNotificationResponse(*this, request);
     return 0;
 }
 
@@ -964,7 +939,7 @@ int HUServer::handle_StartGenericNotifications(ServiceChannels chan, byte* buf,
     } else {
         logd("StartGenericNotifications Focus Request");
     }
-    // callbacks.ShowingGenericNotifications(*this, true);
+    callbacks.ShowingGenericNotifications(*this, true);
     return 0;
 }
 
@@ -976,7 +951,7 @@ int HUServer::handle_StopGenericNotifications(ServiceChannels chan, byte* buf, i
     } else {
         logd("StopGenericNotifications Focus Request");
     }
-    // callbacks.ShowingGenericNotifications(*this, false);
+    callbacks.ShowingGenericNotifications(*this, false);
     return 0;
 }
 
@@ -1071,7 +1046,7 @@ int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte* buf,
             case HU_INIT_MESSAGE::SSLHandshake:
                 return handleSSLHandshake(buf, len);
             default:
-                loge("Unknown msg_type: %d", msg_type);
+                logw("Unknown msg_type: %d", msg_type);
                 return (0);
         }
     } else {
@@ -1098,7 +1073,7 @@ int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte* buf,
                 case HU_PROTOCOL_MESSAGE::AudioFocusRequest:
                     return handle_AudioFocusRequest(chan, buf, len);
                 default:
-                    loge("Unknown msg_type: %d", msg_type);
+                    logw("Unknown msg_type: %d", msg_type);
                     return (0);
             }
         } else if (chan == SensorChannel) {
@@ -1106,7 +1081,7 @@ int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte* buf,
                 case HU_SENSOR_CHANNEL_MESSAGE::SensorStartRequest:
                     return handle_SensorStartRequest(chan, buf, len);
                 default:
-                    loge("Unknown msg_type: %d", msg_type);
+                    logw("Unknown msg_type: %d", msg_type);
                     return (0);
             }
         } else if (chan == TouchChannel) {
@@ -1114,7 +1089,7 @@ int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte* buf,
                 case HU_INPUT_CHANNEL_MESSAGE::BindingRequest:
                     return handle_BindingRequest(chan, buf, len);
                 default:
-                    loge("Unknown msg_type: %d", msg_type);
+                    logw("Unknown msg_type: %d", msg_type);
                     return (0);
             }
         } else if (chan == BluetoothChannel) {
@@ -1133,10 +1108,10 @@ int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte* buf,
                 case HU_PHONE_STATUS_CHANNEL_MESSAGE::PhoneStatus:
                     return handle_PhoneStatus(chan, buf, len);
                 default:
-                    loge("Unknown msg_type: %d", msg_type);
+                    logw("Unknown msg_type: %d", msg_type);
                     return (0);
             }
-        } else if (chan == NotificationCahnnel) {
+        } else if (chan == NotificationChannel) {
             switch ((HU_GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE)msg_type) {
                 case HU_GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE::
                     StartGenericNotifications:
@@ -1149,7 +1124,7 @@ int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte* buf,
                     return handle_GenericNotificationResponse(chan, buf,
                                                                  len);
                 default:
-                    loge("Unknown msg_type: %d", msg_type);
+                    logw("Unknown msg_type: %d", msg_type);
                     return (0);
             }
         } else if (chan == MediaAudioChannel || chan == Audio1Channel ||
@@ -1169,7 +1144,7 @@ int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte* buf,
                 case HU_MEDIA_CHANNEL_MESSAGE::VideoFocusRequest:
                     return handle_VideoFocusRequest(chan, buf, len);
                 default:
-                    loge("Unknown msg_type: %d", msg_type);
+                    logw("Unknown msg_type: %d", msg_type);
                     return (0);
             }
         } else if (chan == NavigationChannel) {
@@ -1191,13 +1166,13 @@ int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte* buf,
                     handle_NaviTurnDistance(chan, buf, len);
                     return (0);
                 default:
-                    loge("Unknown msg_type: %d", msg_type);
+                    logw("Unknown msg_type: %d", msg_type);
                     return (0);
             }
         }
     }
 
-    loge("Unknown chan: %d", chan);
+    logw("Unknown chan: %d", chan);
     return (0);
 }
 
@@ -1217,7 +1192,7 @@ int HUServer::shutdown() {
     if (hu_thread.joinable()) {
         int ret = queueCommand([this](IHUConnectionThreadInterface& s) {
             if (iaap_state == hu_STATE_STARTED) {
-                logw("Sending ShutdownRequest");
+                logd("Sending ShutdownRequest");
                 HU::ShutdownRequest byebye;
                 byebye.set_reason(HU::ShutdownRequest::REASON_QUIT);
                 s.sendEncodedMessage(
@@ -1380,7 +1355,7 @@ int HUServer::start() {  // Starts Transport/USBACC/OAP, then AA
         return (-1);
     }
 
-    logw("Starting HU thread");
+    logd("Starting HU thread");
     command_read_fd = pipefd[0];
     command_write_fd = pipefd[1];
     hu_thread_quit_flag = false;
