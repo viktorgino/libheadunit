@@ -521,6 +521,8 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
         inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_DRIVING_STATUS);
         inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_NIGHT_DATA);
         inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_LOCATION);
+        inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_CAR_SPEED);
+        inner->add_sensor_list()->set_type(HU::SENSOR_TYPE_GEAR);
 
         callbacks.CustomizeSensorConfig(*inner);
     }
