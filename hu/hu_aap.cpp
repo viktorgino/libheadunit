@@ -11,14 +11,13 @@
 #include "hu_aad.h"
 #include "hu_aap.h"
 #include "hu_ssl.h"
-#include "hu_uti.h"
-
 #include "hu_tcp.h"
 #include "hu_usb.h"
+#include "hu_uti.h"
 
 using namespace AndroidAuto;
 
-HUServer::HUServer(IHUConnectionThreadEventCallbacks& callbacks,
+HUServer::HUServer(IHUConnectionThreadEventCallbacks &callbacks,
                    std::map<std::string, std::string> _settings)
     : callbacks(callbacks) {
     settings = _settings;
@@ -84,7 +83,7 @@ int HUServer::stopTransport() {
     return ret;
 }
 
-int HUServer::receiveTransportPacket(byte* buf, int len, int tmo) {
+int HUServer::receiveTransportPacket(byte *buf, int len, int tmo) {
     int ret = 0;
     if (iaap_state != hu_STATE_STARTED &&
         iaap_state != hu_STATE_STARTIN) {  // Need to recv when starting
@@ -131,7 +130,7 @@ int HUServer::receiveTransportPacket(byte* buf, int len, int tmo) {
 int log_packet_info = 1;
 
 int HUServer::sendTransportPacket(
-    int retry, byte* buf, int len,
+    int retry, byte *buf, int len,
     int tmo) {  // Send Transport data: chan,flags,len,type,...
     // Need to send when starting
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
@@ -142,11 +141,10 @@ int HUServer::sendTransportPacket(
     int ret = transport->Write(buf, len, tmo);
     if (ret < 0 || ret != len) {
         if (retry == 0) {
-            loge(
-                "Error ihu_tra_send() error so stop Transport & AAP  ret: %d  "
-                "len: "
-                "%d",
-                ret, len);
+            loge("Error ihu_tra_send() error so stop Transport & AAP  ret: %d  "
+                 "len: "
+                 "%d",
+                 ret, len);
             stop();
         }
         return (-1);
@@ -157,8 +155,10 @@ int HUServer::sendTransportPacket(
     return (ret);
 }
 
-int HUServer::sendEncodedMessage(int retry, ServiceChannels chan, uint16_t messageCode,
-    const google::protobuf::MessageLite& message, int overrideTimeout) {
+int HUServer::sendEncodedMessage(int retry, ServiceChannels chan,
+                                 uint16_t messageCode,
+                                 const google::protobuf::MessageLite &message,
+                                 int overrideTimeout) {
     const int messageSize = message.ByteSizeLong();
     const int requiredSize = messageSize + 2;
     if (temp_assembly_buffer->size() <
@@ -166,8 +166,8 @@ int HUServer::sendEncodedMessage(int retry, ServiceChannels chan, uint16_t messa
         temp_assembly_buffer->resize(static_cast<unsigned int>(requiredSize));
     }
 
-    uint16_t* destMessageCode =
-        reinterpret_cast<uint16_t*>(temp_assembly_buffer->data());
+    uint16_t *destMessageCode =
+        reinterpret_cast<uint16_t *>(temp_assembly_buffer->data());
     *destMessageCode++ = htobe16(messageCode);
 
     if (!message.SerializeToArray(destMessageCode, messageSize)) {
@@ -178,26 +178,25 @@ int HUServer::sendEncodedMessage(int retry, ServiceChannels chan, uint16_t messa
     logd("Send %s on channel %i %s", message.GetTypeName().c_str(), chan,
          getChannel(chan));
     // hex_dump("PB:", 80, temp_assembly_buffer->data(), requiredSize);
-    return sendEncoded(retry, chan, temp_assembly_buffer->data(),
-                           requiredSize, overrideTimeout);
+    return sendEncoded(retry, chan, temp_assembly_buffer->data(), requiredSize,
+                       overrideTimeout);
 }
 
 int HUServer::sendEncodedMediaPacket(int retry, ServiceChannels chan,
-                                           uint16_t messageCode,
-                                           uint64_t timeStamp,
-                                           const byte* buffer, int bufferLen,
-                                           int overrideTimeout) {
+                                     uint16_t messageCode, uint64_t timeStamp,
+                                     const byte *buffer, int bufferLen,
+                                     int overrideTimeout) {
     const int requiredSize = bufferLen + 2 + 8;
     if (temp_assembly_buffer->size() <
         static_cast<unsigned int>(requiredSize)) {
         temp_assembly_buffer->resize(static_cast<unsigned int>(requiredSize));
     }
 
-    uint16_t* destMessageCode =
-        reinterpret_cast<uint16_t*>(temp_assembly_buffer->data());
+    uint16_t *destMessageCode =
+        reinterpret_cast<uint16_t *>(temp_assembly_buffer->data());
     *destMessageCode++ = htobe16(messageCode);
 
-    uint64_t* destTimestamp = reinterpret_cast<uint64_t*>(destMessageCode);
+    uint64_t *destTimestamp = reinterpret_cast<uint64_t *>(destMessageCode);
     *destTimestamp++ = htobe64(timeStamp);
 
     memcpy(destTimestamp, buffer, bufferLen);
@@ -205,11 +204,12 @@ int HUServer::sendEncodedMediaPacket(int retry, ServiceChannels chan,
     // logd ("Send %s on channel %i %s", message.GetTypeName().c_str(), chan,
     // chan_get(chan)); hex_dump("PB:", 80, temp_assembly_buffer->data(),
     // requiredSize);
-    return sendEncoded(retry, chan, temp_assembly_buffer->data(),
-                           requiredSize, overrideTimeout);
+    return sendEncoded(retry, chan, temp_assembly_buffer->data(), requiredSize,
+                       overrideTimeout);
 }
 
-int HUServer::sendEncoded(int retry, ServiceChannels chan, byte* buf, int len,
+int HUServer::sendEncoded(
+    int retry, ServiceChannels chan, byte *buf, int len,
     int overrideTimeout) {  // Encrypt data and send: type,...
     if (iaap_state != hu_STATE_STARTED) {
         logw("CHECK: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
@@ -220,7 +220,7 @@ int HUServer::sendEncoded(int retry, ServiceChannels chan, byte* buf, int len,
     }
 
     byte base_flags = HU_FRAME_ENCRYPTED;
-    uint16_t message_type = be16toh(*((uint16_t*)buf));
+    uint16_t message_type = be16toh(*((uint16_t *)buf));
     if (chan != ControlChannel && message_type >= 2 &&
         message_type <
             0x8000) {  // If not control channel and msg_type = 0 - 255
@@ -277,7 +277,7 @@ int HUServer::sendEncoded(int retry, ServiceChannels chan, byte* buf, int len,
         int header_size = 4;
         if ((flags & HU_FRAME_FIRST_FRAME) & !(flags & HU_FRAME_LAST_FRAME)) {
             // write total len
-            *((uint32_t*)&enc_buf[header_size]) = htobe32(len);
+            *((uint32_t *)&enc_buf[header_size]) = htobe32(len);
             header_size += 4;
         }
 
@@ -294,7 +294,7 @@ int HUServer::sendEncoded(int retry, ServiceChannels chan, byte* buf, int len,
         if (ena_log_verbo && ena_log_aap_send)
             logd("BIO_read() bytes_read: %d", bytes_read);
 
-        *((uint16_t*)&enc_buf[2]) = htobe16(bytes_read);
+        *((uint16_t *)&enc_buf[2]) = htobe16(bytes_read);
 
         int ret = 0;
         ret = sendTransportPacket(
@@ -302,13 +302,15 @@ int HUServer::sendEncoded(int retry, ServiceChannels chan, byte* buf, int len,
             overrideTimeout < 0
                 ? iaap_tra_send_tmo
                 : overrideTimeout);  // Send encrypted data to AA Server
-        if (retry) return (ret);
+        if (retry)
+            return (ret);
     }
 
     return (0);
 }
 
-int HUServer::sendUnencoded(int retry, ServiceChannels chan, byte* buf, int len,
+int HUServer::sendUnencoded(
+    int retry, ServiceChannels chan, byte *buf, int len,
     int overrideTimeout) {  // Encrypt data and send: type,...
     if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
         logw("CHECK: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
@@ -319,7 +321,7 @@ int HUServer::sendUnencoded(int retry, ServiceChannels chan, byte* buf, int len,
     }
 
     byte base_flags = 0;
-    uint16_t message_type = be16toh(*((uint16_t*)buf));
+    uint16_t message_type = be16toh(*((uint16_t *)buf));
     if (chan != ControlChannel && message_type >= 2 &&
         message_type <
             0x8000) {  // If not control channel and msg_type = 0 - 255
@@ -360,11 +362,11 @@ int HUServer::sendUnencoded(int retry, ServiceChannels chan, byte* buf, int len,
 
         enc_buf[0] = (byte)chan;  // Encode channel and flags
         enc_buf[1] = flags;
-        *((uint16_t*)&enc_buf[2]) = htobe16(cur_len);
+        *((uint16_t *)&enc_buf[2]) = htobe16(cur_len);
         int header_size = 4;
         if ((flags & HU_FRAME_FIRST_FRAME) & !(flags & HU_FRAME_LAST_FRAME)) {
             // write total len
-            *((uint32_t*)&enc_buf[header_size]) = htobe32(len);
+            *((uint32_t *)&enc_buf[header_size]) = htobe32(len);
             header_size += 4;
         }
 
@@ -380,17 +382,17 @@ int HUServer::sendUnencoded(int retry, ServiceChannels chan, byte* buf, int len,
     return (0);
 }
 
-int HUServer::sendUnencodedBlob(int retry, ServiceChannels chan, uint16_t messageCode,
-                                     const byte* buffer, int bufferLen,
-                                     int overrideTimeout) {
+int HUServer::sendUnencodedBlob(int retry, ServiceChannels chan,
+                                uint16_t messageCode, const byte *buffer,
+                                int bufferLen, int overrideTimeout) {
     const int requiredSize = bufferLen + 2;
     if (temp_assembly_buffer->size() <
         static_cast<unsigned int>(requiredSize)) {
         temp_assembly_buffer->resize(static_cast<unsigned int>(requiredSize));
     }
 
-    uint16_t* destMessageCode =
-        reinterpret_cast<uint16_t*>(temp_assembly_buffer->data());
+    uint16_t *destMessageCode =
+        reinterpret_cast<uint16_t *>(temp_assembly_buffer->data());
     *destMessageCode++ = htobe16(messageCode);
 
     memcpy(destMessageCode, buffer, bufferLen);
@@ -399,11 +401,13 @@ int HUServer::sendUnencodedBlob(int retry, ServiceChannels chan, uint16_t messag
     // chan_get(chan)); hex_dump("PB:", 80, temp_assembly_buffer->data(),
     // requiredSize);
     return sendUnencoded(retry, chan, temp_assembly_buffer->data(),
-                             requiredSize, overrideTimeout);
+                         requiredSize, overrideTimeout);
 }
 
-int HUServer::sendUnencodedMessage(int retry, ServiceChannels chan, uint16_t messageCode,
-    const google::protobuf::MessageLite& message, int overrideTimeout) {
+int HUServer::sendUnencodedMessage(int retry, ServiceChannels chan,
+                                   uint16_t messageCode,
+                                   const google::protobuf::MessageLite &message,
+                                   int overrideTimeout) {
     const int messageSize = message.ByteSizeLong();
     const int requiredSize = messageSize + 2;
     if (temp_assembly_buffer->size() <
@@ -411,8 +415,8 @@ int HUServer::sendUnencodedMessage(int retry, ServiceChannels chan, uint16_t mes
         temp_assembly_buffer->resize(static_cast<unsigned int>(requiredSize));
     }
 
-    uint16_t* destMessageCode =
-        reinterpret_cast<uint16_t*>(temp_assembly_buffer->data());
+    uint16_t *destMessageCode =
+        reinterpret_cast<uint16_t *>(temp_assembly_buffer->data());
     *destMessageCode++ = htobe16(messageCode);
 
     if (!message.SerializeToArray(destMessageCode, messageSize)) {
@@ -424,10 +428,10 @@ int HUServer::sendUnencodedMessage(int retry, ServiceChannels chan, uint16_t mes
          getChannel(chan));
     // hex_dump("PB:", 80, temp_assembly_buffer->data(), requiredSize);
     return sendUnencoded(retry, chan, temp_assembly_buffer->data(),
-                             requiredSize, overrideTimeout);
+                         requiredSize, overrideTimeout);
 }
 
-int HUServer::handle_VersionResponse(ServiceChannels chan, byte* buf, int len) {
+int HUServer::handle_VersionResponse(ServiceChannels chan, byte *buf, int len) {
     logd("Version response recv len: %d", len);
     hex_dump("version", 40, buf, len);
 
@@ -440,7 +444,8 @@ int HUServer::handle_VersionResponse(ServiceChannels chan, byte* buf, int len) {
 }
 
 //  extern int wifi_direct;// = 0;//1;//0;
-int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
+int HUServer::handle_ServiceDiscoveryRequest(
+    ServiceChannels chan, byte *buf,
     int len) {  // Service Discovery Request
 
     HU::ServiceDiscoveryRequest request;
@@ -469,7 +474,7 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
 
     carInfo.mutable_channels()->Reserve(MaximumChannel);
 
-    HU::ChannelDescriptor* inputChannel = carInfo.add_channels();
+    HU::ChannelDescriptor *inputChannel = carInfo.add_channels();
     inputChannel->set_channel_id(TouchChannel);
     {
         auto inner = inputChannel->mutable_input_event_channel();
@@ -514,7 +519,7 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
         callbacks.CustomizeInputConfig(*inner);
     }
 
-    HU::ChannelDescriptor* sensorChannel = carInfo.add_channels();
+    HU::ChannelDescriptor *sensorChannel = carInfo.add_channels();
     sensorChannel->set_channel_id(SensorChannel);
     {
         auto inner = sensorChannel->mutable_sensor_channel();
@@ -525,7 +530,7 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
         callbacks.CustomizeSensorConfig(*inner);
     }
 
-    HU::ChannelDescriptor* videoChannel = carInfo.add_channels();
+    HU::ChannelDescriptor *videoChannel = carInfo.add_channels();
     videoChannel->set_channel_id(VideoChannel);
     {
         auto inner = videoChannel->mutable_output_stream_channel();
@@ -548,7 +553,7 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
         callbacks.CustomizeOutputChannel(VideoChannel, *inner);
     }
 
-    HU::ChannelDescriptor* audioChannel0 = carInfo.add_channels();
+    HU::ChannelDescriptor *audioChannel0 = carInfo.add_channels();
     audioChannel0->set_channel_id(MediaAudioChannel);
     {
         auto inner = audioChannel0->mutable_output_stream_channel();
@@ -564,7 +569,7 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
         callbacks.CustomizeOutputChannel(MediaAudioChannel, *inner);
     }
 
-    HU::ChannelDescriptor* audioChannel1 = carInfo.add_channels();
+    HU::ChannelDescriptor *audioChannel1 = carInfo.add_channels();
     audioChannel1->set_channel_id(Audio1Channel);
     {
         auto inner = audioChannel1->mutable_output_stream_channel();
@@ -578,7 +583,7 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
         callbacks.CustomizeOutputChannel(Audio1Channel, *inner);
     }
 
-    HU::ChannelDescriptor* micChannel = carInfo.add_channels();
+    HU::ChannelDescriptor *micChannel = carInfo.add_channels();
     micChannel->set_channel_id(MicrophoneChannel);
     {
         auto inner = micChannel->mutable_input_stream_channel();
@@ -590,11 +595,10 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
         callbacks.CustomizeInputChannel(MicrophoneChannel, *inner);
     }
 
-
-    HU::ChannelDescriptor* notificationChannel = carInfo.add_channels();
+    HU::ChannelDescriptor *notificationChannel = carInfo.add_channels();
     notificationChannel->set_channel_id(NotificationChannel);
 
-    HU::ChannelDescriptor* navigationChannel = carInfo.add_channels();
+    HU::ChannelDescriptor *navigationChannel = carInfo.add_channels();
     navigationChannel->set_channel_id(NavigationChannel);
     {
         auto inner = navigationChannel->mutable_navigation_status_service();
@@ -612,7 +616,7 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
     if (carBTAddress.size() > 0) {
         logd("Found BT address %s. Exposing Bluetooth service",
              carBTAddress.c_str());
-        HU::ChannelDescriptor* btChannel = carInfo.add_channels();
+        HU::ChannelDescriptor *btChannel = carInfo.add_channels();
         btChannel->set_channel_id(BluetoothChannel);
         {
             auto inner = btChannel->mutable_bluetooth_service();
@@ -624,9 +628,8 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
             callbacks.CustomizeBluetoothService(BluetoothChannel, *inner);
         }
 
-        HU::ChannelDescriptor* phoneStatusChannel = carInfo.add_channels();
+        HU::ChannelDescriptor *phoneStatusChannel = carInfo.add_channels();
         phoneStatusChannel->set_channel_id(PhoneStatusChannel);
-
     } else {
         logw(
             "No Bluetooth or finding BT address failed. Not exposing Bluetooth "
@@ -639,8 +642,8 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte* buf,
         0, chan, HU_PROTOCOL_MESSAGE::ServiceDiscoveryResponse, carInfo);
 }
 
-int HUServer::handle_PingRequest(ServiceChannels chan, byte* buf,
-                                    int len) {  // Ping Request
+int HUServer::handle_PingRequest(ServiceChannels chan, byte *buf,
+                                 int len) {  // Ping Request
     HU::PingRequest request;
     if (!request.ParseFromArray(buf, len))
         loge("Ping Request");
@@ -650,11 +653,11 @@ int HUServer::handle_PingRequest(ServiceChannels chan, byte* buf,
     HU::PingResponse response;
     response.set_timestamp(request.timestamp());
     return sendEncodedMessage(0, chan, HU_PROTOCOL_MESSAGE::PingResponse,
-                                   response);
+                              response);
 }
 
 int HUServer::handle_NavigationFocusRequest(
-    ServiceChannels chan, byte* buf,
+    ServiceChannels chan, byte *buf,
     int len) {  // Navigation Focus Request
     HU::NavigationFocusRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -668,8 +671,8 @@ int HUServer::handle_NavigationFocusRequest(
         0, chan, HU_PROTOCOL_MESSAGE::NavigationFocusResponse, response);
 }
 
-int HUServer::handle_ShutdownRequest(ServiceChannels chan, byte* buf,
-                                        int len) {  // Byebye Request
+int HUServer::handle_ShutdownRequest(ServiceChannels chan, byte *buf,
+                                     int len) {  // Byebye Request
 
     HU::ShutdownRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -681,7 +684,7 @@ int HUServer::handle_ShutdownRequest(ServiceChannels chan, byte* buf,
 
     HU::ShutdownResponse response;
     sendEncodedMessage(0, chan, HU_PROTOCOL_MESSAGE::ShutdownResponse,
-                            response);
+                       response);
 
     ms_sleep(100);  // Wait a bit for response
 
@@ -691,7 +694,7 @@ int HUServer::handle_ShutdownRequest(ServiceChannels chan, byte* buf,
 }
 
 int HUServer::handle_VoiceSessionRequest(
-    ServiceChannels chan, byte* buf,
+    ServiceChannels chan, byte *buf,
     int len) {  // sr:  00000000 00 11 08 01      Microphone voice search usage
     // sr:  00000000 00 11 08 02
 
@@ -709,9 +712,8 @@ int HUServer::handle_VoiceSessionRequest(
     return (0);
 }
 
-int HUServer::handle_AudioFocusRequest(
-    ServiceChannels chan, byte* buf,
-    int len) {  // Navigation Focus Request
+int HUServer::handle_AudioFocusRequest(ServiceChannels chan, byte *buf,
+                                       int len) {  // Navigation Focus Request
     HU::AudioFocusRequest request;
     if (!request.ParseFromArray(buf, len))
         loge("AudioFocusRequest Focus Request");
@@ -723,8 +725,8 @@ int HUServer::handle_AudioFocusRequest(
     return 0;
 }
 
-int HUServer::handle_ChannelOpenRequest(ServiceChannels chan, byte* buf,
-                                           int len) {  // Channel Open Request
+int HUServer::handle_ChannelOpenRequest(ServiceChannels chan, byte *buf,
+                                        int len) {  // Channel Open Request
 
     HU::ChannelOpenRequest request;
     if (!request.ParseFromArray(buf, len))
@@ -742,18 +744,20 @@ int HUServer::handle_ChannelOpenRequest(ServiceChannels chan, byte* buf,
         return (ret);
 
     if (chan == SensorChannel) {  // If Sensor channel...
-        ms_sleep(2);          // 20);
+        ms_sleep(2);              // 20);
 
         HU::SensorEvent sensorEvent;
         sensorEvent.add_driving_status()->set_status(
             HU::SensorEvent::DrivingStatus::DRIVE_STATUS_UNRESTRICTED);
-        return sendEncodedMessage(
-            0, SensorChannel, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
+        return sendEncodedMessage(0, SensorChannel,
+                                  HU_SENSOR_CHANNEL_MESSAGE::SensorEvent,
+                                  sensorEvent);
     }
     return (ret);
 }
 
-int HUServer::handle_MediaSetupRequest(ServiceChannels chan, byte* buf, int len) {
+int HUServer::handle_MediaSetupRequest(ServiceChannels chan, byte *buf,
+                                       int len) {
     HU::MediaSetupRequest request;
     if (!request.ParseFromArray(buf, len))
         loge("MediaSetupRequest");
@@ -775,7 +779,8 @@ int HUServer::handle_MediaSetupRequest(ServiceChannels chan, byte* buf, int len)
     return (ret);
 }
 
-int HUServer::handle_VideoFocusRequest(ServiceChannels chan, byte* buf, int len) {
+int HUServer::handle_VideoFocusRequest(ServiceChannels chan, byte *buf,
+                                       int len) {
     HU::VideoFocusRequest request;
     if (!request.ParseFromArray(buf, len))
         loge("VideoFocusRequest");
@@ -788,7 +793,7 @@ int HUServer::handle_VideoFocusRequest(ServiceChannels chan, byte* buf, int len)
 }
 
 int HUServer::handle_MediaStartRequest(
-    ServiceChannels chan, byte* buf,
+    ServiceChannels chan, byte *buf,
     int len) {  // sr:  00000000 00 11 08 01      Microphone voice search usage
     // sr:  00000000 00 11 08 02
 
@@ -803,7 +808,7 @@ int HUServer::handle_MediaStartRequest(
 }
 
 int HUServer::handle_MediaStopRequest(
-    ServiceChannels chan, byte* buf,
+    ServiceChannels chan, byte *buf,
     int len) {  // sr:  00000000 00 11 08 01      Microphone voice search usage
     // sr:  00000000 00 11 08 02
 
@@ -817,9 +822,8 @@ int HUServer::handle_MediaStopRequest(
     return callbacks.MediaStop(chan);
 }
 
-int HUServer::handle_SensorStartRequest(
-    ServiceChannels chan, byte* buf,
-    int len) {  // Navigation Focus Request
+int HUServer::handle_SensorStartRequest(ServiceChannels chan, byte *buf,
+                                        int len) {  // Navigation Focus Request
     HU::SensorStartRequest request;
     if (!request.ParseFromArray(buf, len))
         loge("SensorStartRequest Focus Request");
@@ -833,8 +837,8 @@ int HUServer::handle_SensorStartRequest(
         0, chan, HU_SENSOR_CHANNEL_MESSAGE::SensorStartResponse, response);
 }
 
-int HUServer::handle_BindingRequest(ServiceChannels chan, byte* buf,
-                                       int len) {  // Navigation Focus Request
+int HUServer::handle_BindingRequest(ServiceChannels chan, byte *buf,
+                                    int len) {  // Navigation Focus Request
     HU::BindingRequest request;
     if (!request.ParseFromArray(buf, len))
         loge("BindingRequest Focus Request");
@@ -848,7 +852,7 @@ int HUServer::handle_BindingRequest(ServiceChannels chan, byte* buf,
         0, chan, HU_INPUT_CHANNEL_MESSAGE::BindingResponse, response);
 }
 
-int HUServer::handle_MediaAck(ServiceChannels chan, byte* buf, int len) {
+int HUServer::handle_MediaAck(ServiceChannels chan, byte *buf, int len) {
     HU::MediaAck request;
     if (!request.ParseFromArray(buf, len))
         loge("MediaAck");
@@ -857,7 +861,7 @@ int HUServer::handle_MediaAck(ServiceChannels chan, byte* buf, int len) {
     return (0);
 }
 
-int HUServer::handle_MicRequest(ServiceChannels chan, byte* buf, int len) {
+int HUServer::handle_MicRequest(ServiceChannels chan, byte *buf, int len) {
     HU::MicRequest request;
     if (!request.ParseFromArray(buf, len))
         loge("MicRequest");
@@ -874,8 +878,9 @@ int HUServer::handle_MicRequest(ServiceChannels chan, byte* buf, int len) {
     return (0);
 }
 
-int HUServer::handle_MediaDataWithTimestamp(ServiceChannels chan, byte* buf, int len) {
-    uint64_t timestamp = be64toh(*((uint64_t*)buf));
+int HUServer::handle_MediaDataWithTimestamp(ServiceChannels chan, byte *buf,
+                                            int len) {
+    uint64_t timestamp = be64toh(*((uint64_t *)buf));
     logd("Media timestamp %s %llu", getChannel(chan), timestamp);
 
     int ret = callbacks.MediaPacket(chan, timestamp, &buf[8], len - 8);
@@ -888,10 +893,10 @@ int HUServer::handle_MediaDataWithTimestamp(ServiceChannels chan, byte* buf, int
     mediaAck.set_value(1);
 
     return sendEncodedMessage(0, chan, HU_MEDIA_CHANNEL_MESSAGE::MediaAck,
-                                   mediaAck);
+                              mediaAck);
 }
 
-int HUServer::handle_MediaData(ServiceChannels chan, byte* buf, int len) {
+int HUServer::handle_MediaData(ServiceChannels chan, byte *buf, int len) {
     int ret = callbacks.MediaPacket(chan, 0, buf, len);
     if (ret < 0) {
         return ret;
@@ -902,10 +907,10 @@ int HUServer::handle_MediaData(ServiceChannels chan, byte* buf, int len) {
     mediaAck.set_value(1);
 
     return sendEncodedMessage(0, chan, HU_MEDIA_CHANNEL_MESSAGE::MediaAck,
-                                   mediaAck);
+                              mediaAck);
 }
 
-int HUServer::handle_PhoneStatus(ServiceChannels chan, byte* buf, int len) {
+int HUServer::handle_PhoneStatus(ServiceChannels chan, byte *buf, int len) {
     HU::PhoneStatus request;
     if (!request.ParseFromArray(buf, len)) {
         loge("PhoneStatus Focus Request");
@@ -917,8 +922,8 @@ int HUServer::handle_PhoneStatus(ServiceChannels chan, byte* buf, int len) {
     return 0;
 }
 
-int HUServer::handle_GenericNotificationResponse(ServiceChannels chan, byte* buf,
-                                                    int len) {
+int HUServer::handle_GenericNotificationResponse(ServiceChannels chan,
+                                                 byte *buf, int len) {
     HU::GenericNotificationResponse request;
     if (!request.ParseFromArray(buf, len)) {
         loge("GenericNotificationResponse Focus Request");
@@ -930,8 +935,8 @@ int HUServer::handle_GenericNotificationResponse(ServiceChannels chan, byte* buf
     return 0;
 }
 
-int HUServer::handle_StartGenericNotifications(ServiceChannels chan, byte* buf,
-                                                  int len) {
+int HUServer::handle_StartGenericNotifications(ServiceChannels chan, byte *buf,
+                                               int len) {
     HU::StartGenericNotifications request;
     if (!request.ParseFromArray(buf, len)) {
         loge("StartGenericNotifications Focus Request");
@@ -943,7 +948,8 @@ int HUServer::handle_StartGenericNotifications(ServiceChannels chan, byte* buf,
     return 0;
 }
 
-int HUServer::handle_StopGenericNotifications(ServiceChannels chan, byte* buf, int len) {
+int HUServer::handle_StopGenericNotifications(ServiceChannels chan, byte *buf,
+                                              int len) {
     HU::StopGenericNotifications request;
     if (!request.ParseFromArray(buf, len)) {
         loge("StopGenericNotifications Focus Request");
@@ -955,7 +961,8 @@ int HUServer::handle_StopGenericNotifications(ServiceChannels chan, byte* buf, i
     return 0;
 }
 
-int HUServer::handle_BluetoothPairingRequest(ServiceChannels chan, byte* buf, int len) {
+int HUServer::handle_BluetoothPairingRequest(ServiceChannels chan, byte *buf,
+                                             int len) {
     HU::BluetoothPairingRequest request;
     if (!request.ParseFromArray(buf, len)) {
         loge("BluetoothPairingRequest Focus Request");
@@ -974,7 +981,8 @@ int HUServer::handle_BluetoothPairingRequest(ServiceChannels chan, byte* buf, in
         response);
 }
 
-int HUServer::handle_BluetoothAuthData(ServiceChannels chan, byte* buf, int len) {
+int HUServer::handle_BluetoothAuthData(ServiceChannels chan, byte *buf,
+                                       int len) {
     HU::BluetoothAuthData request;
     if (!request.ParseFromArray(buf, len)) {
         loge("BluetoothAuthData Focus Request");
@@ -986,7 +994,7 @@ int HUServer::handle_BluetoothAuthData(ServiceChannels chan, byte* buf, int len)
     return 0;
 }
 
-int HUServer::handle_NaviStatus(ServiceChannels chan, byte* buf, int len) {
+int HUServer::handle_NaviStatus(ServiceChannels chan, byte *buf, int len) {
     HU::NAVMessagesStatus request;
     if (!request.ParseFromArray(buf, len)) {
         logv("NaviStatus Request");
@@ -999,7 +1007,7 @@ int HUServer::handle_NaviStatus(ServiceChannels chan, byte* buf, int len) {
     return 0;
 }
 
-int HUServer::handle_NaviTurn(ServiceChannels chan, byte* buf, int len) {
+int HUServer::handle_NaviTurn(ServiceChannels chan, byte *buf, int len) {
     HU::NAVTurnMessage request;
     if (!request.ParseFromArray(buf, len)) {
         logv("NaviTurn Request");
@@ -1012,7 +1020,8 @@ int HUServer::handle_NaviTurn(ServiceChannels chan, byte* buf, int len) {
     return 0;
 }
 
-int HUServer::handle_NaviTurnDistance(ServiceChannels chan, byte* buf, int len) {
+int HUServer::handle_NaviTurnDistance(ServiceChannels chan, byte *buf,
+                                      int len) {
     HU::NAVDistanceMessage request;
     if (!request.ParseFromArray(buf, len)) {
         logv("NaviTurnDistance Request");
@@ -1025,8 +1034,8 @@ int HUServer::handle_NaviTurnDistance(ServiceChannels chan, byte* buf, int len) 
     return 0;
 }
 
-int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte* buf,
-                               int len) {
+int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte *buf,
+                             int len) {
     if (ena_log_verbo)
         logd("iaap_msg_process msg_type: %d  len: %d  buf: %p", msg_type, len,
              buf);
@@ -1121,8 +1130,7 @@ int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte* buf,
                     return handle_StopGenericNotifications(chan, buf, len);
                 case HU_GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE::
                     GenericNotificationResponse:
-                    return handle_GenericNotificationResponse(chan, buf,
-                                                                 len);
+                    return handle_GenericNotificationResponse(chan, buf, len);
                 default:
                     logw("Unknown msg_type: %d", msg_type);
                     return (0);
@@ -1176,9 +1184,8 @@ int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte* buf,
     return (0);
 }
 
-int HUServer::queueCommand(
-    IHUAnyThreadInterface::HUThreadCommand&& command) {
-    IHUAnyThreadInterface::HUThreadCommand* ptr =
+int HUServer::queueCommand(IHUAnyThreadInterface::HUThreadCommand &&command) {
+    IHUAnyThreadInterface::HUThreadCommand *ptr =
         new IHUAnyThreadInterface::HUThreadCommand(command);
     int ret = write(command_write_fd, &ptr, sizeof(ptr));
     if (ret < 0) {
@@ -1190,13 +1197,14 @@ int HUServer::queueCommand(
 
 int HUServer::shutdown() {
     if (hu_thread.joinable()) {
-        int ret = queueCommand([this](IHUConnectionThreadInterface& s) {
+        int ret = queueCommand([this](IHUConnectionThreadInterface &s) {
             if (iaap_state == hu_STATE_STARTED) {
                 logd("Sending ShutdownRequest");
                 HU::ShutdownRequest byebye;
                 byebye.set_reason(HU::ShutdownRequest::REASON_QUIT);
-                s.sendEncodedMessage(
-                    0, ControlChannel, HU_PROTOCOL_MESSAGE::ShutdownRequest, byebye);
+                s.sendEncodedMessage(0, ControlChannel,
+                                     HU_PROTOCOL_MESSAGE::ShutdownRequest,
+                                     byebye);
                 ms_sleep(500);
             }
             s.stop();
@@ -1208,10 +1216,12 @@ int HUServer::shutdown() {
         hu_thread.join();
     }
 
-    if (command_write_fd >= 0) close(command_write_fd);
+    if (command_write_fd >= 0)
+        close(command_write_fd);
     command_write_fd = -1;
 
-    if (command_read_fd >= 0) close(command_read_fd);
+    if (command_read_fd >= 0)
+        close(command_read_fd);
     command_read_fd = -1;
 
     // Send Byebye
@@ -1232,12 +1242,13 @@ int HUServer::stop() {  // Sends Byebye, then stops Transport/USBACC/OAP
         return shutdown();
     }
     // Continue only if started or starting...
-    if (iaap_state != hu_STATE_STARTED) return (0);
+    if (iaap_state != hu_STATE_STARTED)
+        return (0);
 
     HU::ShutdownRequest shutdownReq;
     shutdownReq.set_reason(HU::ShutdownRequest::REASON_QUIT);
     sendEncodedMessage(0, ControlChannel, HU_PROTOCOL_MESSAGE::ShutdownRequest,
-                            shutdownReq);
+                       shutdownReq);
 
     hu_thread_quit_flag = true;
     callbacks.DisconnectionOrError();
@@ -1245,8 +1256,8 @@ int HUServer::stop() {  // Sends Byebye, then stops Transport/USBACC/OAP
     return (0);
 }
 
-IHUAnyThreadInterface::HUThreadCommand* HUServer::popCommand() {
-    IHUAnyThreadInterface::HUThreadCommand* ptr = nullptr;
+IHUAnyThreadInterface::HUThreadCommand *HUServer::popCommand() {
+    IHUAnyThreadInterface::HUThreadCommand *ptr = nullptr;
     int ret = read(command_read_fd, &ptr, sizeof(ptr));
     if (ret < 0) {
         loge("hu_pop_command error %d", ret);
@@ -1284,7 +1295,7 @@ void HUServer::mainThread() {
         } else {
             if (FD_ISSET(command_read_fd, &sock_set)) {
                 logd("Got command_read_fd");
-                IHUAnyThreadInterface::HUThreadCommand* ptr = nullptr;
+                IHUAnyThreadInterface::HUThreadCommand *ptr = nullptr;
                 if (ptr = popCommand()) {
                     logd("Running %p", ptr);
                     (*ptr)(*this);
@@ -1306,7 +1317,7 @@ void HUServer::mainThread() {
     iaap_state = hu_STATE_STOPPED;
 }
 
-static_assert(PIPE_BUF >= sizeof(IHUAnyThreadInterface::HUThreadCommand*),
+static_assert(PIPE_BUF >= sizeof(IHUAnyThreadInterface::HUThreadCommand *),
               "PIPE_BUF is tool small for a pointer?");
 
 int HUServer::start() {  // Starts Transport/USBACC/OAP, then AA
@@ -1323,8 +1334,7 @@ int HUServer::start() {  // Starts Transport/USBACC/OAP, then AA
     iaap_state = hu_STATE_STARTIN;
     logd("  SET: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
 
-    int ret =
-        startTransport();  // Start Transport/USBACC/OAP
+    int ret = startTransport();  // Start Transport/USBACC/OAP
     if (ret) {
         iaap_state = hu_STATE_STOPPED;
         logd("  SET: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
@@ -1333,7 +1343,7 @@ int HUServer::start() {  // Starts Transport/USBACC/OAP, then AA
 
     byte vr_buf[] = {0, 1, 0, 1};  // Version Request
     ret = sendUnencodedBlob(0, ControlChannel, HU_INIT_MESSAGE::VersionRequest,
-                                 vr_buf, sizeof(vr_buf), 2000);
+                            vr_buf, sizeof(vr_buf), 2000);
     if (ret < 0) {
         loge("Version request send ret: %d", ret);
         return (-1);
@@ -1400,10 +1410,9 @@ int HUServer::processReceived(int tmo) {  //
         }
         int cur_chan = (int)enc_buf[0];  // Channel
         if (cur_chan != chan && chan >= 0) {
-            logd(
-                "Interleaved channels, preserving incomplete packet for chan "
-                "%s",
-                getChannel((ServiceChannels)chan));
+            logd("Interleaved channels, preserving incomplete packet for chan "
+                 "%s",
+                 getChannel((ServiceChannels)chan));
             channel_assembly_buffers[chan] = temp_assembly_buffer;
             temp_assembly_buffer = NULL;
             has_first = has_last = false;
@@ -1412,7 +1421,7 @@ int HUServer::processReceived(int tmo) {  //
         chan = cur_chan;
 
         int flags = enc_buf[1];  // Flags
-        int frame_len = be16toh(*((uint16_t*)&enc_buf[2]));
+        int frame_len = be16toh(*((uint16_t *)&enc_buf[2]));
 
         logd("Frame flags %i len %i", flags, frame_len);
 
@@ -1432,9 +1441,9 @@ int HUServer::processReceived(int tmo) {  //
         int remaining_bytes_in_frame = (frame_len + header_size) - have_len;
         while (remaining_bytes_in_frame > 0) {
             logd("Getting more %i", remaining_bytes_in_frame);
-            int got_bytes =
-                receiveTransportPacket(&enc_buf[have_len], remaining_bytes_in_frame,
-                                tmo);  // Get Rx packet from Transport
+            int got_bytes = receiveTransportPacket(
+                &enc_buf[have_len], remaining_bytes_in_frame,
+                tmo);  // Get Rx packet from Transport
             if (got_bytes <
                 0) {  // If we don't have a full 6 byte header at least...
                 loge("Recv got_bytes: %d", got_bytes);
@@ -1449,14 +1458,16 @@ int HUServer::processReceived(int tmo) {  //
             channel_assembly_buffers
                 .end())  // Have old buffer with incomplete data for channel
         {
-            logd("Found existing buffer for chan %s", getChannel((ServiceChannels)chan));
+            logd("Found existing buffer for chan %s",
+                 getChannel((ServiceChannels)chan));
             temp_assembly_buffer = buffer->second;
         } else if (temp_assembly_buffer ==
                    NULL)  // Old buffer had incomplete data and was preserved,
                           // need
         // to create new one
         {
-            logd("Created new buffer for chan %s", getChannel((ServiceChannels)chan));
+            logd("Created new buffer for chan %s",
+                 getChannel((ServiceChannels)chan));
             temp_assembly_buffer = new std::vector<uint8_t>();
         }
 
@@ -1477,7 +1488,7 @@ int HUServer::processReceived(int tmo) {  //
         has_last = (flags & HU_FRAME_LAST_FRAME) != 0;
 
         if (has_total_size_header) {
-            uint32_t total_size = be32toh(*((uint32_t*)&enc_buf[4]));
+            uint32_t total_size = be32toh(*((uint32_t *)&enc_buf[4]));
             logd("First only, total len %u", total_size);
             temp_assembly_buffer->reserve(total_size);
         } else {
@@ -1497,10 +1508,12 @@ int HUServer::processReceived(int tmo) {  //
             }
             if (bytes_written != frame_len)
                 loge("BIO_write() len: %d  bytes_written: %d  chan: %d %s",
-                     frame_len, bytes_written, chan, getChannel((ServiceChannels)chan));
+                     frame_len, bytes_written, chan,
+                     getChannel((ServiceChannels)chan));
             else if (ena_log_verbo)
                 logd("BIO_write() len: %d  bytes_written: %d  chan: %d %s",
-                     frame_len, bytes_written, chan, getChannel((ServiceChannels)chan));
+                     frame_len, bytes_written, chan,
+                     getChannel((ServiceChannels)chan));
 
             int bytes_read =
                 SSL_read(m_ssl, &(*temp_assembly_buffer)[cur_vec],
@@ -1512,7 +1525,8 @@ int HUServer::processReceived(int tmo) {  //
                               // we be able to recover, if Transport data got
                               // corrupted ??
             }
-            if (ena_log_verbo) logd("SSL_read() bytes_read: %d", bytes_read);
+            if (ena_log_verbo)
+                logd("SSL_read() bytes_read: %d", bytes_read);
 
             temp_assembly_buffer->resize(cur_vec + bytes_read);
         } else {
@@ -1524,8 +1538,8 @@ int HUServer::processReceived(int tmo) {  //
 
     const int buf_len = temp_assembly_buffer->size();
     if (buf_len >= 2) {
-        uint16_t msg_type =
-            be16toh(*reinterpret_cast<uint16_t*>(temp_assembly_buffer->data()));
+        uint16_t msg_type = be16toh(
+            *reinterpret_cast<uint16_t *>(temp_assembly_buffer->data()));
 
         ret = processMessage(
             (ServiceChannels)chan, msg_type, &(*temp_assembly_buffer)[2],
@@ -1543,7 +1557,7 @@ int HUServer::processReceived(int tmo) {  //
 std::map<std::string, int> HUServer::getResolutions() {
     std::map<std::string, int> ret;
 
-    const google::protobuf::EnumDescriptor* resolutions = HU::
+    const google::protobuf::EnumDescriptor *resolutions = HU::
         ChannelDescriptor_OutputStreamChannel_VideoConfig_VIDEO_RESOLUTION_descriptor();
     for (int i = 0; i < resolutions->value_count(); i++) {
         ret[resolutions->value(i)->name()] = resolutions->value(i)->index();
@@ -1555,7 +1569,7 @@ std::map<std::string, int> HUServer::getResolutions() {
 std::map<std::string, int> HUServer::getFPS() {
     std::map<std::string, int> ret;
 
-    const google::protobuf::EnumDescriptor* fpss = HU::
+    const google::protobuf::EnumDescriptor *fpss = HU::
         ChannelDescriptor_OutputStreamChannel_VideoConfig_VIDEO_FPS_descriptor();
     for (int i = 0; i < fpss->value_count(); i++) {
         ret[fpss->value(i)->name()] = fpss->value(i)->index();
