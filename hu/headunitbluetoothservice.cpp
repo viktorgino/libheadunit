@@ -3,8 +3,8 @@
 HeadunitBluetoothService::HeadunitBluetoothService(QObject *parent)
     : QObject{parent}
 {
-
 }
+
 bool HeadunitBluetoothService::registerService(const QBluetoothAddress& bluetoothAddress, uint16_t portNumber)
 {
     //"4de17a00-52cb-11e6-bdf4-0800200c9a66";
@@ -16,9 +16,9 @@ bool HeadunitBluetoothService::registerService(const QBluetoothAddress& bluetoot
     serviceInfo_.setAttribute(QBluetoothServiceInfo::BluetoothProfileDescriptorList, classId);
     classId.prepend(QVariant::fromValue(serviceUuid));
     serviceInfo_.setAttribute(QBluetoothServiceInfo::ServiceClassIds, classId);
-    serviceInfo_.setAttribute(QBluetoothServiceInfo::ServiceName, "libheadunit Bluetooth Service");
+    serviceInfo_.setAttribute(QBluetoothServiceInfo::ServiceName, "OpenAuto Bluetooth Service");
     serviceInfo_.setAttribute(QBluetoothServiceInfo::ServiceDescription, "AndroidAuto WiFi projection automatic setup");
-    serviceInfo_.setAttribute(QBluetoothServiceInfo::ServiceProvider, "libheadunit");
+    serviceInfo_.setAttribute(QBluetoothServiceInfo::ServiceProvider, "f1xstudio.com");
     serviceInfo_.setServiceUuid(serviceUuid);
 
     QBluetoothServiceInfo::Sequence publicBrowse;
@@ -31,7 +31,7 @@ bool HeadunitBluetoothService::registerService(const QBluetoothAddress& bluetoot
     protocolDescriptorList.append(QVariant::fromValue(protocol));
     protocol.clear();
     protocol << QVariant::fromValue(QBluetoothUuid(QBluetoothUuid::Rfcomm))
-             << QVariant::fromValue(quint8(portNumber));
+             << QVariant::fromValue(quint16(portNumber));
     protocolDescriptorList.append(QVariant::fromValue(protocol));
     serviceInfo_.setAttribute(QBluetoothServiceInfo::ProtocolDescriptorList, protocolDescriptorList);
     return serviceInfo_.registerService(bluetoothAddress);

@@ -1,12 +1,13 @@
 #define LOGTAG "hu_tcp"
 #include "hu_tcp.h"
+
 #include "hu_uti.h"  // Utilities
 
-int itcp_state =
-    0;  // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
+int itcp_state = 0;  // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
 int last_errno = 0;  // store last error printed
 
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
 #include <netinet/tcp.h>
@@ -16,9 +17,6 @@ int last_errno = 0;  // store last error printed
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <netdb.h>
-#include <netinet/in.h>
-
 using namespace AndroidAuto;
 
 HUTransportStreamTCP::~HUTransportStreamTCP() {
@@ -27,21 +25,16 @@ HUTransportStreamTCP::~HUTransportStreamTCP() {
     }
 }
 
-HUTransportStreamTCP::HUTransportStreamTCP(
-    std::map<std::string, std::string> _settings)
-    : HUTransportStream(_settings) {
+HUTransportStreamTCP::HUTransportStreamTCP(std::map<std::string, std::string> _settings) : HUTransportStream(_settings) {
     settings = _settings;
-    if (settings["wifi_direct"] == "1") {
-        wifi_direct = 1;
-    } else {
-        wifi_direct = 0;
-    }
+    wifi_direct = 1;
 }
 
 int HUTransportStreamTCP::Write(const byte *buf, int len, int tmo) {
     // int ret = itcp_bulk_transfer (itcp_ep_out, buf, len, tmo);      //
     // milli-second timeout
-    if (readfd < 0) return (-1);
+    if (readfd < 0)
+        return (-1);
 
     fd_set sock_set;
     FD_ZERO(&sock_set);
@@ -52,7 +45,8 @@ int HUTransportStreamTCP::Write(const byte *buf, int len, int tmo) {
     tv_timeout.tv_usec = tmo * 1000;
 
     int ret = select(readfd + 1, NULL, &sock_set, NULL, &tv_timeout);
-    if (ret <= 0) return ret;
+    if (ret <= 0)
+        return ret;
 
     errno = 0;
     ret = write(readfd, buf, len);
@@ -72,10 +66,12 @@ int HUTransportStreamTCP::itcp_deinit() {  // !!!! Need to better reset and wait
                                            // a while to kill transfers in
                                            // progress and auto-restart properly
 
-    if (readfd >= 0) close(readfd);
+    if (readfd >= 0)
+        close(readfd);
     readfd = -1;
 
-    if (tcp_so_fd >= 0) close(tcp_so_fd);
+    if (tcp_so_fd >= 0)
+        close(tcp_so_fd);
     tcp_so_fd = -1;
 
     logd("Done");
@@ -89,7 +85,8 @@ int HUTransportStreamTCP::itcp_deinit() {  // !!!! Need to better reset and wait
 #define RES_DATA_MAX 65536
 
 int HUTransportStreamTCP::itcp_accept() {
-    if (tcp_so_fd < 0) return (-1);
+    if (tcp_so_fd < 0)
+        return (-1);
 
     memset((char *)&cli_addr, 0, sizeof(cli_addr));  // ?? Don't need this ?
     // cli_addr.sun_family = CS_FAM;                                     // ""
@@ -98,24 +95,29 @@ int HUTransportStreamTCP::itcp_accept() {
     errno = 0;
     int ret = 0;
     if (wifi_direct) {
-        readfd = accept(tcp_so_fd, (struct sockaddr *)&cli_addr, &cli_len);
+        loge("Reading from WiFi direct");
+        int tries = 0;
+        while (readfd < 0) {
+            if (tries > 5){
+                loge("itcp accept timed out");
+                break;
+            }
+            readfd = accept(tcp_so_fd, (struct sockaddr *)&cli_addr, &cli_len);
+            ms_sleep(100);
+            tries++;
+        }
         if (readfd < 0) {
             loge("Error accept errno: %d (%s)", errno, strerror(errno));
             return (-1);
         }
     } else {
-        inet_pton(AF_INET, settings["network_address"].c_str(),
-                  &(cli_addr.sin_addr));
+        inet_pton(AF_INET, settings["network_address"].c_str(), &(cli_addr.sin_addr));
         cli_addr.sin_family = AF_INET;
         cli_addr.sin_port = htons(5277);
-        // logd ("cli_len: %d  fam: %d  addr: 0x%x  port:
-        // %d",cli_len,cli_addr.sin_family, ntohl (cli_addr.sin_addr.s_addr),
-        // ntohs (cli_addr.sin_port));
 
         ret = connect(tcp_so_fd, (const struct sockaddr *)&cli_addr, cli_len);
         if (ret != 0) {
-            if (errno !=
-                last_errno)  // avoid spamming the log with the same error
+            if (errno != last_errno)  // avoid spamming the log with the same error
             {
                 loge("Error connect errno: %d (%s)", errno, strerror(errno));
                 last_errno = errno;
@@ -130,20 +132,18 @@ int HUTransportStreamTCP::itcp_accept() {
 }
 
 int HUTransportStreamTCP::itcp_init() {
-    int net_port = 30515;
+    int net_port = 5000;
 
     int cmd_len = 0, ctr = 0;
     // struct hostent *hp;
 
     errno = 0;
-    if ((tcp_so_fd = socket(CS_FAM, CS_SOCK_TYPE, 0)) < 0) {  // Create socket
+    if ((tcp_so_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK , 0)) < 0) {  // Create socket
         loge("gen_server_loop socket  errno: %d (%s)", errno, strerror(errno));
         return (-1);
     }
     int flag = 1;
-    int ret = setsockopt(
-        tcp_so_fd, SOL_TCP, TCP_NODELAY, &flag,
-        sizeof(flag));  // Only need this for IO socket from accept() ??
+    int ret = setsockopt(tcp_so_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &flag, sizeof(flag));
     if (ret != 0)
         loge("setsockopt TCP_NODELAY errno: %d (%s)", errno, strerror(errno));
     else
@@ -153,38 +153,19 @@ int HUTransportStreamTCP::itcp_init() {
         memset((char *)&srv_addr, 0, sizeof(srv_addr));
 
         srv_addr.sin_family = AF_INET;
-        srv_addr.sin_addr.s_addr =
-            htonl(INADDR_ANY);  // Will bind to any/all Interfaces/IPs
+        srv_addr.sin_addr.s_addr = INADDR_ANY;
 
-        // errno = 0;
-        // hp = gethostbyname ("localhost");
-        // if (hp == 0) {
-        //  loge ("Error gethostbyname  errno: %d (%s)", errno, strerror
-        //  (errno)); return (-2);
-        //}
-        // bcopy ((char *) hp->h_addr, (char *) & srv_addr.sin_addr,
-        // hp->h_length);
         srv_addr.sin_port = htons(net_port);
         srv_len = sizeof(struct sockaddr_in);
 
-        logd("srv_len: %d  fam: %d  addr: 0x%x  port: %d", srv_len,
-             srv_addr.sin_family, ntohl(srv_addr.sin_addr.s_addr),
-             ntohs(srv_addr.sin_port));
+        logd("srv_len: %d  fam: %d  addr: 0x%x  port: %d", srv_len, srv_addr.sin_family, ntohl(srv_addr.sin_addr.s_addr), ntohs(srv_addr.sin_port));
         errno = 0;
-        if (bind(tcp_so_fd, (struct sockaddr *)&srv_addr, srv_len) <
-            0) {  // Bind socket to server address
+        if (bind(tcp_so_fd, (struct sockaddr *)&srv_addr, srv_len) < 0) {  // Bind socket to server address
             loge("Error bind  errno: %d (%s)", errno, strerror(errno));
-            loge(
-                "Inet stream continuing despite bind error");  // OK to continue
-                                                               // w/ Internet
-                                                               // Stream
+            loge("Inet stream continuing despite bind error");  // OK to continue
+                                                                // w/ Internet
+                                                                // Stream
         }
-
-        // Done after socket() and before bind() so don't repeat it here ?
-        // if (tmo != 0)
-        //  sock_tmo_set (tcp_so_fd, tmo);                                   //
-        //  If polling mode, set socket timeout for polling every tmo
-        //  milliseconds
 
         // Get command from client
         errno = 0;
@@ -197,7 +178,10 @@ int HUTransportStreamTCP::itcp_init() {
     }
 
     // readfd = -1;
-    while (readfd < 0) {  // While we don't have an IO socket file descriptor...
+    if (readfd >= 0) {
+        itcp_deinit();        
+    }
+    while (readfd < 0) {      // While we don't have an IO socket file descriptor...
         ret = itcp_accept();  // Try to get one with 100 ms timeout
         if (ret < 0) {
             loge("Error while trying to read from TCP stream");
@@ -226,9 +210,9 @@ int HUTransportStreamTCP::Start() {
         return (0);
     }
 
-    //#include <sys/prctl.h>
-    // ret = prctl (PR_GET_DUMPABLE, 1, 0, 0, 0);  // 1 = SUID_DUMP_USER
-    // logd ("prctl ret: %d", ret);
+    // #include <sys/prctl.h>
+    //  ret = prctl (PR_GET_DUMPABLE, 1, 0, 0, 0);  // 1 = SUID_DUMP_USER
+    //  logd ("prctl ret: %d", ret);
 
     itcp_state = hu_STATE_STARTIN;
     logd("  SET: itcp_state: %d (%s)", itcp_state, state_get(itcp_state));

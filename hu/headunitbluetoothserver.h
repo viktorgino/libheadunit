@@ -1,47 +1,53 @@
 #ifndef HEADUNITBLUETOOTHSERVER_H
 #define HEADUNITBLUETOOTHSERVER_H
 
-#include <QObject>
 #include <QBluetoothServer>
-#include <QNetworkInterface>
-#include <QThread>
 #include <QLoggingCategory>
-#include "bt.pb.h"
+#include <QNetworkInterface>
+#include <QObject>
+#include <QThread>
 
+#include "bt.pb.h"
 
 class HeadunitBluetoothServer : public QObject
 {
     Q_OBJECT
 public:
-    explicit HeadunitBluetoothServer(QObject *parent = nullptr);
-
     typedef struct Config {
         QBluetoothAddress btAddress;
-        uint16_t btPort = 0;
         QString wlanMacAddress = "";
         QString wlanSSID = "";
         QString wlanPSK = "";
+        QString wlanIP = "";
     } Config;
 
-    bool start(const Config& config);
+    explicit HeadunitBluetoothServer(QObject* parent = nullptr);
+
+    int start(const Config& config);
+
+signals:
+    void deviceConnected();
 
 private slots:
     void onClientConnected();
-    void readSocket();
 
 private:
-    QBluetoothServer m_rfcommServer;
-    QBluetoothSocket* m_socket;
-
+    QBluetoothServer rfcommServer_;
+    QBluetoothSocket* socket = nullptr;
     Config m_config;
 
-    void handleUnknownMessage(int messageType, QByteArray data);
-    void handleSocketInfoRequest(QByteArray data);
-    void handleSocketInfoRequestResponse(QByteArray data);
-    void writeSocketInfoRequest();
-    void writeSocketInfoResponse();
-    void writeNetworkInfoMessage();
-    bool writeProtoMessage(uint16_t messageType, google::protobuf::Message& message);
-};
+    void readSocket();
 
+    QByteArray buffer;
+
+    void handleWifiInfoRequest(QByteArray &buffer, uint16_t length);
+
+    void sendMessage(const google::protobuf::Message &message, uint16_t type);
+
+    void handleWifiSecurityRequest(QByteArray &buffer, uint16_t length);
+
+    void handleWifiInfoRequestResponse(QByteArray &buffer, uint16_t length);
+
+    const ::std::string getIP4_(const QString intf);
+};
 #endif // HEADUNITBLUETOOTHSERVER_H
