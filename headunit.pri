@@ -1,7 +1,5 @@
-TEMPLATE = lib
 CONFIG += plugin link_pkgconfig
-TARGET = $$qtLibraryTarget(libheadunit)
-DEFINES += QT_DEPRECATED_WARNINGS
+
 
 PKGCONFIG += libssl libcrypto libusb-1.0 glib-2.0 gobject-2.0
 PKGCONFIG += protobuf
