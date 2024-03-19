@@ -31,11 +31,9 @@ void BluetoothServer::onClientConnected()
     socket = rfcommServer_.nextPendingConnection();
 
     if (socket != nullptr) {
-        qCInfo(HEADUNIT_BT_SERVER) << "[AndroidBluetoothServer] rfcomm client connected, peer name: " << socket->peerName();
+        qCInfo(HEADUNIT_BT_SERVER) << "New device connected: " << socket->peerName();
 
         connect(socket, &QBluetoothSocket::readyRead, this, &BluetoothServer::readSocket);
-        //                    connect(socket, &QBluetoothSocket::disconnected, this,
-        //                            QOverload<>::of(&ChatServer::clientDisconnected));
 
         HU::WifiInfoRequest request;
         request.set_ip_address(m_config.wlanIP.toStdString());
@@ -43,7 +41,7 @@ void BluetoothServer::onClientConnected()
 
         sendMessage(request, 1);
     } else {
-        qCWarning(HEADUNIT_BT_SERVER) << "[AndroidBluetoothServer] received null socket during client connection.";
+        qCWarning(HEADUNIT_BT_SERVER) << "Received null socket during client connection.";
     }
 }
 
@@ -51,10 +49,8 @@ void BluetoothServer::readSocket()
 {
     buffer += socket->readAll();
 
-    qCInfo(HEADUNIT_BT_SERVER)  << "Received message";
-
     if (buffer.length() < 4) {
-        qCDebug(HEADUNIT_BT_SERVER)  << "Not enough data, waiting for more";
+        qCWarning(HEADUNIT_BT_SERVER)  << "Not enough data, waiting for more";
         return;
     }
 
@@ -63,14 +59,12 @@ void BluetoothServer::readSocket()
     stream >> length;
 
     if (buffer.length() < length + 4) {
-        qCInfo(HEADUNIT_BT_SERVER)  << "Not enough data, waiting for more: " << buffer.length();
+        qCWarning(HEADUNIT_BT_SERVER)  << "Not enough data, waiting for more: " << buffer.length();
         return;
     }
 
     uint16_t messageId;
     stream >> messageId;
-
-    // qCInfo(HEADUNIT_BT_SERVER)  << "[AndroidBluetoothServer] " << length << " " << messageId;
 
     switch (messageId) {
     case 1:
@@ -83,6 +77,7 @@ void BluetoothServer::readSocket()
         handleWifiInfoRequestResponse(buffer, length);
         break;
     case 6:
+        qCInfo(HEADUNIT_BT_SERVER) << "Connection successful";
         emit deviceConnected();
         break;
     default: {
@@ -91,8 +86,7 @@ void BluetoothServer::readSocket()
         for (auto&& val : buffer) {
             ss << std::setw(2) << static_cast<unsigned>(val);
         }
-        qCInfo(HEADUNIT_BT_SERVER)  << "Unknown message: " << messageId;
-        qCInfo(HEADUNIT_BT_SERVER) << QString::fromStdString(ss.str());
+        qCWarning(HEADUNIT_BT_SERVER)  << "Unknown message: (" << messageId << ") " << QString::fromStdString(ss.str());
         break;
     }
     }
@@ -104,7 +98,6 @@ void BluetoothServer::handleWifiInfoRequest(QByteArray& buffer, uint16_t length)
 {
     HU::WifiInfoRequest msg;
     msg.ParseFromArray(buffer.data() + 4, length);
-    qCInfo(HEADUNIT_BT_SERVER) << "WifiInfoRequest: " << QString::fromStdString(msg.DebugString());
 
     HU::WifiInfoResponse response;
     response.set_ip_address(m_config.wlanIP.toStdString());
@@ -116,7 +109,6 @@ void BluetoothServer::handleWifiInfoRequest(QByteArray& buffer, uint16_t length)
 
 void BluetoothServer::handleWifiSecurityRequest(QByteArray& buffer, uint16_t length)
 {
-    qCInfo(HEADUNIT_BT_SERVER) << "handleWifiSecurityRequest: " << buffer.toHex();
     HU::WifiSecurityReponse response;
 
     response.set_ssid(m_config.wlanSSID.toStdString());
@@ -137,13 +129,9 @@ void BluetoothServer::sendMessage(const google::protobuf::Message& message, uint
     ds << type;
     message.SerializeToArray(out.data() + 4, byteSize);
 
-    qCDebug(HEADUNIT_BT_SERVER) << QString::fromStdString(message.GetTypeName()) << " - " + QString::fromStdString(message.DebugString());
-
     auto written = socket->write(out);
-    if (written > -1) {
-        qCInfo(HEADUNIT_BT_SERVER) << "Bytes written: " << written;
-    } else {
-        qCInfo(HEADUNIT_BT_SERVER) << "Could not write data";
+    if (written < 0) {
+        qCWarning(HEADUNIT_BT_SERVER) << "Could not write data";
     }
 }
 
@@ -151,5 +139,4 @@ void BluetoothServer::handleWifiInfoRequestResponse(QByteArray& buffer, uint16_t
 {
     HU::WifiInfoResponse msg;
     msg.ParseFromArray(buffer.data() + 4, length);
-    qCInfo(HEADUNIT_BT_SERVER) << "WifiInfoResponse: " << QString::fromStdString(msg.DebugString());
 }
