@@ -5,30 +5,28 @@ PKGCONFIG += libssl libcrypto libusb-1.0 glib-2.0 gobject-2.0
 PKGCONFIG += protobuf
 
 SOURCES += \
-    headunit/hu/bluetoothserver.cpp \
-    headunit/hu/bluetoothservice.cpp \
-    headunit/hu/hu_aad.cpp \
-    headunit/hu/hu_aap.cpp \
-    headunit/hu/hu_ssl.cpp \
-    headunit/hu/hu_tcp.cpp \
-    headunit/hu/hu_usb.cpp \
-    headunit/hu/hu_uti.cpp \
-    headunit/hu/generated.x64/hu.pb.cc \
-    headunit/hu/generated.x64/bt.pb.cc 
-    
+    $$PWD/src/BluetoothServer.cpp \
+    $$PWD/src/BluetoothService.cpp \
+    $$PWD/src/hu_aap.cpp \
+    $$PWD/src/hu_ssl.cpp \
+    $$PWD/src/hu_tcp.cpp \
+    $$PWD/src/hu_usb.cpp \
+    $$PWD/src/hu_uti.cpp \
+    $$PWD/src/protocol/AndroidAuto.pb.cc \
+    $$PWD/src/protocol/Bluetooth.pb.cc 
 
-INCLUDEPATH +=$$PWD/hu
-INCLUDEPATH +=$$PWD/hu/generated.x64
-
+INCLUDEPATH += $${PWD}/includes
+INCLUDEPATH += $${PWD}/includes/protocol
 
 HEADERS += \
-    headunit/hu/bluetoothserver.h \
-    headunit/hu/bluetoothservice.h \
-    headunit/hu/hu_aad.h \
-    headunit/hu/hu_aap.h \
-    headunit/hu/hu_ssl.h \
-    headunit/hu/hu_tcp.h \
-    headunit/hu/hu_usb.h \
-    headunit/hu/hu_uti.h \
-    headunit/hu/generated.x64/hu.pb.h \
-    headunit/hu/generated.x64/bt.pb.h
+    $$PWD/includes/AndroidAuto.h \
+    $$PWD/includes/BluetoothServer.h \
+    $$PWD/includes/BluetoothService.h \
+    $$PWD/includes/HeadunitEventCallbacks.h \
+    $$PWD/includes/defs.h \
+    $$PWD/includes/hu_ssl.h \
+    $$PWD/includes/hu_tcp.h \
+    $$PWD/includes/hu_usb.h \
+    $$PWD/includes/hu_uti.h \
+    $$PWD/includes/protocol/AndroidAuto.pb.h \
+    $$PWD/includes/protocol/Bluetooth.pb.h

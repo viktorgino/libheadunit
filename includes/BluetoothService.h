@@ -1,5 +1,4 @@
-#ifndef HEADUNITBLUETOOTHSERVICE_H
-#define HEADUNITBLUETOOTHSERVICE_H
+#pragma once
 
 #include <QObject>
 #include <QBluetoothServer>
@@ -16,5 +15,3 @@ public:
 private:
     QBluetoothServiceInfo serviceInfo_;
 };
-
-#endif // HEADUNITBLUETOOTHSERVICE_H

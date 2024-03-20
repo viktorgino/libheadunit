@@ -1,8 +1,8 @@
-#include "bluetoothserver.h"
+#include "BluetoothServer.h"
 #include <QDataStream>
 #include <QLoggingCategory>
 
-#include "bt.pb.h"
+#include "protocol/Bluetooth.pb.h"
 
 Q_LOGGING_CATEGORY(HEADUNIT_BT_SERVER, "libheadunit::BluetoothServer")
 
@@ -68,6 +68,7 @@ void BluetoothServer::readSocket()
 
     switch (messageId) {
     case 1:
+        qCInfo(HEADUNIT_BT_SERVER) << "WiFi Info Request";
         handleWifiInfoRequest(buffer, length);
         break;
     case 2:

@@ -1,23 +1,24 @@
 #include <libusb.h>
 #include <poll.h>
+
 #include <condition_variable>
 #include <mutex>
 #include <thread>
 #include <vector>
-#include "hu_aap.h"
 
+#include "AndroidAuto.h"
 
 namespace AndroidAuto {
 
 class HUTransportStreamUSB : public HUTransportStream {
-   public:
+public:
     ~HUTransportStreamUSB();
     HUTransportStreamUSB(std::map<std::string, std::string> _settings);
     virtual int Start() override;
     virtual int Stop() override;
     virtual int Write(const byte* buf, int len, int tmo) override;
 
-   private:
+private:
     libusb_context* m_usbContext = NULL;
     libusb_device_handle* m_usbDeviceHandle = NULL;
     enum HU_STATE m_state = hu_STATE_INITIAL;
@@ -47,12 +48,11 @@ class HUTransportStreamUSB : public HUTransportStream {
     static void libusb_callback_send_tramp(libusb_transfer* transfer);
 
     void libusb_callback_pollfd_added(int fd, short events);
-    static void libusb_callback_pollfd_added_tramp(int fd, short events,
-                                                   void* user_data);
+    static void libusb_callback_pollfd_added_tramp(int fd, short events, void* user_data);
 
     void libusb_callback_pollfd_removed(int fd);
     static void libusb_callback_pollfd_removed_tramp(int fd, void* user_data);
 
     libusb_device_handle* find_oap_device();
 };
-}
+}  // namespace AndroidAuto

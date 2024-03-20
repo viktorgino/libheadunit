@@ -1,5 +1,4 @@
-#ifndef BluetoothServer_H
-#define BluetoothServer_H
+#pragma once
 
 #include <QBluetoothServer>
 #include <QLoggingCategory>
@@ -7,7 +6,7 @@
 #include <QObject>
 #include <QThread>
 
-#include "bt.pb.h"
+#include "protocol/Bluetooth.pb.h"
 
 class BluetoothServer : public QObject
 {
@@ -50,4 +49,3 @@ private:
 
     const ::std::string getIP4_(const QString intf);
 };
-#endif // BluetoothServer_H

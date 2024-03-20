@@ -1,6 +1,7 @@
 #define MR_SSL_INTERNAL  // For certificate and private key only
 #define LOGTAG "hu_ssl"
-#include "hu_aap.h"
+#include "defs.h"
+#include "AndroidAuto.h"
 #include "hu_uti.h"
 
 #include <openssl/bio.h>

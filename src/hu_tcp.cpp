@@ -3,9 +3,6 @@
 
 #include "hu_uti.h"  // Utilities
 
-int itcp_state = 0;  // 0: Initial    1: Startin    2: Started    3: Stoppin    4: Stopped
-int last_errno = 0;  // store last error printed
-
 #include <arpa/inet.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -31,7 +28,6 @@ HUTransportStreamTCP::HUTransportStreamTCP(std::map<std::string, std::string> _s
 }
 
 int HUTransportStreamTCP::Write(const byte *buf, int len, int tmo) {
-    // int ret = itcp_bulk_transfer (itcp_ep_out, buf, len, tmo);      //
     // milli-second timeout
     if (readfd < 0)
         return (-1);
@@ -52,12 +48,7 @@ int HUTransportStreamTCP::Write(const byte *buf, int len, int tmo) {
     ret = write(readfd, buf, len);
     if (ret != len) {  // Write, if can't write full buffer...
         loge("Error write  errno: %d (%s)", errno, strerror(errno));
-        // ms_sleep (101);                                                 //
-        // Sleep 0.1 second to try to clear errors
     }
-    // close (readfd);
-    //}
-    // close (tcp_so_fd);
 
     return (ret);
 }
@@ -74,7 +65,7 @@ int HUTransportStreamTCP::itcp_deinit() {  // !!!! Need to better reset and wait
         close(tcp_so_fd);
     tcp_so_fd = -1;
 
-    logd("Done");
+    logd("itcp_deinit done");
 
     return (0);
 }
@@ -88,9 +79,8 @@ int HUTransportStreamTCP::itcp_accept() {
     if (tcp_so_fd < 0)
         return (-1);
 
-    memset((char *)&cli_addr, 0, sizeof(cli_addr));  // ?? Don't need this ?
-    // cli_addr.sun_family = CS_FAM;                                     // ""
-    cli_len = sizeof(cli_addr);
+    struct sockaddr_in  cli_addr;
+    socklen_t cli_len = sizeof(cli_addr);
 
     errno = 0;
     int ret = 0;
@@ -98,7 +88,7 @@ int HUTransportStreamTCP::itcp_accept() {
         loge("Reading from WiFi direct");
         int tries = 0;
         while (readfd < 0) {
-            if (tries > 5){
+            if (tries > 10){
                 loge("itcp accept timed out");
                 break;
             }
@@ -135,7 +125,6 @@ int HUTransportStreamTCP::itcp_init() {
     int net_port = 5000;
 
     int cmd_len = 0, ctr = 0;
-    // struct hostent *hp;
 
     errno = 0;
     if ((tcp_so_fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK , 0)) < 0) {  // Create socket
@@ -150,21 +139,20 @@ int HUTransportStreamTCP::itcp_init() {
         logd("setsockopt TCP_NODELAY Success");
 
     if (wifi_direct) {
-        memset((char *)&srv_addr, 0, sizeof(srv_addr));
+        struct sockaddr_in  srv_addr;
+        socklen_t srv_len = sizeof(struct sockaddr_in);
 
         srv_addr.sin_family = AF_INET;
         srv_addr.sin_addr.s_addr = INADDR_ANY;
 
         srv_addr.sin_port = htons(net_port);
-        srv_len = sizeof(struct sockaddr_in);
+        
 
         logd("srv_len: %d  fam: %d  addr: 0x%x  port: %d", srv_len, srv_addr.sin_family, ntohl(srv_addr.sin_addr.s_addr), ntohs(srv_addr.sin_port));
         errno = 0;
         if (bind(tcp_so_fd, (struct sockaddr *)&srv_addr, srv_len) < 0) {  // Bind socket to server address
             loge("Error bind  errno: %d (%s)", errno, strerror(errno));
-            loge("Inet stream continuing despite bind error");  // OK to continue
-                                                                // w/ Internet
-                                                                // Stream
+            loge("Inet stream continuing despite bind error");
         }
 
         // Get command from client
@@ -177,7 +165,6 @@ int HUTransportStreamTCP::itcp_init() {
         logd("itcp_init Ready");
     }
 
-    // readfd = -1;
     if (readfd >= 0) {
         itcp_deinit();        
     }
@@ -209,10 +196,6 @@ int HUTransportStreamTCP::Start() {
         logd("CHECK: itcp_state: %d (%s)", itcp_state, state_get(itcp_state));
         return (0);
     }
-
-    // #include <sys/prctl.h>
-    //  ret = prctl (PR_GET_DUMPABLE, 1, 0, 0, 0);  // 1 = SUID_DUMP_USER
-    //  logd ("prctl ret: %d", ret);
 
     itcp_state = hu_STATE_STARTIN;
     logd("  SET: itcp_state: %d (%s)", itcp_state, state_get(itcp_state));
