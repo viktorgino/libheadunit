@@ -11,6 +11,7 @@ public:
 
     bool registerService(const QBluetoothAddress& bluetoothAddress, uint16_t portNumber);
     bool unregisterService();
+    QBluetoothServiceInfo getServiceInfo();
 
 private:
     QBluetoothServiceInfo serviceInfo_;

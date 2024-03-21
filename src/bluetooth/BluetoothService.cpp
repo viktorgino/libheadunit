@@ -39,3 +39,7 @@ bool BluetoothService::unregisterService()
 {
     return serviceInfo_.unregisterService();
 }
+
+QBluetoothServiceInfo BluetoothService::getServiceInfo() {
+    return serviceInfo_;    
+}

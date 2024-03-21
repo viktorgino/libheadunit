@@ -1,11 +1,14 @@
 #pragma once
 
 #include <QBluetoothServer>
+#include <QBluetoothLocalDevice>
+#include <QBluetoothSocket>
 #include <QLoggingCategory>
 #include <QNetworkInterface>
 #include <QObject>
 #include <QThread>
 
+#include "bluetooth/BluetoothService.h"
 #include "protocol/Bluetooth.pb.h"
 
 class BluetoothServer : public QObject
@@ -21,8 +24,9 @@ public:
     } Config;
 
     explicit BluetoothServer(QObject* parent = nullptr);
+    ~BluetoothServer();
 
-    int start(const Config& config);
+    void start(const Config& config);
 
 signals:
     void deviceConnected();
@@ -31,6 +35,7 @@ private slots:
     void onClientConnected();
 
 private:
+    BluetoothService m_bluetoothService;
     QBluetoothServer rfcommServer_;
     QBluetoothSocket* socket = nullptr;
     Config m_config;

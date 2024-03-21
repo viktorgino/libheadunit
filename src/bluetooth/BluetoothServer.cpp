@@ -8,18 +8,32 @@ Q_LOGGING_CATEGORY(HEADUNIT_BT_SERVER, "libheadunit::BluetoothServer")
 
 BluetoothServer::BluetoothServer(QObject* parent)
     : QObject(parent)
+    , m_bluetoothService(this)
     , rfcommServer_(QBluetoothServiceInfo::RfcommProtocol, this)
 {
     connect(&rfcommServer_, &QBluetoothServer::newConnection, this, &BluetoothServer::onClientConnected);
 }
 
-int BluetoothServer::start(const Config& config)
+BluetoothServer::~BluetoothServer(){
+
+    m_bluetoothService.unregisterService();
+    qDebug() << "Service unregistered";
+}
+
+void BluetoothServer::start(const Config& config)
 {
     m_config = config;
+
+    QBluetoothLocalDevice localDevice(m_config.btAddress, this);
+
     if (rfcommServer_.listen(m_config.btAddress)) {
-        return rfcommServer_.serverPort();
+        int port = rfcommServer_.serverPort();
+        qCInfo(HEADUNIT_BT_SERVER) << "Listening on " << m_config.btAddress.toString() << "port" << port;
+            
+        if (!m_bluetoothService.registerService(m_config.btAddress, port)) {
+            qWarning() << "[btservice] Service registration failed.";
+        }
     }
-    return 0;
 }
 
 void BluetoothServer::onClientConnected()
