@@ -111,13 +111,13 @@ USBTransportStream::USBTransportStream(std::map<std::string, std::string> _setti
 }
 
 USBTransportStream::~USBTransportStream() {
-    if (m_state != hu_STATE_STOPPED) {
+    if (m_state != HU_STATE::hu_STATE_STOPPED) {
         Stop();
     }
 }
 
 int USBTransportStream::Stop() {
-    m_state = hu_STATE_STOPPIN;
+    m_state = HU_STATE::hu_STATE_STOPPIN;
     logd("  SET: iusb_state: %d (%s)", m_state, state_get(m_state));
 
     close(readfd);
@@ -167,7 +167,7 @@ int USBTransportStream::Stop() {
         m_usbContext = nullptr;
     }
 
-    m_state = hu_STATE_STOPPED;
+    m_state = HU_STATE::hu_STATE_STOPPED;
     logd("  SET: iusb_state: %d (%s)", m_state, state_get(m_state));
     return 0;
 }
@@ -277,12 +277,12 @@ int USBTransportStream::start_usb_recv() {
 }
 
 int USBTransportStream::Start() {
-    if (m_state == hu_STATE_STARTED) {
+    if (m_state == HU_STATE::hu_STATE_STARTED) {
         logd("CHECK: iusb_state: %d (%s)", m_state, state_get(m_state));
         return (0);
     }
 
-    m_state = hu_STATE_STARTIN;
+    m_state = HU_STATE::hu_STATE_STARTIN;
     logd("  SET: iusb_state: %d (%s)", m_state, state_get(m_state));
 
     if (libusb_init(&m_usbContext) < 0) {
@@ -503,7 +503,7 @@ int USBTransportStream::Start() {
     m_tempReceiveBuffer.resize(16384);
     start_usb_recv();
 
-    m_state = hu_STATE_STARTED;
+    m_state = HU_STATE::hu_STATE_STARTED;
     logd("  SET: iusb_state: %d (%s)", m_state, state_get(m_state));
     return (0);
 }

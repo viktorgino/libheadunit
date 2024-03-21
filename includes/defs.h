@@ -31,15 +31,15 @@ const char *getChannel(ServiceChannels chan);
 
 inline const char *state_get(int state) {
     switch (state) {
-        case hu_STATE_INITIAL:  // 0
+        case HU_STATE::hu_STATE_INITIAL:  // 0
             return ("hu_STATE_INITIAL");
-        case hu_STATE_STARTIN:  // 1
+        case HU_STATE::hu_STATE_STARTIN:  // 1
             return ("hu_STATE_STARTIN");
-        case hu_STATE_STARTED:  // 2
+        case HU_STATE::hu_STATE_STARTED:  // 2
             return ("hu_STATE_STARTED");
-        case hu_STATE_STOPPIN:  // 3
+        case HU_STATE::hu_STATE_STOPPIN:  // 3
             return ("hu_STATE_STOPPIN");
-        case hu_STATE_STOPPED:  // 4
+        case HU_STATE::hu_STATE_STOPPED:  // 4
             return ("hu_STATE_STOPPED");
     }
     return ("hu_STATE Unknown error");
@@ -83,14 +83,14 @@ enum HU_FRAME_FLAGS {
     HU_FRAME_ENCRYPTED = 1 << 3,
 };
 
-enum class HU_INIT_MESSAGE : uint16_t {
+enum class INIT_MESSAGE : uint16_t {
     VersionRequest = 0x0001,
     VersionResponse = 0x0002,
     SSLHandshake = 0x0003,
     AuthComplete = 0x0004,
 };
 
-enum class HU_PROTOCOL_MESSAGE : uint16_t {
+enum class PROTOCOL_MESSAGE : uint16_t {
     MediaDataWithTimestamp = 0x0000,
     MediaData = 0x0001,
     ServiceDiscoveryRequest = 0x0005,
@@ -108,7 +108,7 @@ enum class HU_PROTOCOL_MESSAGE : uint16_t {
     AudioFocusResponse = 0x0013,
 };  // If video data, put on queue
 
-enum class HU_MEDIA_CHANNEL_MESSAGE : uint16_t {
+enum class MEDIA_CHANNEL_MESSAGE : uint16_t {
     MediaSetupRequest = 0x8000,   // Setup
     MediaStartRequest = 0x8001,   // Start
     MediaStopRequest = 0x8002,    // Stop
@@ -120,38 +120,38 @@ enum class HU_MEDIA_CHANNEL_MESSAGE : uint16_t {
     VideoFocus = 0x8008,
 };
 
-enum class HU_SENSOR_CHANNEL_MESSAGE : uint16_t {
+enum class SENSOR_CHANNEL_MESSAGE : uint16_t {
     SensorStartRequest = 0x8001,
     SensorStartResponse = 0x8002,
     SensorEvent = 0x8003,
 };
 
-enum class HU_INPUT_CHANNEL_MESSAGE : uint16_t {
+enum class INPUT_CHANNEL_MESSAGE : uint16_t {
     InputEvent = 0x8001,
     BindingRequest = 0x8002,
     BindingResponse = 0x8003,
 };
 
-enum class HU_PHONE_STATUS_CHANNEL_MESSAGE : uint16_t {
+enum class PHONE_STATUS_CHANNEL_MESSAGE : uint16_t {
     PhoneStatus = 0x8001,
     PhoneStatusInput = 0x8002,
 };
 
-enum class HU_BLUETOOTH_CHANNEL_MESSAGE : uint16_t {
+enum class BLUETOOTH_CHANNEL_MESSAGE : uint16_t {
     BluetoothPairingRequest = 0x8001,
     BluetoothPairingResponse = 0x8002,
     BluetoothAuthData = 0x8003,
 };
 
 // Not sure if these are right
-enum class HU_GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE : uint16_t {
+enum class GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE : uint16_t {
     StartGenericNotifications = 0x8001,
     StopGenericNotifications = 0x8002,
     GenericNotificationRequest = 0x8003,
     GenericNotificationResponse = 0x8004,
 };
 
-enum HU_INPUT_BUTTON {
+enum INPUT_BUTTON {
     HUIB_MIC1 = 0x01,
     HUIB_MENU = 0x02,
     HUIB_HOME = 0x03,

@@ -91,7 +91,7 @@ int HUServer::sendSSLHandshakePacket() {
 
     int ret =
         sendUnencodedBlob(0, ControlChannel,
-                          HU_INIT_MESSAGE::SSLHandshake, hs_buf, len, 5000);
+                          INIT_MESSAGE::SSLHandshake, hs_buf, len, 5000);
     if (ret < 0) {
         loge("hu_aap_tra_send() HS client req ret: %d  len: %d", ret, len);
         return -1;
@@ -280,7 +280,7 @@ int HUServer::handleSSLHandshake(byte *buf, int len) {
     HU::AuthCompleteResponse response;
     response.set_status(HU::STATUS_OK);
     ret = sendUnencodedMessage(0, ControlChannel,
-                               HU_INIT_MESSAGE::AuthComplete, response, 2000);
+                               INIT_MESSAGE::AuthComplete, response, 2000);
     if (ret < 0) {
         loge("hu_aap_unenc_send_message() ret: %d", ret);
         stop();
@@ -288,7 +288,7 @@ int HUServer::handleSSLHandshake(byte *buf, int len) {
     }
     logSSLInfo();
 
-    iaap_state = hu_STATE_STARTED;
+    iaap_state = HU_STATE::hu_STATE_STARTED;
     logd("  SET: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
 
     return 0;

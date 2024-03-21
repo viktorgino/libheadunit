@@ -81,7 +81,7 @@ int HUServer::stopTransport() {
 
 int HUServer::receiveTransportPacket(byte *buf, int len, int tmo) {
     int ret = 0;
-    if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {  // Need to recv when starting
+    if (iaap_state != HU_STATE::hu_STATE_STARTED && iaap_state != HU_STATE::hu_STATE_STARTIN) {  // Need to recv when starting
         loge("CHECK: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
         return (-1);
     }
@@ -127,7 +127,7 @@ int log_packet_info = 1;
 int HUServer::sendTransportPacket(int retry, byte *buf, int len,
                                   int tmo) {  // Send Transport data: chan,flags,len,type,...
     // Need to send when starting
-    if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
+    if (iaap_state != HU_STATE::hu_STATE_STARTED && iaap_state != HU_STATE::hu_STATE_STARTIN) {
         loge("CHECK: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
         return (-1);
     }
@@ -193,7 +193,7 @@ int HUServer::sendEncodedMediaPacket(int retry, ServiceChannels chan, uint16_t m
 
 int HUServer::sendEncoded(int retry, ServiceChannels chan, byte *buf, int len,
                           int overrideTimeout) {  // Encrypt data and send: type,...
-    if (iaap_state != hu_STATE_STARTED) {
+    if (iaap_state != HU_STATE::hu_STATE_STARTED) {
         logw("CHECK: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
         // logw ("chan: %d  len: %d  buf: %p", chan, len, buf);
         // hex_dump (" W/    hu_aap_enc_send: ", 16, buf, len);    // Byebye:
@@ -272,7 +272,7 @@ int HUServer::sendEncoded(int retry, ServiceChannels chan, byte *buf, int len,
 
 int HUServer::sendUnencoded(int retry, ServiceChannels chan, byte *buf, int len,
                             int overrideTimeout) {  // Encrypt data and send: type,...
-    if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
+    if (iaap_state != HU_STATE::hu_STATE_STARTED && iaap_state != HU_STATE::hu_STATE_STARTIN) {
         logw("CHECK: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
         // logw ("chan: %d  len: %d  buf: %p", chan, len, buf);
         // hex_dump (" W/    hu_aap_enc_send: ", 16, buf, len);    // Byebye:
@@ -410,7 +410,7 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte *buf,
         tsConfig->set_width(stoul(settings["ts_width"]));
         tsConfig->set_height(stoul(settings["ts_height"]));
 
-        // No idea what these mean since they aren't the same as HU_INPUT_BUTTON
+        // No idea what these mean since they aren't the same as INPUT_BUTTON
         inner->add_keycodes_supported(HUIB_MENU);         // 0x01 Soft Left (Menu)
         inner->add_keycodes_supported(HUIB_MIC1);         // 0x02 Soft Right (Mic)
         inner->add_keycodes_supported(HUIB_HOME);         // 0x03 Home
@@ -550,7 +550,7 @@ int HUServer::handle_ServiceDiscoveryRequest(ServiceChannels chan, byte *buf,
 
     callbacks.CustomizeCarInfo(carInfo);
 
-    return sendEncodedMessage(0, chan, HU_PROTOCOL_MESSAGE::ServiceDiscoveryResponse, carInfo);
+    return sendEncodedMessage(0, chan, PROTOCOL_MESSAGE::ServiceDiscoveryResponse, carInfo);
 }
 
 int HUServer::handle_PingRequest(ServiceChannels chan, byte *buf,
@@ -563,7 +563,7 @@ int HUServer::handle_PingRequest(ServiceChannels chan, byte *buf,
 
     HU::PingResponse response;
     response.set_timestamp(request.timestamp());
-    return sendEncodedMessage(0, chan, HU_PROTOCOL_MESSAGE::PingResponse, response);
+    return sendEncodedMessage(0, chan, PROTOCOL_MESSAGE::PingResponse, response);
 }
 
 int HUServer::handle_NavigationFocusRequest(ServiceChannels chan, byte *buf,
@@ -576,7 +576,7 @@ int HUServer::handle_NavigationFocusRequest(ServiceChannels chan, byte *buf,
 
     HU::NavigationFocusResponse response;
     response.set_focus_type(2);  // Gained / Gained Transient ?
-    return sendEncodedMessage(0, chan, HU_PROTOCOL_MESSAGE::NavigationFocusResponse, response);
+    return sendEncodedMessage(0, chan, PROTOCOL_MESSAGE::NavigationFocusResponse, response);
 }
 
 int HUServer::handle_ShutdownRequest(ServiceChannels chan, byte *buf,
@@ -591,7 +591,7 @@ int HUServer::handle_ShutdownRequest(ServiceChannels chan, byte *buf,
         loge("Byebye Request reason: %d", request.reason());
 
     HU::ShutdownResponse response;
-    sendEncodedMessage(0, chan, HU_PROTOCOL_MESSAGE::ShutdownResponse, response);
+    sendEncodedMessage(0, chan, PROTOCOL_MESSAGE::ShutdownResponse, response);
 
     ms_sleep(100);  // Wait a bit for response
 
@@ -640,7 +640,7 @@ int HUServer::handle_ChannelOpenRequest(ServiceChannels chan, byte *buf,
     HU::ChannelOpenResponse response;
     response.set_status(HU::STATUS_OK);
 
-    int ret = sendEncodedMessage(0, chan, HU_PROTOCOL_MESSAGE::ChannelOpenResponse, response);
+    int ret = sendEncodedMessage(0, chan, PROTOCOL_MESSAGE::ChannelOpenResponse, response);
     if (ret)  // If error, done with error
         return (ret);
 
@@ -649,7 +649,7 @@ int HUServer::handle_ChannelOpenRequest(ServiceChannels chan, byte *buf,
 
         HU::SensorEvent sensorEvent;
         sensorEvent.add_driving_status()->set_status(HU::SensorEvent::DrivingStatus::DRIVE_STATUS_UNRESTRICTED);
-        return sendEncodedMessage(0, SensorChannel, HU_SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
+        return sendEncodedMessage(0, SensorChannel, SENSOR_CHANNEL_MESSAGE::SensorEvent, sensorEvent);
     }
     return (ret);
 }
@@ -666,7 +666,7 @@ int HUServer::handle_MediaSetupRequest(ServiceChannels chan, byte *buf, int len)
     response.set_max_unacked(1);
     response.add_configs(0);
 
-    int ret = sendEncodedMessage(0, chan, HU_MEDIA_CHANNEL_MESSAGE::MediaSetupResponse, response);
+    int ret = sendEncodedMessage(0, chan, MEDIA_CHANNEL_MESSAGE::MediaSetupResponse, response);
 
     if (!ret) {
         callbacks.MediaSetupComplete(chan);
@@ -726,7 +726,7 @@ int HUServer::handle_SensorStartRequest(ServiceChannels chan, byte *buf,
     HU::SensorStartResponse response;
     response.set_status(HU::STATUS_OK);
 
-    return sendEncodedMessage(0, chan, HU_SENSOR_CHANNEL_MESSAGE::SensorStartResponse, response);
+    return sendEncodedMessage(0, chan, SENSOR_CHANNEL_MESSAGE::SensorStartResponse, response);
 }
 
 int HUServer::handle_BindingRequest(ServiceChannels chan, byte *buf,
@@ -740,7 +740,7 @@ int HUServer::handle_BindingRequest(ServiceChannels chan, byte *buf,
     HU::BindingResponse response;
     response.set_status(HU::STATUS_OK);
 
-    return sendEncodedMessage(0, chan, HU_INPUT_CHANNEL_MESSAGE::BindingResponse, response);
+    return sendEncodedMessage(0, chan, INPUT_CHANNEL_MESSAGE::BindingResponse, response);
 }
 
 int HUServer::handle_MediaAck(ServiceChannels chan, byte *buf, int len) {
@@ -782,7 +782,7 @@ int HUServer::handle_MediaDataWithTimestamp(ServiceChannels chan, byte *buf, int
     mediaAck.set_session(channel_session_id[chan]);
     mediaAck.set_value(1);
 
-    return sendEncodedMessage(0, chan, HU_MEDIA_CHANNEL_MESSAGE::MediaAck, mediaAck);
+    return sendEncodedMessage(0, chan, MEDIA_CHANNEL_MESSAGE::MediaAck, mediaAck);
 }
 
 int HUServer::handle_MediaData(ServiceChannels chan, byte *buf, int len) {
@@ -795,7 +795,7 @@ int HUServer::handle_MediaData(ServiceChannels chan, byte *buf, int len) {
     mediaAck.set_session(channel_session_id[chan]);
     mediaAck.set_value(1);
 
-    return sendEncodedMessage(0, chan, HU_MEDIA_CHANNEL_MESSAGE::MediaAck, mediaAck);
+    return sendEncodedMessage(0, chan, MEDIA_CHANNEL_MESSAGE::MediaAck, mediaAck);
 }
 
 int HUServer::handle_PhoneStatus(ServiceChannels chan, byte *buf, int len) {
@@ -860,7 +860,7 @@ int HUServer::handle_BluetoothPairingRequest(ServiceChannels chan, byte *buf, in
     response.set_already_paired(true);
     response.set_status(HU::BluetoothPairingResponse::PAIRING_STATUS_1);
 
-    return sendEncodedMessage(0, chan, HU_BLUETOOTH_CHANNEL_MESSAGE::BluetoothPairingResponse, response);
+    return sendEncodedMessage(0, chan, BLUETOOTH_CHANNEL_MESSAGE::BluetoothPairingResponse, response);
 }
 
 int HUServer::handle_BluetoothAuthData(ServiceChannels chan, byte *buf, int len) {
@@ -925,11 +925,11 @@ int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte *buf,
         return 0;  // handled
     }
 
-    if (iaap_state == hu_STATE_STARTIN) {
-        switch ((HU_INIT_MESSAGE)msg_type) {
-            case HU_INIT_MESSAGE::VersionResponse:
+    if (iaap_state == HU_STATE::hu_STATE_STARTIN) {
+        switch ((INIT_MESSAGE)msg_type) {
+            case INIT_MESSAGE::VersionResponse:
                 return handle_VersionResponse(chan, buf, len);
-            case HU_INIT_MESSAGE::SSLHandshake:
+            case INIT_MESSAGE::SSLHandshake:
                 return handleSSLHandshake(buf, len);
             default:
                 logw("Unknown msg_type: %d", msg_type);
@@ -939,88 +939,88 @@ int HUServer::processMessage(ServiceChannels chan, uint16_t msg_type, byte *buf,
         const bool isControlMessage = msg_type < 0x8000;
 
         if (isControlMessage) {
-            switch ((HU_PROTOCOL_MESSAGE)msg_type) {
-                case HU_PROTOCOL_MESSAGE::MediaDataWithTimestamp:
+            switch ((PROTOCOL_MESSAGE)msg_type) {
+                case PROTOCOL_MESSAGE::MediaDataWithTimestamp:
                     return handle_MediaDataWithTimestamp(chan, buf, len);
-                case HU_PROTOCOL_MESSAGE::MediaData:
+                case PROTOCOL_MESSAGE::MediaData:
                     return handle_MediaData(chan, buf, len);
-                case HU_PROTOCOL_MESSAGE::ServiceDiscoveryRequest:
+                case PROTOCOL_MESSAGE::ServiceDiscoveryRequest:
                     return handle_ServiceDiscoveryRequest(chan, buf, len);
-                case HU_PROTOCOL_MESSAGE::ChannelOpenRequest:
+                case PROTOCOL_MESSAGE::ChannelOpenRequest:
                     return handle_ChannelOpenRequest(chan, buf, len);
-                case HU_PROTOCOL_MESSAGE::PingRequest:
+                case PROTOCOL_MESSAGE::PingRequest:
                     return handle_PingRequest(chan, buf, len);
-                case HU_PROTOCOL_MESSAGE::NavigationFocusRequest:
+                case PROTOCOL_MESSAGE::NavigationFocusRequest:
                     return handle_NavigationFocusRequest(chan, buf, len);
-                case HU_PROTOCOL_MESSAGE::ShutdownRequest:
+                case PROTOCOL_MESSAGE::ShutdownRequest:
                     return handle_ShutdownRequest(chan, buf, len);
-                case HU_PROTOCOL_MESSAGE::VoiceSessionRequest:
+                case PROTOCOL_MESSAGE::VoiceSessionRequest:
                     return handle_VoiceSessionRequest(chan, buf, len);
-                case HU_PROTOCOL_MESSAGE::AudioFocusRequest:
+                case PROTOCOL_MESSAGE::AudioFocusRequest:
                     return handle_AudioFocusRequest(chan, buf, len);
                 default:
                     logw("Unknown msg_type: %d", msg_type);
                     return (0);
             }
         } else if (chan == SensorChannel) {
-            switch ((HU_SENSOR_CHANNEL_MESSAGE)msg_type) {
-                case HU_SENSOR_CHANNEL_MESSAGE::SensorStartRequest:
+            switch ((SENSOR_CHANNEL_MESSAGE)msg_type) {
+                case SENSOR_CHANNEL_MESSAGE::SensorStartRequest:
                     return handle_SensorStartRequest(chan, buf, len);
                 default:
                     logw("Unknown msg_type: %d", msg_type);
                     return (0);
             }
         } else if (chan == TouchChannel) {
-            switch ((HU_INPUT_CHANNEL_MESSAGE)msg_type) {
-                case HU_INPUT_CHANNEL_MESSAGE::BindingRequest:
+            switch ((INPUT_CHANNEL_MESSAGE)msg_type) {
+                case INPUT_CHANNEL_MESSAGE::BindingRequest:
                     return handle_BindingRequest(chan, buf, len);
                 default:
                     logw("Unknown msg_type: %d", msg_type);
                     return (0);
             }
         } else if (chan == BluetoothChannel) {
-            switch ((HU_BLUETOOTH_CHANNEL_MESSAGE)msg_type) {
-                case HU_BLUETOOTH_CHANNEL_MESSAGE::BluetoothPairingRequest:
+            switch ((BLUETOOTH_CHANNEL_MESSAGE)msg_type) {
+                case BLUETOOTH_CHANNEL_MESSAGE::BluetoothPairingRequest:
                     return handle_BluetoothPairingRequest(chan, buf, len);
-                case HU_BLUETOOTH_CHANNEL_MESSAGE::BluetoothAuthData:
+                case BLUETOOTH_CHANNEL_MESSAGE::BluetoothAuthData:
                     return handle_BluetoothAuthData(chan, buf, len);
                 default:
                     logw("BLUETOOTH CHANNEL MESSAGE = chan %d - msg_type: %d", chan, msg_type);
                     return (0);
             }
         } else if (chan == PhoneStatusChannel) {
-            switch ((HU_PHONE_STATUS_CHANNEL_MESSAGE)msg_type) {
-                case HU_PHONE_STATUS_CHANNEL_MESSAGE::PhoneStatus:
+            switch ((PHONE_STATUS_CHANNEL_MESSAGE)msg_type) {
+                case PHONE_STATUS_CHANNEL_MESSAGE::PhoneStatus:
                     return handle_PhoneStatus(chan, buf, len);
                 default:
                     logw("Unknown msg_type: %d", msg_type);
                     return (0);
             }
         } else if (chan == NotificationChannel) {
-            switch ((HU_GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE)msg_type) {
-                case HU_GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE::StartGenericNotifications:
+            switch ((GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE)msg_type) {
+                case GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE::StartGenericNotifications:
                     return handle_StartGenericNotifications(chan, buf, len);
-                case HU_GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE::StopGenericNotifications:
+                case GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE::StopGenericNotifications:
                     return handle_StopGenericNotifications(chan, buf, len);
-                case HU_GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE::GenericNotificationResponse:
+                case GENERIC_NOTIFICATIONS_CHANNEL_MESSAGE::GenericNotificationResponse:
                     return handle_GenericNotificationResponse(chan, buf, len);
                 default:
                     logw("Unknown msg_type: %d", msg_type);
                     return (0);
             }
         } else if (chan == MediaAudioChannel || chan == Audio1Channel || chan == Audio2Channel || chan == VideoChannel || chan == MicrophoneChannel) {
-            switch ((HU_MEDIA_CHANNEL_MESSAGE)msg_type) {
-                case HU_MEDIA_CHANNEL_MESSAGE::MediaSetupRequest:
+            switch ((MEDIA_CHANNEL_MESSAGE)msg_type) {
+                case MEDIA_CHANNEL_MESSAGE::MediaSetupRequest:
                     return handle_MediaSetupRequest(chan, buf, len);
-                case HU_MEDIA_CHANNEL_MESSAGE::MediaStartRequest:
+                case MEDIA_CHANNEL_MESSAGE::MediaStartRequest:
                     return handle_MediaStartRequest(chan, buf, len);
-                case HU_MEDIA_CHANNEL_MESSAGE::MediaStopRequest:
+                case MEDIA_CHANNEL_MESSAGE::MediaStopRequest:
                     return handle_MediaStopRequest(chan, buf, len);
-                case HU_MEDIA_CHANNEL_MESSAGE::MediaAck:
+                case MEDIA_CHANNEL_MESSAGE::MediaAck:
                     return handle_MediaAck(chan, buf, len);
-                case HU_MEDIA_CHANNEL_MESSAGE::MicRequest:
+                case MEDIA_CHANNEL_MESSAGE::MicRequest:
                     return handle_MicRequest(chan, buf, len);
-                case HU_MEDIA_CHANNEL_MESSAGE::VideoFocusRequest:
+                case MEDIA_CHANNEL_MESSAGE::VideoFocusRequest:
                     return handle_VideoFocusRequest(chan, buf, len);
                 default:
                     logw("Unknown msg_type: %d", msg_type);
@@ -1067,11 +1067,11 @@ int HUServer::queueCommand(IHUAnyThreadInterface::HUThreadCommand &&command) {
 int HUServer::shutdown() {
     if (hu_thread.joinable()) {
         int ret = queueCommand([this](IHUConnectionThreadInterface &s) {
-            if (iaap_state == hu_STATE_STARTED) {
+            if (iaap_state == HU_STATE::hu_STATE_STARTED) {
                 logd("Sending ShutdownRequest");
                 HU::ShutdownRequest byebye;
                 byebye.set_reason(HU::ShutdownRequest::REASON_QUIT);
-                s.sendEncodedMessage(0, ControlChannel, HU_PROTOCOL_MESSAGE::ShutdownRequest, byebye);
+                s.sendEncodedMessage(0, ControlChannel, PROTOCOL_MESSAGE::ShutdownRequest, byebye);
                 ms_sleep(500);
             }
             s.stop();
@@ -1092,11 +1092,11 @@ int HUServer::shutdown() {
     command_read_fd = -1;
 
     // Send Byebye
-    iaap_state = hu_STATE_STOPPIN;
+    iaap_state = HU_STATE::hu_STATE_STOPPIN;
     logd("  SET: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
 
     int ret = stopTransport();  // Stop Transport/USBACC/OAP
-    iaap_state = hu_STATE_STOPPED;
+    iaap_state = HU_STATE::hu_STATE_STOPPED;
     logd("  SET: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
 
     return (ret);
@@ -1104,17 +1104,17 @@ int HUServer::shutdown() {
 
 int HUServer::stop() {  // Sends Byebye, then stops Transport/USBACC/OAP
     // assumes HU thread
-    if (iaap_state == hu_STATE_STARTIN) {
+    if (iaap_state == HU_STATE::hu_STATE_STARTIN) {
         // hu_thread not ready yet
         return shutdown();
     }
     // Continue only if started or starting...
-    if (iaap_state != hu_STATE_STARTED)
+    if (iaap_state != HU_STATE::hu_STATE_STARTED)
         return (0);
 
     HU::ShutdownRequest shutdownReq;
     shutdownReq.set_reason(HU::ShutdownRequest::REASON_QUIT);
-    sendEncodedMessage(0, ControlChannel, HU_PROTOCOL_MESSAGE::ShutdownRequest, shutdownReq);
+    sendEncodedMessage(0, ControlChannel, PROTOCOL_MESSAGE::ShutdownRequest, shutdownReq);
 
     hu_thread_quit_flag = true;
     callbacks.DisconnectionOrError();
@@ -1180,7 +1180,7 @@ void HUServer::mainThread() {
         }
     }
     logd("hu_thread_main exit");
-    iaap_state = hu_STATE_STOPPED;
+    iaap_state = HU_STATE::hu_STATE_STOPPED;
 }
 
 static_assert(PIPE_BUF >= sizeof(IHUAnyThreadInterface::HUThreadCommand *), "PIPE_BUF is tool small for a pointer?");
@@ -1189,31 +1189,31 @@ int HUServer::start() {  // Starts Transport/USBACC/OAP, then AA
     // protocol w/ VersReq(1), SSL handshake,
     // Auth Complete
 
-    if (iaap_state == hu_STATE_STARTED || iaap_state == hu_STATE_STARTIN) {
+    if (iaap_state == HU_STATE::hu_STATE_STARTED || iaap_state == HU_STATE::hu_STATE_STARTIN) {
         loge("CHECK: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
         return (0);
     }
 
     pthread_setname_np(pthread_self(), "aa_main_thread");
 
-    iaap_state = hu_STATE_STARTIN;
+    iaap_state = HU_STATE::hu_STATE_STARTIN;
     logd("  SET: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
 
     int ret = startTransport();  // Start Transport/USBACC/OAP
     if (ret) {
-        iaap_state = hu_STATE_STOPPED;
+        iaap_state = HU_STATE::hu_STATE_STOPPED;
         logd("  SET: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
         return (ret);  // Done if error
     }
 
     byte vr_buf[] = {0, 1, 0, 1};  // Version Request
-    ret = sendUnencodedBlob(0, ControlChannel, HU_INIT_MESSAGE::VersionRequest, vr_buf, sizeof(vr_buf), 2000);
+    ret = sendUnencodedBlob(0, ControlChannel, INIT_MESSAGE::VersionRequest, vr_buf, sizeof(vr_buf), 2000);
     if (ret < 0) {
         loge("Version request send ret: %d", ret);
         return (-1);
     }
 
-    while (iaap_state == hu_STATE_STARTIN) {
+    while (iaap_state == HU_STATE::hu_STATE_STARTIN) {
         ret = processReceived(2000);
         if (ret < 0) {
             shutdown();
@@ -1241,7 +1241,7 @@ int HUServer::start() {  // Starts Transport/USBACC/OAP, then AA
 int HUServer::processReceived(int tmo) {  //
     // Terminate unless started or starting (we need to process when
     // starting)
-    if (iaap_state != hu_STATE_STARTED && iaap_state != hu_STATE_STARTIN) {
+    if (iaap_state != HU_STATE::hu_STATE_STARTED && iaap_state != HU_STATE::hu_STATE_STARTIN) {
         loge("CHECK: iaap_state: %d (%s)", iaap_state, state_get(iaap_state));
         return (-1);
     }
@@ -1387,7 +1387,7 @@ int HUServer::processReceived(int tmo) {  //
 
         ret = processMessage((ServiceChannels)chan, msg_type, &(*temp_assembly_buffer)[2],
                              buf_len - 2);                // Decrypt & Process 1 received encrypted message
-        if (ret < 0 && iaap_state != hu_STATE_STOPPED) {  // If error...
+        if (ret < 0 && iaap_state != HU_STATE::hu_STATE_STOPPED) {  // If error...
             loge("Error iaap_msg_process() ret: %d  ", ret);
             return (ret);
         }

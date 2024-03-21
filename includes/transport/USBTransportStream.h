@@ -25,7 +25,7 @@ public:
 private:
     libusb_context* m_usbContext = NULL;
     libusb_device_handle* m_usbDeviceHandle = NULL;
-    enum HU_STATE m_state = hu_STATE_INITIAL;
+    enum HU_STATE m_state = HU_STATE::hu_STATE_INITIAL;
 
     int iusb_ep_in = -1;
     int iusb_ep_out = -1;

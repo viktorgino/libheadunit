@@ -17,7 +17,7 @@
 using namespace AndroidAuto;
 
 TCPTransportStream::~TCPTransportStream() {
-    if (itcp_state != hu_STATE_STOPPED) {
+    if (itcp_state != HU_STATE::hu_STATE_STOPPED) {
         Stop();
     }
 }
@@ -181,10 +181,10 @@ int TCPTransportStream::itcp_init() {
 }
 
 int TCPTransportStream::Stop() {
-    itcp_state = hu_STATE_STOPPIN;
+    itcp_state = HU_STATE::hu_STATE_STOPPIN;
     logd("  SET: itcp_state: %d (%s)", itcp_state, state_get(itcp_state));
     int ret = itcp_deinit();
-    itcp_state = hu_STATE_STOPPED;
+    itcp_state = HU_STATE::hu_STATE_STOPPED;
     logd("  SET: itcp_state: %d (%s)", itcp_state, state_get(itcp_state));
     return (ret);
 }
@@ -192,25 +192,25 @@ int TCPTransportStream::Stop() {
 int TCPTransportStream::Start() {
     int ret = 0;
 
-    if (itcp_state == hu_STATE_STARTED) {
+    if (itcp_state == HU_STATE::hu_STATE_STARTED) {
         logd("CHECK: itcp_state: %d (%s)", itcp_state, state_get(itcp_state));
         return (0);
     }
 
-    itcp_state = hu_STATE_STARTIN;
+    itcp_state = HU_STATE::hu_STATE_STARTIN;
     logd("  SET: itcp_state: %d (%s)", itcp_state, state_get(itcp_state));
 
     ret = itcp_init();
     if (ret < 0) {
         loge("Error itcp_init");
         itcp_deinit();
-        itcp_state = hu_STATE_STOPPED;
+        itcp_state = HU_STATE::hu_STATE_STOPPED;
         logd("  SET: itcp_state: %d (%s)", itcp_state, state_get(itcp_state));
         return (-1);
     }
     logd("OK itcp_init");
 
-    itcp_state = hu_STATE_STARTED;
+    itcp_state = HU_STATE::hu_STATE_STARTED;
     logd("  SET: itcp_state: %d (%s)", itcp_state, state_get(itcp_state));
     return (0);
 }
