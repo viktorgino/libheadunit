@@ -1,5 +1,5 @@
 #define LOGTAG "hu_tcp"
-#include "hu_tcp.h"
+#include "TCPTransportStream.h"
 
 #include "hu_uti.h"  // Utilities
 
@@ -16,18 +16,18 @@
 
 using namespace AndroidAuto;
 
-HUTransportStreamTCP::~HUTransportStreamTCP() {
+TCPTransportStream::~TCPTransportStream() {
     if (itcp_state != hu_STATE_STOPPED) {
         Stop();
     }
 }
 
-HUTransportStreamTCP::HUTransportStreamTCP(std::map<std::string, std::string> _settings) : HUTransportStream(_settings) {
+TCPTransportStream::TCPTransportStream(std::map<std::string, std::string> _settings) : AbstractTransportStream(_settings) {
     settings = _settings;
     wifi_direct = 1;
 }
 
-int HUTransportStreamTCP::Write(const byte *buf, int len, int tmo) {
+int TCPTransportStream::Write(const byte *buf, int len, int tmo) {
     // milli-second timeout
     if (readfd < 0)
         return (-1);
@@ -53,7 +53,7 @@ int HUTransportStreamTCP::Write(const byte *buf, int len, int tmo) {
     return (ret);
 }
 
-int HUTransportStreamTCP::itcp_deinit() {  // !!!! Need to better reset and wait
+int TCPTransportStream::itcp_deinit() {  // !!!! Need to better reset and wait
                                            // a while to kill transfers in
                                            // progress and auto-restart properly
 
@@ -75,7 +75,7 @@ int HUTransportStreamTCP::itcp_deinit() {  // !!!! Need to better reset and wait
 #define CS_SOCK_TYPE SOCK_STREAM
 #define RES_DATA_MAX 65536
 
-int HUTransportStreamTCP::itcp_accept() {
+int TCPTransportStream::itcp_accept() {
     if (tcp_so_fd < 0)
         return (-1);
 
@@ -121,7 +121,7 @@ int HUTransportStreamTCP::itcp_accept() {
     return (tcp_so_fd);
 }
 
-int HUTransportStreamTCP::itcp_init() {
+int TCPTransportStream::itcp_init() {
     int net_port = 5000;
 
     int cmd_len = 0, ctr = 0;
@@ -180,7 +180,7 @@ int HUTransportStreamTCP::itcp_init() {
     return (0);
 }
 
-int HUTransportStreamTCP::Stop() {
+int TCPTransportStream::Stop() {
     itcp_state = hu_STATE_STOPPIN;
     logd("  SET: itcp_state: %d (%s)", itcp_state, state_get(itcp_state));
     int ret = itcp_deinit();
@@ -189,7 +189,7 @@ int HUTransportStreamTCP::Stop() {
     return (ret);
 }
 
-int HUTransportStreamTCP::Start() {
+int TCPTransportStream::Start() {
     int ret = 0;
 
     if (itcp_state == hu_STATE_STARTED) {

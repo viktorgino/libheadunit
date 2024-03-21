@@ -10,8 +10,10 @@
 
 #include "AndroidAuto.h"
 #include "hu_ssl.h"
-#include "hu_tcp.h"
-#include "hu_usb.h"
+
+#include "transport/USBTransportStream.h"
+#include "transport/TCPTransportStream.h"
+
 #include "hu_uti.h"
 
 using namespace AndroidAuto;
@@ -53,11 +55,11 @@ int HUServer::startTransport() {
     if (settings["transport_type"] == "network") {
         conf["network_address"] = settings["network_address"];
         logd("AA over Wifi");
-        transport = std::unique_ptr<HUTransportStream>(new HUTransportStreamTCP(conf));
+        transport = std::unique_ptr<AbstractTransportStream>(new TCPTransportStream(conf));
         iaap_tra_recv_tmo = 1000;
         iaap_tra_send_tmo = 2000;
     } else if (settings["transport_type"] == "usb") {
-        transport = std::unique_ptr<HUTransportStream>(new HUTransportStreamUSB(conf));
+        transport = std::unique_ptr<AbstractTransportStream>(new USBTransportStream(conf));
         logd("AA over USB");
         iaap_tra_recv_tmo = 0;  // 100;
         iaap_tra_send_tmo = 2500;

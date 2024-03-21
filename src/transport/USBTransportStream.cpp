@@ -1,12 +1,11 @@
 #define LOGTAG "hu_usb"
-#include "hu_usb.h"
+#include "USBTransportStream.h"
 
 #include <libusb.h>
 
 #include <algorithm>
 #include <vector>
 
-#include "hu_uti.h"  // Utilities
 
 using namespace AndroidAuto;
 
@@ -57,7 +56,7 @@ struct usbvpid {
     uint16_t product;
 };
 
-int HUTransportStreamUSB::Write(const byte* buf, int len, int tmo) {
+int USBTransportStream::Write(const byte* buf, int len, int tmo) {
     byte* copy_buf = (byte*)malloc(len);
     memcpy(copy_buf, buf, len);
 
@@ -99,7 +98,7 @@ static int iusb_control_transfer(libusb_device_handle* usb_hndl, uint8_t req_typ
 }
 
 // based on http://source.android.com/devices/accessories/aoa.html
-libusb_device_handle* HUTransportStreamUSB::find_oap_device() {
+libusb_device_handle* USBTransportStream::find_oap_device() {
     libusb_device_handle* handle = libusb_open_device_with_vid_pid(m_usbContext, VEN_ID_GOOGLE, DEV_ID_OAP);
     if (!handle) {
         // try with ADB
@@ -108,16 +107,16 @@ libusb_device_handle* HUTransportStreamUSB::find_oap_device() {
     return handle;
 }
 
-HUTransportStreamUSB::HUTransportStreamUSB(std::map<std::string, std::string> _settings) : HUTransportStream(_settings) {
+USBTransportStream::USBTransportStream(std::map<std::string, std::string> _settings) : AbstractTransportStream(_settings) {
 }
 
-HUTransportStreamUSB::~HUTransportStreamUSB() {
+USBTransportStream::~USBTransportStream() {
     if (m_state != hu_STATE_STOPPED) {
         Stop();
     }
 }
 
-int HUTransportStreamUSB::Stop() {
+int USBTransportStream::Stop() {
     m_state = hu_STATE_STOPPIN;
     logd("  SET: iusb_state: %d (%s)", m_state, state_get(m_state));
 
@@ -173,7 +172,7 @@ int HUTransportStreamUSB::Stop() {
     return 0;
 }
 
-void HUTransportStreamUSB::usb_recv_thread_main() {
+void USBTransportStream::usb_recv_thread_main() {
     pthread_setname_np(pthread_self(), "usb_recv_thread_main");
 
     timeval zero_tv;
@@ -201,7 +200,7 @@ void HUTransportStreamUSB::usb_recv_thread_main() {
     }
 }
 
-void HUTransportStreamUSB::libusb_callback(libusb_transfer* transfer) {
+void USBTransportStream::libusb_callback(libusb_transfer* transfer) {
     logd("libusb_callback %d %d %d", transfer->status, LIBUSB_TRANSFER_COMPLETED, LIBUSB_TRANSFER_OVERFLOW);
     libusb_transfer_status recv_last_status = transfer->status;
     if (recv_last_status == LIBUSB_TRANSFER_COMPLETED || recv_last_status == LIBUSB_TRANSFER_OVERFLOW) {
@@ -241,11 +240,11 @@ void HUTransportStreamUSB::libusb_callback(libusb_transfer* transfer) {
     libusb_free_transfer(transfer);
 }
 
-void HUTransportStreamUSB::libusb_callback_tramp(libusb_transfer* transfer) {
-    reinterpret_cast<HUTransportStreamUSB*>(transfer->user_data)->libusb_callback(transfer);
+void USBTransportStream::libusb_callback_tramp(libusb_transfer* transfer) {
+    reinterpret_cast<USBTransportStream*>(transfer->user_data)->libusb_callback(transfer);
 }
 
-void HUTransportStreamUSB::libusb_callback_send(libusb_transfer* transfer) {
+void USBTransportStream::libusb_callback_send(libusb_transfer* transfer) {
     logd("libusb_callback_send %d %d %d", transfer->status, LIBUSB_TRANSFER_COMPLETED, LIBUSB_TRANSFER_OVERFLOW);
     libusb_transfer_status recv_last_status = transfer->status;
     if (recv_last_status != LIBUSB_TRANSFER_COMPLETED) {
@@ -258,11 +257,11 @@ void HUTransportStreamUSB::libusb_callback_send(libusb_transfer* transfer) {
     libusb_free_transfer(transfer);
 }
 
-void HUTransportStreamUSB::libusb_callback_send_tramp(libusb_transfer* transfer) {
-    reinterpret_cast<HUTransportStreamUSB*>(transfer->user_data)->libusb_callback_send(transfer);
+void USBTransportStream::libusb_callback_send_tramp(libusb_transfer* transfer) {
+    reinterpret_cast<USBTransportStream*>(transfer->user_data)->libusb_callback_send(transfer);
 }
 
-int HUTransportStreamUSB::start_usb_recv() {
+int USBTransportStream::start_usb_recv() {
     libusb_transfer* transfer = libusb_alloc_transfer(0);
     libusb_fill_bulk_transfer(transfer, m_usbDeviceHandle, iusb_ep_in, m_tempReceiveBuffer.data(), m_tempReceiveBuffer.size(), &libusb_callback_tramp,
                               this, 0);
@@ -277,7 +276,7 @@ int HUTransportStreamUSB::start_usb_recv() {
     return iusb_state;
 }
 
-int HUTransportStreamUSB::Start() {
+int USBTransportStream::Start() {
     if (m_state == hu_STATE_STARTED) {
         logd("CHECK: iusb_state: %d (%s)", m_state, state_get(m_state));
         return (0);
@@ -509,7 +508,7 @@ int HUTransportStreamUSB::Start() {
     return (0);
 }
 
-void HUTransportStreamUSB::libusb_callback_pollfd_added(int fd, short events) {
+void USBTransportStream::libusb_callback_pollfd_added(int fd, short events) {
     pollfd new_poll;
     new_poll.fd = fd;
     new_poll.events = events;
@@ -518,15 +517,15 @@ void HUTransportStreamUSB::libusb_callback_pollfd_added(int fd, short events) {
     usb_thread_event_fds.push_back(new_poll);
 }
 
-void HUTransportStreamUSB::libusb_callback_pollfd_added_tramp(int fd, short events, void* user_data) {
-    reinterpret_cast<HUTransportStreamUSB*>(user_data)->libusb_callback_pollfd_added(fd, events);
+void USBTransportStream::libusb_callback_pollfd_added_tramp(int fd, short events, void* user_data) {
+    reinterpret_cast<USBTransportStream*>(user_data)->libusb_callback_pollfd_added(fd, events);
 }
 
-void HUTransportStreamUSB::libusb_callback_pollfd_removed(int fd) {
+void USBTransportStream::libusb_callback_pollfd_removed(int fd) {
     usb_thread_event_fds.erase(std::remove_if(usb_thread_event_fds.begin(), usb_thread_event_fds.end(), [fd](pollfd& p) { return p.fd == fd; }),
                                usb_thread_event_fds.end());
 }
 
-void HUTransportStreamUSB::libusb_callback_pollfd_removed_tramp(int fd, void* user_data) {
-    reinterpret_cast<HUTransportStreamUSB*>(user_data)->libusb_callback_pollfd_removed(fd);
+void USBTransportStream::libusb_callback_pollfd_removed_tramp(int fd, void* user_data) {
+    reinterpret_cast<USBTransportStream*>(user_data)->libusb_callback_pollfd_removed(fd);
 }

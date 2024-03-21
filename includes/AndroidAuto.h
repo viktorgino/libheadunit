@@ -7,37 +7,16 @@
 
 #include "hu_ssl.h"
 #include "hu_uti.h"
-#include "protocol/AndroidAuto.pb.h"
 #include "defs.h"
 #include "HeadunitEventCallbacks.h"
+#include "protocol/AndroidAuto.pb.h"
+#include "transport/AbstractTransportStream.h"
 
 namespace AndroidAuto {
 #define MAX_FRAME_PAYLOAD_SIZE 0x4000
 // At 16 bytes for header
 #define MAX_FRAME_SIZE 0x4100
 
-class HUTransportStream {
-protected:
-    int readfd = -1;
-    // optional if required for pipe, etc
-    int errorfd = -1;
-
-public:
-    virtual ~HUTransportStream() {
-    }
-    inline HUTransportStream(std::map<std::string, std::string>) {
-    }
-    virtual int Start() = 0;
-    virtual int Stop() = 0;
-    virtual int Write(const byte *buf, int len, int tmo) = 0;
-
-    inline int GetReadFD() {
-        return readfd;
-    }
-    inline int GetErrorFD() {
-        return errorfd;
-    }
-};
 
 class IHUConnectionThreadInterface;
 
@@ -119,7 +98,7 @@ public:
 
 protected:
     HeadunitEventCallbacks &callbacks;
-    std::unique_ptr<HUTransportStream> transport;
+    std::unique_ptr<AbstractTransportStream> transport;
     HU_STATE iaap_state = hu_STATE_INITIAL;
     int iaap_tra_recv_tmo = 150;  // 100;//1;//10;//100;//250;//100;//250;//100;//25;
     // // 10 doesn't work ? 100 does

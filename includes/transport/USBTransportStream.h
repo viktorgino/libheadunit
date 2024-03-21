@@ -1,3 +1,5 @@
+#pragma once
+
 #include <libusb.h>
 #include <poll.h>
 
@@ -6,14 +8,16 @@
 #include <thread>
 #include <vector>
 
-#include "AndroidAuto.h"
+#include "defs.h"
+#include "AbstractTransportStream.h"
+#include "hu_uti.h"  // Utilities
 
 namespace AndroidAuto {
 
-class HUTransportStreamUSB : public HUTransportStream {
+class USBTransportStream : public AbstractTransportStream {
 public:
-    ~HUTransportStreamUSB();
-    HUTransportStreamUSB(std::map<std::string, std::string> _settings);
+    ~USBTransportStream();
+    USBTransportStream(std::map<std::string, std::string> _settings);
     virtual int Start() override;
     virtual int Stop() override;
     virtual int Write(const byte* buf, int len, int tmo) override;
