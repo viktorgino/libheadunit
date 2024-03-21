@@ -1,4 +1,4 @@
-#include "BluetoothServer.h"
+#include "bluetooth/BluetoothServer.h"
 #include <QDataStream>
 #include <QLoggingCategory>
 

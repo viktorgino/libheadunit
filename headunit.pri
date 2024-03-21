@@ -5,8 +5,8 @@ PKGCONFIG += libssl libcrypto libusb-1.0 glib-2.0 gobject-2.0
 PKGCONFIG += protobuf
 
 SOURCES += \
-    $$PWD/src/BluetoothServer.cpp \
-    $$PWD/src/BluetoothService.cpp \
+    $$PWD/src/bluetooth/BluetoothServer.cpp \
+    $$PWD/src/bluetooth/BluetoothService.cpp \
     $$PWD/src/hu_aap.cpp \
     $$PWD/src/hu_ssl.cpp \
     $$PWD/src/hu_uti.cpp \
@@ -17,12 +17,11 @@ SOURCES += \
 
 INCLUDEPATH += $${PWD}/includes
 INCLUDEPATH += $${PWD}/includes/protocol
-INCLUDEPATH += $${PWD}/includes/transport
 
 HEADERS += \
     $$PWD/includes/AndroidAuto.h \
-    $$PWD/includes/BluetoothServer.h \
-    $$PWD/includes/BluetoothService.h \
+    $$PWD/includes/bluetooth/BluetoothServer.h \
+    $$PWD/includes/bluetooth/BluetoothService.h \
     $$PWD/includes/HeadunitEventCallbacks.h \
     $$PWD/includes/defs.h \
     $$PWD/includes/hu_ssl.h \

@@ -1,5 +1,5 @@
 #define LOGTAG "hu_usb"
-#include "USBTransportStream.h"
+#include "transport/USBTransportStream.h"
 
 #include <libusb.h>
 

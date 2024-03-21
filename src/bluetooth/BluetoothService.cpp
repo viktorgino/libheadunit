@@ -1,4 +1,4 @@
-#include "BluetoothService.h"
+#include "bluetooth/BluetoothService.h"
 
 BluetoothService::BluetoothService(QObject *parent)
     : QObject{parent}

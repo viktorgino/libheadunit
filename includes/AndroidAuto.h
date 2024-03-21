@@ -99,7 +99,7 @@ public:
 protected:
     HeadunitEventCallbacks &callbacks;
     std::unique_ptr<AbstractTransportStream> transport;
-    HU_STATE iaap_state = hu_STATE_INITIAL;
+    HU_STATE iaap_state = HU_STATE::hu_STATE_INITIAL;
     int iaap_tra_recv_tmo = 150;  // 100;//1;//10;//100;//250;//100;//250;//100;//25;
     // // 10 doesn't work ? 100 does
     int iaap_tra_send_tmo = 500;  // 2;//25;//250;//500;//100;//500;//250;

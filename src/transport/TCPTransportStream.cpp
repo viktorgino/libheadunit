@@ -1,5 +1,5 @@
 #define LOGTAG "hu_tcp"
-#include "TCPTransportStream.h"
+#include "transport/TCPTransportStream.h"
 
 #include "hu_uti.h"  // Utilities
 
